@@ -26,7 +26,11 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+
 import rospy
+
+import baxter_interface
+from baxter_interface import CHECK_VERSION
 
 
 class Demonstrator(object):
@@ -35,18 +39,32 @@ class Demonstrator(object):
         """
         Picks up objects pointed out and places them in a pre-defined location.
         """
-        pass
+        print("Getting robot state ... ")
+        self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
+        self._init_state = self._rs.state().enabled
+        print("Enabling robot... ")
+        self._rs.enable()
 
     def clean_shutdown(self):
-        pass
+        print("\nExiting demonstrator ...")
+        if not self._init_state:
+            print("Disabling robot...")
+            self._rs.disable()
+        return True
 
     def demonstrate(self, n_objects_to_pick):
-        """
+        """ Pick up a given number of objects and place them in a pre-defined
+        location.
 
-        :param n_objects_to_pick:
-        :return:
+        :param n_objects_to_pick: The number of objects to pick up.
+        :return: True on completion.
         """
-        pass
+        n = 0
+        print 'We are supposed to pick up %i objects ...' % n_objects_to_pick
+        while not rospy.is_shutdown() and n < n_objects_to_pick:
+            print "Picking up object", n
+            n += 1
+        return True
 
 
 def main():
@@ -57,7 +75,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description='Pick and place demonstration with the baxter research robot.')
     parser.add_argument('-n', '--number', dest='number',
-                        required=False, default=None,
+                        required=False, type=int, default=0,
                         help='The number of objects to pick up.')
     args = parser.parse_args(rospy.myargv()[1:])
 
