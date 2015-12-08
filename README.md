@@ -17,20 +17,26 @@ The baxter pick and place demonstration is implemented as a ROS package.
 
 ### Install the package
 The following steps are required to install the package:
+
 1. If not already done, set up your baxter workstation as explained in the 
 [baxter SDK wiki](http://sdk.rethinkrobotics.com/wiki/Workstation_Setup).
-1. `$ cd ~/ros_ws`
-1. `$ . baxter.sh`
-1. `$ cd ~/ros_ws/src`
-1. `$ git clone https://github.com/BRML/baxter-pick-and-place ./baxter_pick_and_place`
-1. `$ cd ~\ros_ws`
-1. `$ catkin_make`
-1. `$ catkin_make install`
+1. Clone, build and install the ROS package:
+```bash
+$ cd ~/ros_ws
+$ . baxter.sh
+$ cd ~/ros_ws/src
+$ git clone https://github.com/BRML/baxter-pick-and-place ./baxter_pick_and_place
+$ cd ~\ros_ws
+$ catkin_make
+$ catkin_make install
+```
 
 ### Run the demonstration
 To run the demonstration go to
-`$ cd ~/ros_ws`
-`$ . baxter.sh`
-`$ rosrun baxter_pick_and_place demonstration.py -n N`, where `N` is the 
-number of objects the robot is supposed to pick up and place in a pre-defined 
-location.
+```bash
+$ cd ~/ros_ws
+$ . baxter.sh
+$ rosrun baxter_pick_and_place demonstration.py -n N
+```
+`N` is the number of objects the robot is supposed to pick up and place in a 
+pre-defined location.
