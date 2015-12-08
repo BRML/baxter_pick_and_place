@@ -29,8 +29,7 @@ import argparse
 
 import rospy
 
-import baxter_interface
-from baxter_interface import CHECK_VERSION
+from baxter_pick_and_place.robot import Robot
 
 
 class Demonstrator(object):
@@ -39,18 +38,7 @@ class Demonstrator(object):
         """
         Picks up objects pointed out and places them in a pre-defined location.
         """
-        print("Getting robot state ... ")
-        self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
-        self._init_state = self._rs.state().enabled
-        print("Enabling robot... ")
-        self._rs.enable()
-
-    def clean_shutdown(self):
-        print("\nExiting demonstrator ...")
-        if not self._init_state:
-            print("Disabling robot...")
-            self._rs.disable()
-        return True
+        self.robot = Robot()
 
     def demonstrate(self, n_objects_to_pick):
         """ Pick up a given number of objects and place them in a pre-defined
@@ -60,10 +48,11 @@ class Demonstrator(object):
         :return: True on completion.
         """
         n = 0
-        print 'We are supposed to pick up %i objects ...' % n_objects_to_pick
+        print '\nWe are supposed to pick up %i objects ...' % n_objects_to_pick
         while not rospy.is_shutdown() and n < n_objects_to_pick:
             print "Picking up object", n
-            n += 1
+            if self.robot.pick_and_place_object():
+                n += 1
         return True
 
 
@@ -83,7 +72,7 @@ def main():
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
     demonstrator = Demonstrator()
-    rospy.on_shutdown(demonstrator.clean_shutdown)
+    rospy.on_shutdown(demonstrator.robot.clean_shutdown)
     demonstrator.demonstrate(args.number)
 
     print 'Done.'
