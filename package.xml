@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>baxter_pick-and-place</name>
+  <name>baxter_pick_and_place</name>
   <version>0.0.0</version>
   <description>
     Pick and place demonstration with the baxter research robot in
