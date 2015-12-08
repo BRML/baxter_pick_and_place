@@ -32,7 +32,7 @@ $ catkin_make install
 ```
 
 ### Run the demonstration
-To run the demonstration go to
+To run the demonstration, do
 ```bash
 $ cd ~/ros_ws
 $ . baxter.sh
