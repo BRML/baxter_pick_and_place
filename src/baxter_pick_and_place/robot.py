@@ -45,6 +45,22 @@ class Robot(object):
 
     def pick_and_place_object(self):
         print ' rabbiting away ...'
+        # Wait for object to be triggered
+        # move limb to top-down-view pose
+        # record top-down-view image
+        # detect object candidates
+        # for candidate in candidates:
+        #   move limb to candidate + offset
+        #   record candidate image
+        #   select 200x200 patch
+        #   call service
+        # make decision
+        # compute object pose (if not already done)
+        # move limb to object pose
+        # grasp object
+        # move limb to target location
+        # release object
+        # move limb to neutral configuration
         return True
 
     def _move_to_pose(self, pose):
