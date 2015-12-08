@@ -23,6 +23,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
+import time
+
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 
@@ -45,7 +48,14 @@ class Robot(object):
 
     def pick_and_place_object(self):
         print ' rabbiting away ...'
-        # Wait for object to be triggered
+        # Wait for object to be triggered---dummy
+
+        def _trigger_dummy(max_time):
+            t = np.random.uniform(0.0, max_time)
+            time.sleep(t)
+            print '  an object was triggered after %.2fs' % t
+
+        _trigger_dummy(10.0)
         # move limb to top-down-view pose
         # record top-down-view image
         # detect object candidates
@@ -61,7 +71,11 @@ class Robot(object):
         # move limb to target location
         # release object
         # move limb to neutral configuration
-        return True
+        if np.random.random() > 0.5:
+            print '  object placed successfully'
+            return True
+        print '  something went wrong'
+        return False
 
     def _move_to_pose(self, pose):
         return True
