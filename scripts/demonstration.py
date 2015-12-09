@@ -39,6 +39,7 @@ class Demonstrator(object):
         Picks up objects pointed out and places them in a pre-defined location.
         """
         self.robot = Robot()
+        self._N_TRIES = 2
 
     def demonstrate(self, n_objects_to_pick):
         """ Pick up a given number of objects and place them in a pre-defined
@@ -53,6 +54,16 @@ class Demonstrator(object):
             print "Picking up object", n
             if self.robot.pick_and_place_object():
                 n += 1
+            else:
+                n_tries = self._N_TRIES
+                while n_tries > 0:
+                    print ' trying', n_tries, 'more time(s)'
+                    n_tries -= 1
+                    if self.robot.pick_and_place_object():
+                        n_tries = -1
+                if not n_tries == -1:
+                    print 'Failed to pick up object', n
+                    return False
         return True
 
 
