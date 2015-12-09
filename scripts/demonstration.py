@@ -48,7 +48,7 @@ class Demonstrator(object):
         :return: True on completion.
         """
         n = 0
-        print '\nWe are supposed to pick up %i objects ...' % n_objects_to_pick
+        print '\nWe are supposed to pick up %i object(s) ...' % n_objects_to_pick
         while not rospy.is_shutdown() and n < n_objects_to_pick:
             print "Picking up object", n
             if self.robot.pick_and_place_object():
