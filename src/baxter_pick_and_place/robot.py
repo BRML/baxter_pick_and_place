@@ -71,7 +71,7 @@ class Robot(object):
         # move limb to target location
         # release object
         # move limb to neutral configuration
-        if np.random.random() > 0.5:
+        if np.random.random() > 0.2:
             print '  object placed successfully'
             return True
         print '  something went wrong'
