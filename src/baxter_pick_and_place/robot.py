@@ -41,6 +41,11 @@ from baxter_core_msgs.srv import (
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 
+from baxter_pick_and_place.image import (
+    detect_object_candidates,
+    select_image_patch
+)
+
 
 class Robot(object):
 
@@ -120,15 +125,18 @@ class Robot(object):
         :return: boolean flag on completion
         """
         # record top-down-view image
-        # detect object candidates
-        # for candidate in candidates:
-        #   move limb to candidate + offset
-        #   record candidate image
-        #   select 200x200 patch
-        #   call service
-        # make decision
-        # compute object pose (if not already done)
-        # move limb to object pose
+        img = self._record_image(camera=limb)
+        candidates = detect_object_candidates(img)
+        probabilities = list()
+        for candidate in candidates:
+            # TODO: add offset to candidate pose
+            self._move_to_pose(limb, candidate)
+            img = self._record_image(camera=limb)
+            img = select_image_patch(img, (200, 200))
+            # probabilities.append(call_service(img))
+        # idx = make_decision(probabilities)
+        idx = 0
+        self._move_to_pose(limb, candidates[idx])
         if self._grasp_object(limb):
             print '   grasped object'
             # move limb to target location
@@ -145,7 +153,7 @@ class Robot(object):
         """ Move robot limb to Cartesian pose.
         :type limb: str
         :param limb: the limb of the robot, <'left', 'right'>
-        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
+        :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
@@ -162,7 +170,7 @@ class Robot(object):
         """ Add a small perturbation to the Cartesian pose of the robot.
         :type limb: str
         :param limb: the limb of the robot, <'left', 'right'>
-        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
+        :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
@@ -180,13 +188,13 @@ class Robot(object):
         print p
         return self._move_to_pose(limb, p)
 
-    def _endpoint_pose(self, limb):
-        qp = self._limbs[limb].endpoint_pose()
-        r = transformations.euler_from_quaternion(qp['orientation'])
-        return [qp['position'][0], qp['position'][1], qp['position'][2],
-                r[0], r[1], r[2]]
+    # def _endpoint_pose(self, limb):
+    #     qp = self._limbs[limb].endpoint_pose()
+    #     r = transformations.euler_from_quaternion(qp['orientation'])
+    #     return [qp['position'][0], qp['position'][1], qp['position'][2],
+    #             r[0], r[1], r[2]]
 
-    def _record_image(self):
+    def _record_image(self, camera):
         img = None
         return img
 
