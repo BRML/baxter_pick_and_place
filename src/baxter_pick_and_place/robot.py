@@ -52,6 +52,10 @@ class Robot(object):
             'left': baxter_interface.Limb('left'),
             'right': baxter_interface.Limb('right')
         }
+        self._grippers = {
+            'left': baxter_interface.Gripper('left'),
+            'right': baxter_interface.Gripper('right')
+        }
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -68,6 +72,11 @@ class Robot(object):
         print("Enabling robot... ")
         self._rs.enable()
 
+        for limb in self._limbs:
+            self._limbs[limb].set_joint_position_speed(0.5)
+            self._limbs[limb].move_to_neutral()
+            self._grippers[limb].calibrate()
+
     def clean_shutdown(self):
         print("\nExiting demonstrator ...")
         if not self._init_state:
@@ -78,7 +87,6 @@ class Robot(object):
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
         command.
-
         :return: boolean flag on completion
         """
         print ' rabbiting away ...'
@@ -97,7 +105,7 @@ class Robot(object):
         if not self._move_to_pose(limb, self._top_pose):
             n_tries = self._N_TRIES
             while n_tries > 0:
-                print '  ', n_tries, 'more tries'
+                print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
                 if self._perturbe_pose(limb, self._top_pose):
                     print 'perturbation worked'
@@ -107,6 +115,10 @@ class Robot(object):
         return self._try_object(limb)
 
     def _try_object(self, limb):
+        """ Try to select, pick up and place the target object.
+        :param limb: the limb of the robot, <'left', 'right'>
+        :return: boolean flag on completion
+        """
         # record top-down-view image
         # detect object candidates
         # for candidate in candidates:
@@ -117,14 +129,16 @@ class Robot(object):
         # make decision
         # compute object pose (if not already done)
         # move limb to object pose
-        # grasp object
-        # move limb to target location
-        # release object
-        # move limb to neutral configuration
-        if np.random.random() > 0.2:
+        if self._grasp_object(limb):
+            print '   grasped object'
+            # move limb to target location
+            self._release_object(limb)
+            print '   released object'
+            self._limbs[limb].move_to_neutral()
             print '  object placed successfully'
             return True
-        print '  something went wrong'
+        print '  missed object'
+        self._release_object(limb)
         return False
 
     def _move_to_pose(self, limb, pose):
@@ -176,11 +190,20 @@ class Robot(object):
         img = None
         return img
 
-    def _grasp_object(self):
-        return True
+    def _grasp_object(self, limb):
+        """ Close the gripper and validate that it grasped something.
+        :param limb: the limb of the robot, <'left', 'right'>
+        :return: bool describing if the position move has been preempted by a
+        position command exceeding the moving_force threshold denoting a grasp
+        """
+        self._grippers[limb].close(block=True)
+        return self._grippers[limb].gripping()
 
-    def _release_object(self):
-        return True
+    def _release_object(self, limb):
+        """ Open the gripper.
+        :param limb: the limb of the robot, <'left', 'right'>
+        """
+        self._grippers[limb].open(block=True)
 
     def _inverse_kinematics(self, limb, pose=None):
         """ Inverse kinematics of one Baxter arm.
