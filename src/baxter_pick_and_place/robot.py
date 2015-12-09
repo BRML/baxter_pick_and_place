@@ -52,7 +52,15 @@ class Robot(object):
             'left': baxter_interface.Limb('left'),
             'right': baxter_interface.Limb('right')
         }
-        self._top_pose = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        self._top_pose = [
+            0.50,  # x = front back
+            0.00,  # y = left right
+            0.15,  # z = up down
+            -1.0*np.pi,  # roll = horizontal
+            0.0*np.pi,  # pitch = vertical
+            0.0*np.pi  # yaw = rotation
+        ]
+        self._N_TRIES = 2
 
         print("\nGetting robot state ... ")
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
@@ -82,8 +90,23 @@ class Robot(object):
             print '  an object was triggered after %.2fs' % t
 
         _trigger_dummy(10.0)
+
+        limb = 'left'
         # move limb to top-down-view pose
-        self._move_to_pose('left', self._top_pose)
+        # try up to 3 times to find a valid pose
+        if not self._move_to_pose(limb, self._top_pose):
+            n_tries = self._N_TRIES
+            while n_tries > 0:
+                print '  ', n_tries, 'more tries'
+                n_tries -= 1
+                if self._perturbe_pose(limb, self._top_pose):
+                    print 'perturbation worked'
+                    n_tries = -1
+            if not n_tries == -1:
+                return False
+        return self._try_object(limb)
+
+    def _try_object(self, limb):
         # record top-down-view image
         # detect object candidates
         # for candidate in candidates:
@@ -108,7 +131,7 @@ class Robot(object):
         """ Move robot limb to Cartesian pose.
         :type limb: str
         :param limb: the limb of the robot, <'left', 'right'>
-        :type pose: [float, float, float, float, float, float]
+        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
@@ -116,13 +139,38 @@ class Robot(object):
             cmd = self._inverse_kinematics(limb, pose)
         except Exception as e:
             print e
-            ret = False
+            return False
         else:
-            ret = self._limbs[limb].move_to_joint_positions(cmd)
-        return ret
-
-    def _perturbe_pose(self):
+            self._limbs[limb].move_to_joint_positions(cmd)
         return True
+
+    def _perturbe_pose(self, limb, pose):
+        """ Add a small perturbation to the Cartesian pose of the robot.
+        :type limb: str
+        :param limb: the limb of the robot, <'left', 'right'>
+        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
+        :param pose: desired Cartesian pose
+        :return: boolean flag on completion
+        """
+        perturbation = [
+            np.random.random()*0.02,
+            np.random.random()*0.03,
+            np.random.random()*0.02,
+            np.random.random()*2.0/180.0,
+            np.random.random()*2.0/180.0,
+            np.random.random()*2.0/180.0
+        ]
+        p = [a + b for a, b in zip(pose, perturbation)]
+        print pose
+        print perturbation
+        print p
+        return self._move_to_pose(limb, p)
+
+    def _endpoint_pose(self, limb):
+        qp = self._limbs[limb].endpoint_pose()
+        r = transformations.euler_from_quaternion(qp['orientation'])
+        return [qp['position'][0], qp['position'][1], qp['position'][2],
+                r[0], r[1], r[2]]
 
     def _record_image(self):
         img = None
@@ -141,7 +189,7 @@ class Robot(object):
         given.
         :type limb: str
         :param limb: the limb of the robot, <'left', 'right'>
-        :type pose: [float, float, float, float, float, float]
+        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
         :param pose: desired Cartesian pose
         :return: valid set of joint angles
         """
@@ -171,6 +219,10 @@ class Robot(object):
 
 
 def list_to_pose(pose_list):
+    """ Pose list to ROS Pose msg.
+    :param pose_list: pose list
+    :return: ROS Pose message
+    """
     pose_msg = Pose()
     if len(pose_list) == 7:
         pose_msg.position.x = pose_list[0]
@@ -196,8 +248,23 @@ def list_to_pose(pose_list):
 
 
 def list_to_pose_stamped(pose_list, target_frame):
+    """ Pose list to ROS PoseStamped msg.
+    :param pose_list: pose list
+    :param target_frame: name of the target frame
+    :return: ROS PoseStamped message
+    """
     pose_msg = PoseStamped()
     pose_msg.pose = list_to_pose(pose_list)
     pose_msg.header.frame_id = target_frame
     pose_msg.header.stamp = rospy.Time.now()
     return pose_msg
+
+
+def pose_to_list(pose):
+    """ Baxter pose to pose list.
+    :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
+    :param pose: baxter pose
+    :return: pose list
+    """
+    return [pose['position'][0], pose['position'][1], pose['position'][2],
+            pose['orientation'][0], pose['orientation'][1], pose['orientation'][2]]
