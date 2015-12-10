@@ -39,6 +39,7 @@ from baxter_core_msgs.srv import (
     SolvePositionIK,
     SolvePositionIKRequest
 )
+from std_srvs.srv import Empty
 
 import baxter_interface
 from baxter_interface import CHECK_VERSION
@@ -63,6 +64,14 @@ class Robot(object):
             'left': baxter_interface.Gripper('left'),
             'right': baxter_interface.Gripper('right')
         }
+        # camera handling is one fragile thing ...
+        reset_srv = rospy.ServiceProxy('cameras/reset', Empty)
+        rospy.wait_for_service('cameras/reset', timeout=10)
+        reset_srv()
+        try:
+            baxter_interface.CameraController('head_camera').close()
+        except AttributeError:
+            pass
         self._cameras = {
             'left': baxter_interface.CameraController('left_hand_camera'),
             'right': baxter_interface.CameraController('right_hand_camera')
@@ -89,6 +98,7 @@ class Robot(object):
             self._limbs[limb].set_joint_position_speed(0.5)
             self._limbs[limb].move_to_neutral()
             self._grippers[limb].calibrate()
+            self._cameras[limb].resolution = (960, 600)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -286,8 +296,7 @@ class Robot(object):
         """
         s = '/cameras/' + camera + '_hand_camera/image'
         cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
-        # TODO: adapt sleep time. How short can ge get?
-        time.sleep(0.2)
+        time.sleep(0.1)
         cam_sub.unregister()
         return self._imgmsg
 
@@ -302,7 +311,7 @@ class Robot(object):
         """ Display an image on the screen of the robot.
         :param imgmsg: a ROS image message
         """
-        pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=1,
+        pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=10,
                               latch=True)
         pub.publish(imgmsg)
 
