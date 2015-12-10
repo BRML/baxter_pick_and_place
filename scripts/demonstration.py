@@ -26,8 +26,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import os
 
 import rospy
+import rospkg
 
 from baxter_pick_and_place.robot import Robot
 
@@ -41,10 +43,24 @@ class Demonstrator(object):
         self.robot = Robot()
         self._N_TRIES = 2
 
+    def calibrate_camera(self):
+        """
+        Calibrate the cameras if no setup is saved, or load it if one exists.
+        """
+        print "\nCalibrating cameras ..."
+        rospack = rospkg.RosPack()
+        ns = rospack.get_path('baxter_pick_and_place')
+        ns = os.path.join(ns, 'setup')
+        if not os.path.exists(ns):
+            os.makedirs(ns)
+        setup_file = os.path.join(ns, 'setup.dat')
+        if not os.path.exists(setup_file):
+            self.robot.write_setup(setup_file)
+        self.robot.load_setup(setup_file)
+
     def demonstrate(self, n_objects_to_pick):
         """ Pick up a given number of objects and place them in a pre-defined
         location.
-
         :param n_objects_to_pick: The number of objects to pick up.
         :return: True on completion.
         """
@@ -85,6 +101,7 @@ def main():
 
     demonstrator = Demonstrator()
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
+    demonstrator.calibrate_camera()
     demonstrator.demonstrate(args.number)
 
     print 'Done.'

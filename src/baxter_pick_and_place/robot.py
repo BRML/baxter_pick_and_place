@@ -24,6 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
+import string
 import time
 
 import rospy
@@ -67,6 +68,7 @@ class Robot(object):
             'right': baxter_interface.CameraController('right_hand_camera')
         }
         self._imgmsg = None
+        self._cam_params = None
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -77,10 +79,10 @@ class Robot(object):
         ]
         self._N_TRIES = 2
 
-        print("\nGetting robot state ... ")
+        print "\nGetting robot state ... "
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
         self._init_state = self._rs.state().enabled
-        print("Enabling robot... ")
+        print "Enabling robot... "
         self._rs.enable()
 
         for limb in self._limbs:
@@ -89,11 +91,87 @@ class Robot(object):
             self._grippers[limb].calibrate()
 
     def clean_shutdown(self):
-        print("\nExiting demonstrator ...")
+        """ Clean shutdown of the robot.
+        :return: True on completion
+        """
+        print "\nExiting demonstrator ..."
+        for limb in self._limbs:
+            self._limbs[limb].move_to_neutral()
         if not self._init_state:
-            print("Disabling robot...")
+            print "Disabling robot..."
             self._rs.disable()
         return True
+
+    def write_setup(self, setup_file):
+        """ Perform the camera calibration of the robot's hand cameras.
+        :param setup_file: the file to write the calibration into.
+        """
+        pose = [
+            0.60,
+            0.20,
+            0.15,
+            -1.0*np.pi,
+            0.0*np.pi,
+            0.0*np.pi
+        ]
+        setup = dict()
+        for limb in self._limbs:
+            setup[limb] = dict()
+            # setup pose
+            setup[limb]['pose'] = pose
+            # distance camera--table
+            # TODO: make more robust
+            self._move_to_pose(limb, pose)
+            d = baxter_interface.analog_io.AnalogIO(limb + '_hand_range').state()
+            setup[limb]['distance'] = float(d/1000.0)
+            # camera resolution
+            setup[limb]['width'], setup[limb]['height'] = \
+                self._cameras[limb].resolution
+            # The following values are taken from
+            # http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
+            # meters per pixel at 1 m
+            setup[limb]['mpp'] = 0.0025
+            # camera offset in x
+            setup[limb]['ox'] = 0.01
+            # camera offset in y
+            setup[limb]['oy'] = -0.02
+            self._limbs[limb].move_to_neutral()
+
+        with open(setup_file, 'w') as fp:
+            for limb in setup:
+                fp.write('%s\n' % limb)
+                for param in setup[limb]:
+                    if param == 'pose':
+                        fp.write('%s ' % param)
+                        for p in setup[limb][param]:
+                            fp.write('%s ' % p)
+                        fp.write('\n')
+                    else:
+                        fp.write('%s %s\n' % (param, str(setup[limb][param])))
+
+    def load_setup(self, setup_file):
+        """ Load the camera calibration data from a file.
+        :param setup_file: the file to read the calibration data from
+        """
+        setup = dict()
+        with open(setup_file, 'r') as fp:
+            for line in fp:
+                s = string.split(line)
+                if len(s) == 1:
+                    limb = s[0]
+                    setup[limb] = dict()
+                elif len(s) == 2:
+                    if (s[0] == 'distance' or
+                            s[0] == 'mpp' or
+                            s[0] == 'ox' or
+                            s[0] == 'oy'):
+                        value = float(s[1])
+                    else:
+                        value = int(s[1])
+                    setup[limb][s[0]] = value
+                else:
+                    setup[limb][s[0]] = [float(i) for i in s[1:]]
+        self._cam_params = setup
 
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
@@ -133,7 +211,7 @@ class Robot(object):
         # record top-down-view image
         imgmsg = self._record_image(camera=limb)
         self._display_image(imgmsg)
-        candidates = detect_object_candidates(imgmsg)
+        candidates = detect_object_candidates(imgmsg, self._cam_params[limb])
         probabilities = list()
         for candidate in candidates:
             # TODO: add offset to candidate pose
@@ -224,7 +302,8 @@ class Robot(object):
         """ Display an image on the screen of the robot.
         :param imgmsg: a ROS image message
         """
-        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True)
+        pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=1,
+                              latch=True)
         pub.publish(imgmsg)
 
     def _grasp_object(self, limb):

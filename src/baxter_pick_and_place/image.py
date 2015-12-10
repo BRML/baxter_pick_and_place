@@ -27,13 +27,13 @@ import cv_bridge
 import numpy as np
 
 
-def detect_object_candidates(imgmsg):
+def detect_object_candidates(imgmsg, cam_params):
     """ Detect object candidates and return their poses in robot coordinates.
     :param imgmsg: a ROS image message
+    :param cam_params: dict of camera parameters
     :return: list of poses (6-tuples) of object candidates
     """
     image = _imgmsg2img(imgmsg)
-    cam_params = None
     locations = _find_object_candidates(image)
     poses = [_pose_from_location(location, cam_params) for location in locations]
     return [(0., 0., 0., 0., 0., 0.), (0., 0., 0., 0., 0., 0.)]
@@ -60,8 +60,8 @@ def _imgmsg2img(imgmsg):
     """
     try:
         img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'rgb8')
-    except cv_bridge.CvBridgeError, e:
-        print e
+    except cv_bridge.CvBridgeError:
+        raise
     return np.asarray(img)
 
 
@@ -79,9 +79,10 @@ def _find_object_candidates(image, n_candidates=None):
 
 
 def _pose_from_location(location, cam_params):
-    """ Compute robot coordinates from pixel coordinates.
+    """ Compute robot coordinates (relative to wrist pose) from pixel
+    coordinates.
     :param location: a pixel coordinate
     :param cam_params: camera parameters
-    :return: an object pose (6-tuple)
+    :return: a relative object pose (6-tuple)
     """
     return 0., 0., 0., 0., 0., 0.
