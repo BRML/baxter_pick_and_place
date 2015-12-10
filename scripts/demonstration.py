@@ -52,6 +52,7 @@ class Demonstrator(object):
         print '\nWe are supposed to pick up %i object(s) ...' % n_objects_to_pick
         while not rospy.is_shutdown() and n < n_objects_to_pick:
             print "Picking up object", n
+            # try up to 3 times to grasp an object
             if self.robot.pick_and_place_object():
                 n += 1
             else:
