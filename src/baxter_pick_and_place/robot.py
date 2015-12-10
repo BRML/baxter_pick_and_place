@@ -29,6 +29,7 @@ import time
 import rospy
 
 from tf import transformations
+from sensor_msgs.msg import Image
 from geometry_msgs.msg import (
     Pose,
     PoseStamped
@@ -61,6 +62,11 @@ class Robot(object):
             'left': baxter_interface.Gripper('left'),
             'right': baxter_interface.Gripper('right')
         }
+        self._cameras = {
+            'left': baxter_interface.CameraController('left_hand_camera'),
+            'right': baxter_interface.CameraController('right_hand_camera')
+        }
+        self._imgmsg = None
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -125,14 +131,15 @@ class Robot(object):
         :return: boolean flag on completion
         """
         # record top-down-view image
-        img = self._record_image(camera=limb)
-        candidates = detect_object_candidates(img)
+        imgmsg = self._record_image(camera=limb)
+        self._display_image(imgmsg)
+        candidates = detect_object_candidates(imgmsg)
         probabilities = list()
         for candidate in candidates:
             # TODO: add offset to candidate pose
             self._move_to_pose(limb, candidate)
-            img = self._record_image(camera=limb)
-            img = select_image_patch(img, (200, 200))
+            imgmsg = self._record_image(camera=limb)
+            img = select_image_patch(imgmsg, (200, 200))
             # probabilities.append(call_service(img))
         # idx = make_decision(probabilities)
         idx = 0
@@ -195,8 +202,30 @@ class Robot(object):
     #             r[0], r[1], r[2]]
 
     def _record_image(self, camera):
-        img = None
-        return img
+        """ Record an image from one of the robots hand cameras.
+        :param camera: the camera of the robot, <'left', 'right'>
+        :return: a ROS image message
+        """
+        s = '/cameras/' + camera + '_hand_camera/image'
+        cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
+        # TODO: adapt sleep time. How short can ge get?
+        time.sleep(0.2)
+        cam_sub.unregister()
+        return self._imgmsg
+
+    def _camera_callback(self, data):
+        """
+        Callback routine for the camera subscriber.
+        """
+        self._imgmsg = data
+
+    @staticmethod
+    def _display_image(imgmsg):
+        """ Display an image on the screen of the robot.
+        :param imgmsg: a ROS image message
+        """
+        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True)
+        pub.publish(imgmsg)
 
     def _grasp_object(self, limb):
         """ Close the gripper and validate that it grasped something.
