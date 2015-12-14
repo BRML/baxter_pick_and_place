@@ -1,31 +1,13 @@
 import cv2
 import numpy as np
 
+from baxter_pick_and_place.image import _segment_table
+
 
 image = cv2.imread('../images/001.jpg', cv2.IMREAD_COLOR)
 # cv2.imshow('Image', image)
 
-hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-# cv2.imshow('hsv', hsv)
-lower_white = np.array([38, 20, 125])
-upper_white = np.array([48, 41, 250])
-mask = cv2.inRange(hsv, lower_white, upper_white)
-# res = cv2.bitwise_and(image, image, mask=mask)
-cv2.imshow('mask', mask)
-# cv2.imshow('white', res)
-# kernel = np.ones((5, 5), np.uint8)
-# closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=10)
-# cv2.imshow('dilation', closing)
-# resc = cv2.bitwise_and(image, image, mask=closing)
-# cv2.imshow('white2', resc)
-
-points = cv2.findNonZero(mask)
-x, y, w, h = cv2.boundingRect(points)
-img = image.copy()
-cv2.rectangle(img, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
-cv2.imshow('rectangle', img)
-
-cropped = image[y:y + h, x:x + w]
+cropped = _segment_table(image, verbose=True)
 cv2.imshow('cropped', cropped)
 print cropped.shape
 
