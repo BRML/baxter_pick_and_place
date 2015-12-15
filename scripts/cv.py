@@ -1,7 +1,6 @@
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.ndimage import label
 
 
 print cv2.__version__
@@ -49,6 +48,63 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
     w -= 2*offset
     h -= 2*offset
     return img[y:y + h, x:x + h], (x, y)
+
+
+def get_neighbors((row, column), neighborhood=8):
+    assert neighborhood == 4 or neighborhood == 8, 'Neighborhood needs to be 4 or 8!'
+    neighbors = [(row - 1, column),
+                 (row + 1, column),
+                 (row, column - 1),
+                 (row, column + 1)]
+    if neighborhood == 8:
+        neighbors.append((row - 1, column - 1))
+        neighbors.append((row - 1, column + 1))
+        neighbors.append((row + 1, column - 1))
+        neighbors.append((row + 1, column + 1))
+    return neighbors
+
+
+def blob_detector(label_image):
+    # Fill the image with blobs of connected pixels
+    # 0  - background
+    # 1  - unlabelled foreground
+    # 2+ - labelled foreground
+    label_image[label_image == 255] = 1
+    label_count = 2
+
+    blobs = list()
+
+    for row in range(label_image.shape[0]):
+        for column in range(label_image.shape[1]):
+            if label_image[row, column] != 1:
+                continue
+            # check if one of the neighbors already has a label
+            neighbors = get_neighbors((row, column), neighborhood=8)
+            label = 1
+            for n in neighbors:
+                r, c = n
+                try:
+                    lbl = label_image[r, c]
+                except IndexError:
+                    print 'border pixel'
+                    continue
+                if lbl == 0:
+                    continue
+                if lbl == 1:
+                    continue
+                label = lbl
+                break
+            if label == 1:
+                label = label_count
+                label_count += 1
+            label_image[row, column] = label
+            print '%i %i: %i' % (row, column, label_image[row, column])
+            print 'label count: %i' % label_count
+
+    plt.imshow(label_image)
+    plt.colorbar()
+    plt.show()
+    return blobs
 
 
 image = cv2.imread('../images/001.jpg', cv2.IMREAD_COLOR)
@@ -135,26 +191,29 @@ kernel = np.ones((5, 5), np.uint8)
 closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, kernel, iterations=3)
 cv2.imshow('closing', closing)
 
-blobs = []
-label_count = 2
-filled = gray.copy()
-mask = np.zeros((closing.shape[0] + 2, closing.shape[1] + 2), np.uint8)
-mask[1:-1, 1:-1] = closing
-for y in range(filled.shape[0]):
-    for x in range(filled.shape[1]):
-        if filled[y, x] != 1:
-            continue
-        rect = cv2.floodFill(filled, mask, (y, x), label_count)
-        blob = []
-        for i in range(rect[1], rect[1] + rect[3]):
-            for j in range(rect[0], rect[0] + rect[2]):
-                if filled[i, j] != label_count:
-                    continue
-                blob.append((i, j))
-        blobs.append(blob)
-        label_count += 1
-cv2.imshow('filled', filled)
+label_image = closing.copy()
+blobs = blob_detector(label_image)
 print blobs
+label_image[label_image == 1] = 255
+cv2.imshow('labelled', label_image)
+
+# filled = gray.copy()
+
+# for y in range(filled.shape[0]):
+#     for x in range(filled.shape[1]):
+#         if filled[y, x] != 1:
+#             continue
+#         rect = cv2.floodFill(filled, mask, (y, x), label_count)
+#         blob = []
+#         for i in range(rect[1], rect[1] + rect[3]):
+#             for j in range(rect[0], rect[0] + rect[2]):
+#                 if filled[i, j] != label_count:
+#                     continue
+#                 blob.append((i, j))
+#         blobs.append(blob)
+#         label_count += 1
+# cv2.imshow('filled', filled)
+# print blobs
 
 # contours, _ = cv2.findContours(th1, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 # cv2.drawContours(image, contours, 0, (255, 0, 0), 3)
