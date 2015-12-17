@@ -35,8 +35,8 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
         image = img.copy()
         cv2.rectangle(image, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
         cv2.rectangle(image, (x + offset, y + offset),
-                      (x + w - offset, y + h - offset),
-                      np.array([255, 0, 0]), 2)
+                       (x + w - offset, y + h - offset),
+                       np.array([255, 0, 0]), 2)
         cv2.imshow('Rectangle', image)
     # mask = np.zeros(img.shape[:2], np.uint8)
     # mask[y + offset:y + h - offset, x + offset:x + w - offset] = 1
