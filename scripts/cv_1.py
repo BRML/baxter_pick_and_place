@@ -144,7 +144,10 @@ for i in range(len(blobs)):
     mask[label_image == i + 2] = 1
     points = cv2.findNonZero(mask)
     x, y, w, h = cv2.boundingRect(points)
-    cv2.rectangle(rectangled, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
+    if len(points) > 100:
+        cv2.rectangle(rectangled, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
+    else:
+        cv2.rectangle(rectangled, (x, y), (x + w, y + h), np.array([0, 0, 255]), 2)
 cv2.imshow('rectangles', rectangled)
 # TODO: filter out candidates that obviously are to small
 # TODO: compute center of candidates
