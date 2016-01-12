@@ -62,6 +62,7 @@ def _imgmsg2img(imgmsg):
     try:
         img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'rgb8')
     except cv_bridge.CvBridgeError:
+        print 'ERROR: Something is wrong with the ROS image message.'
         raise
     return np.asarray(img)
 
@@ -119,3 +120,31 @@ def _pose_from_location(location, cam_params):
     :return: a relative object pose (6-tuple)
     """
     return 0., 0., 0., 0., 0., 0.
+
+
+def find_calibration_pattern(imgmsg, verbose=False):
+    """ Find 9x6 chessboard calibration pattern in an image and return point
+    correspondences ([mm] to [pixel]) if successful.
+    :param imgmsg: a ROS image message
+    :param verbose: show intermediate images or not
+    :return: return value, object points, image points
+    """
+    """ Define calibration pattern """
+    pattern_size = (9, 6)
+    objp = np.zeros((np.prod(pattern_size), 3), np.float32)
+    objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
+    objp *= 25.17  # mm
+    """ Define sub-pixel criteria """
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+
+    img = _imgmsg2img(imgmsg)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    ret, corners = cv2.findChessboardCorners(gray, pattern_size)
+    if ret:
+        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        if verbose:
+            cv2.drawChessboardCorners(img, pattern_size, corners, ret)
+            cv2.imshow('Detected corners', img)
+        return ret, objp, corners2, img
+    return ret, None, None

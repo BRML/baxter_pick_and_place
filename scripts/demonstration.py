@@ -36,11 +36,11 @@ from baxter_pick_and_place.robot import Robot
 
 class Demonstrator(object):
 
-    def __init__(self):
+    def __init__(self, limb):
         """
         Picks up objects pointed out and places them in a pre-defined location.
         """
-        self.robot = Robot()
+        self.robot = Robot(limb)
         self._N_TRIES = 2
 
     def calibrate_camera(self):
@@ -55,6 +55,8 @@ class Demonstrator(object):
             os.makedirs(ns)
         setup_file = os.path.join(ns, 'setup.dat')
         if not os.path.exists(setup_file):
+            print "No stored calibration found."
+            print "Performing full camera calibration."
             self.robot.write_setup(setup_file)
         self.robot.load_setup(setup_file)
 
@@ -91,6 +93,9 @@ def main():
     of an eye tracker and places them in a pre-defined location.
     """
     parser = argparse.ArgumentParser(description='Pick and place demonstration with the baxter research robot.')
+    parser.add_argument('-l', '--limb', dest='limb', required=False,
+                        choices=['left', 'right'], default='left',
+                        help='The limb to pick objects up with.')
     parser.add_argument('-n', '--number', dest='number',
                         required=False, type=int, default=0,
                         help='The number of objects to pick up.')
@@ -99,10 +104,11 @@ def main():
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    demonstrator = Demonstrator()
+    demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    demonstrator.calibrate_camera()
-    demonstrator.demonstrate(args.number)
+    demonstrator.robot.write_setup('test.dat')
+    # demonstrator.calibrate_camera()
+    # demonstrator.demonstrate(args.number)
 
     print 'Done.'
 

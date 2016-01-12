@@ -46,24 +46,20 @@ from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
     detect_object_candidates,
-    select_image_patch
+    select_image_patch,
+    find_calibration_pattern
 )
 
 
 class Robot(object):
 
-    def __init__(self):
+    def __init__(self, limb):
         """
          A baxter research robot instance with some additional functionality.
         """
-        self._limbs = {
-            'left': baxter_interface.Limb('left'),
-            'right': baxter_interface.Limb('right')
-        }
-        self._grippers = {
-            'left': baxter_interface.Gripper('left'),
-            'right': baxter_interface.Gripper('right')
-        }
+        self._arm = limb
+        self._limb = baxter_interface.Limb(self._arm)
+        self._gripper = baxter_interface.Gripper(self._arm)
         # camera handling is one fragile thing ...
         reset_srv = rospy.ServiceProxy('cameras/reset', Empty)
         rospy.wait_for_service('cameras/reset', timeout=10)
@@ -72,10 +68,7 @@ class Robot(object):
             baxter_interface.CameraController('head_camera').close()
         except AttributeError:
             pass
-        self._cameras = {
-            'left': baxter_interface.CameraController('left_hand_camera'),
-            'right': baxter_interface.CameraController('right_hand_camera')
-        }
+        self._camera = baxter_interface.CameraController(self._arm + '_hand_camera')
         self._imgmsg = None
         self._cam_params = None
         self._top_pose = [
@@ -87,6 +80,7 @@ class Robot(object):
             0.0*np.pi  # yaw = rotation
         ]
         self._N_TRIES = 2
+        self._N_IMGS_CALIB = 2
 
         print "\nGetting robot state ... "
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
@@ -94,19 +88,17 @@ class Robot(object):
         print "Enabling robot... "
         self._rs.enable()
 
-        for limb in self._limbs:
-            self._limbs[limb].set_joint_position_speed(0.5)
-            self._limbs[limb].move_to_neutral()
-            self._grippers[limb].calibrate()
-            self._cameras[limb].resolution = (960, 600)
+        self._limb.set_joint_position_speed(0.5)
+        self._limb.move_to_neutral()
+        self._gripper.calibrate()
+        self._camera.resolution = (960, 600)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
         :return: True on completion
         """
         print "\nExiting demonstrator ..."
-        for limb in self._limbs:
-            self._limbs[limb].move_to_neutral()
+        self._limb.move_to_neutral()
         if not self._init_state:
             print "Disabling robot..."
             self._rs.disable()
@@ -124,63 +116,99 @@ class Robot(object):
             0.0*np.pi,
             0.0*np.pi
         ]
-        setup = dict()
-        for limb in self._limbs:
-            setup[limb] = dict()
-            # setup pose
-            setup[limb]['pose'] = pose
-            # distance camera--table
-            # TODO: make more robust
-            self._move_to_pose(limb, pose)
-            d = baxter_interface.analog_io.AnalogIO(limb + '_hand_range').state()
-            setup[limb]['distance'] = float(d/1000.0)
-            # camera resolution
-            setup[limb]['width'], setup[limb]['height'] = \
-                self._cameras[limb].resolution
-            # The following values are taken from
-            # http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
-            # meters per pixel at 1 m
-            setup[limb]['mpp'] = 0.0025
-            # camera offset in x
-            setup[limb]['ox'] = 0.01
-            # camera offset in y
-            setup[limb]['oy'] = -0.02
-            self._limbs[limb].move_to_neutral()
 
-        with open(setup_file, 'w') as fp:
-            for limb in setup:
-                fp.write('%s\n' % limb)
-                for param in setup[limb]:
-                    if param == 'pose':
-                        fp.write('%s ' % param)
-                        for p in setup[limb][param]:
-                            fp.write('%s ' % p)
-                        fp.write('\n')
-                    else:
-                        fp.write('%s %s\n' % (param, str(setup[limb][param])))
+        def getc():
+            """ Gets a single character from standard input. Does not echo to
+            the screen.
+            See http://code.activestate.com/recipes/134892/.
+            :return: a single character
+            """
+            import sys
+            import tty
+            import termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(sys.stdin.fileno())
+                ch = sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+            return ch
+
+        n_imgs_calib = 0
+        while n_imgs_calib < self._N_IMGS_CALIB:
+            print "Press 'r' to record an image."
+            k = getc()
+            if k == 'r':
+                imgmsg = self._record_image()
+                self._display_image(imgmsg)
+                n_imgs_calib += 1
+                ret, objp, imgp = find_calibration_pattern(imgmsg,
+                                                           verbose=True)
+                print "Recorded %i of %i images." % (n_imgs_calib,
+                                                     self._N_IMGS_CALIB)
+            else:
+                pass
+        # calibrate camera
+        # store parameters
+
+        # setup = dict()
+        # for limb in self._limbs:
+        #     setup[limb] = dict()
+        #     # setup pose
+        #     setup[limb]['pose'] = pose
+        #     # distance camera--table
+        #     # TODO: make more robust
+        #     self._move_to_pose(limb, pose)
+        #     d = baxter_interface.analog_io.AnalogIO(limb + '_hand_range').state()
+        #     setup[limb]['distance'] = float(d/1000.0)
+        #     # camera resolution
+        #     setup[limb]['width'], setup[limb]['height'] = \
+        #         self._cameras[limb].resolution
+        #     # The following values are taken from
+        #     # http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
+        #     # meters per pixel at 1 m
+        #     setup[limb]['mpp'] = 0.0025
+        #     # camera offset in x
+        #     setup[limb]['ox'] = 0.01
+        #     # camera offset in y
+        #     setup[limb]['oy'] = -0.02
+        #     self._limbs[limb].move_to_neutral()
+
+        # with open(setup_file, 'w') as fp:
+        #     for limb in setup:
+        #         fp.write('%s\n' % limb)
+        #         for param in setup[limb]:
+        #             if param == 'pose':
+        #                 fp.write('%s ' % param)
+        #                 for p in setup[limb][param]:
+        #                     fp.write('%s ' % p)
+        #                 fp.write('\n')
+        #             else:
+        #                 fp.write('%s %s\n' % (param, str(setup[limb][param])))
 
     def load_setup(self, setup_file):
         """ Load the camera calibration data from a file.
         :param setup_file: the file to read the calibration data from
         """
         setup = dict()
-        with open(setup_file, 'r') as fp:
-            for line in fp:
-                s = string.split(line)
-                if len(s) == 1:
-                    limb = s[0]
-                    setup[limb] = dict()
-                elif len(s) == 2:
-                    if (s[0] == 'distance' or
-                            s[0] == 'mpp' or
-                            s[0] == 'ox' or
-                            s[0] == 'oy'):
-                        value = float(s[1])
-                    else:
-                        value = int(s[1])
-                    setup[limb][s[0]] = value
-                else:
-                    setup[limb][s[0]] = [float(i) for i in s[1:]]
+        # with open(setup_file, 'r') as fp:
+        #     for line in fp:
+        #         s = string.split(line)
+        #         if len(s) == 1:
+        #             limb = s[0]
+        #             setup[limb] = dict()
+        #         elif len(s) == 2:
+        #             if (s[0] == 'distance' or
+        #                     s[0] == 'mpp' or
+        #                     s[0] == 'ox' or
+        #                     s[0] == 'oy'):
+        #                 value = float(s[1])
+        #             else:
+        #                 value = int(s[1])
+        #             setup[limb][s[0]] = value
+        #         else:
+        #             setup[limb][s[0]] = [float(i) for i in s[1:]]
         self._cam_params = setup
 
     def pick_and_place_object(self):
@@ -198,73 +226,67 @@ class Robot(object):
 
         _trigger_dummy(10.0)
 
-        limb = 'left'
         # move limb to top-down-view pose
         # try up to 3 times to find a valid pose
-        if not self._move_to_pose(limb, self._top_pose):
+        if not self._move_to_pose(self._top_pose):
             n_tries = self._N_TRIES
             while n_tries > 0:
                 print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
-                if self._perturbe_pose(limb, self._top_pose):
+                if self._perturbe_pose(self._top_pose):
                     print 'perturbation worked'
                     n_tries = -1
             if not n_tries == -1:
                 return False
-        return self._try_object(limb)
+        return self._try_object()
 
-    def _try_object(self, limb):
+    def _try_object(self):
         """ Try to select, pick up and place the target object.
-        :param limb: the limb of the robot, <'left', 'right'>
         :return: boolean flag on completion
         """
         # record top-down-view image
-        imgmsg = self._record_image(camera=limb)
+        imgmsg = self._record_image()
         self._display_image(imgmsg)
-        candidates = detect_object_candidates(imgmsg, self._cam_params[limb])
+        candidates = detect_object_candidates(imgmsg, self._cam_params)
         probabilities = list()
         for candidate in candidates:
             # TODO: add offset to candidate pose
-            self._move_to_pose(limb, candidate)
-            imgmsg = self._record_image(camera=limb)
+            self._move_to_pose(candidate)
+            imgmsg = self._record_image()
             img = select_image_patch(imgmsg, (200, 200))
             # probabilities.append(call_service(img))
         # idx = make_decision(probabilities)
         idx = 0
-        self._move_to_pose(limb, candidates[idx])
-        if self._grasp_object(limb):
+        self._move_to_pose(candidates[idx])
+        if self._grasp_object():
             print '   grasped object'
             # move limb to target location
-            self._release_object(limb)
+            self._release_object()
             print '   released object'
-            self._limbs[limb].move_to_neutral()
+            self._limb.move_to_neutral()
             print '  object placed successfully'
             return True
         print '  missed object'
-        self._release_object(limb)
+        self._release_object()
         return False
 
-    def _move_to_pose(self, limb, pose):
+    def _move_to_pose(self, pose):
         """ Move robot limb to Cartesian pose.
-        :type limb: str
-        :param limb: the limb of the robot, <'left', 'right'>
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
         try:
-            cmd = self._inverse_kinematics(limb, pose)
+            cmd = self._inverse_kinematics(pose)
         except Exception as e:
             print e
             return False
         else:
-            self._limbs[limb].move_to_joint_positions(cmd)
+            self._limb.move_to_joint_positions(cmd)
         return True
 
-    def _perturbe_pose(self, limb, pose):
+    def _perturbe_pose(self, pose):
         """ Add a small perturbation to the Cartesian pose of the robot.
-        :type limb: str
-        :param limb: the limb of the robot, <'left', 'right'>
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
@@ -281,7 +303,7 @@ class Robot(object):
         print pose
         print perturbation
         print p
-        return self._move_to_pose(limb, p)
+        return self._move_to_pose(p)
 
     # def _endpoint_pose(self, limb):
     #     qp = self._limbs[limb].endpoint_pose()
@@ -289,12 +311,11 @@ class Robot(object):
     #     return [qp['position'][0], qp['position'][1], qp['position'][2],
     #             r[0], r[1], r[2]]
 
-    def _record_image(self, camera):
+    def _record_image(self):
         """ Record an image from one of the robots hand cameras.
-        :param camera: the camera of the robot, <'left', 'right'>
         :return: a ROS image message
         """
-        s = '/cameras/' + camera + '_hand_camera/image'
+        s = '/cameras/' + self._arm + '_hand_camera/image'
         cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
         time.sleep(0.1)
         cam_sub.unregister()
@@ -313,40 +334,39 @@ class Robot(object):
         """
         pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=10,
                               latch=True)
-        pub.publish(imgmsg)
+        try:
+            pub.publish(imgmsg)
+        except TypeError:
+            print 'ERROR: Something is wrong with the ROS image message.'
 
-    def _grasp_object(self, limb):
+    def _grasp_object(self):
         """ Close the gripper and validate that it grasped something.
-        :param limb: the limb of the robot, <'left', 'right'>
         :return: bool describing if the position move has been preempted by a
         position command exceeding the moving_force threshold denoting a grasp
         """
-        self._grippers[limb].close(block=True)
-        return self._grippers[limb].gripping()
+        self._gripper.close(block=True)
+        return self._gripper.gripping()
 
-    def _release_object(self, limb):
+    def _release_object(self):
         """ Open the gripper.
-        :param limb: the limb of the robot, <'left', 'right'>
         """
-        self._grippers[limb].open(block=True)
+        self._gripper.open(block=True)
 
-    def _inverse_kinematics(self, limb, pose=None):
+    def _inverse_kinematics(self, pose=None):
         """ Inverse kinematics of one Baxter arm.
         Compute valid set of joint angles for a given Cartesian pose using the
         inverse kinematics service. Return current joint angles if None pose is
         given.
-        :type limb: str
-        :param limb: the limb of the robot, <'left', 'right'>
         :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
         :param pose: desired Cartesian pose
         :return: valid set of joint angles
         """
         if pose is None:
-            return self._limbs[limb].joint_angles()
+            return self._limb.joint_angles()
 
         qp = list_to_pose_stamped(pose, "base")
 
-        node = "ExternalTools/" + limb + "/PositionKinematicsNode/IKService"
+        node = "ExternalTools/" + self._arm + "/PositionKinematicsNode/IKService"
         ik_service = rospy.ServiceProxy(node, SolvePositionIK)
         ik_request = SolvePositionIKRequest()
         ik_request.pose_stamp.append(qp)
