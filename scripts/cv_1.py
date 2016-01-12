@@ -139,18 +139,24 @@ label_image = closing.copy()
 blobs = blob_detector(label_image)
 cv2.imshow('labelled', label_image)
 rectangled = cropped.copy()
+centers = list()
+print 'blob\tarea\tcenter'
 for i in range(len(blobs)):
     mask = np.zeros(label_image.shape[:2], np.uint8)
     mask[label_image == i + 2] = 1
     points = cv2.findNonZero(mask)
     x, y, w, h = cv2.boundingRect(points)
+    centers.append((x + w/2, y + h/2))
+    print '%i\t\t%i\t\t(%i, %i)' % (i, len(points), centers[i][0], centers[i][1])
     if len(points) > 100:
         cv2.rectangle(rectangled, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
+        cv2.circle(rectangled, centers[i], 3, np.array([0, 255, 0]), 2)
+        cv2.line(rectangled, (x, y), (x + w, y + h), np.array([0, 255, 0]))
+        cv2.line(rectangled, (x + w, y), (x, y + h), np.array([0, 255, 0]))
     else:
         cv2.rectangle(rectangled, (x, y), (x + w, y + h), np.array([0, 0, 255]), 2)
 cv2.imshow('rectangles', rectangled)
 # TODO: filter out candidates that obviously are to small
-# TODO: compute center of candidates
 # TODO: compute Baxter coordinates of center of candidates
 
 cv2.waitKey(0)
