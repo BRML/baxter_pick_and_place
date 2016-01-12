@@ -52,12 +52,14 @@ def _draw_matches(img1, kp1, img2, kp2, matches):
     return view
 
 
-img_scene = cv2.imread('../images/000.jpg', cv2.IMREAD_COLOR)
+img_scene = cv2.imread('../images/003.jpg', cv2.IMREAD_COLOR)
+img_scene = cv2.resize(img_scene, (640, 480))
 gray_scene = cv2.cvtColor(img_scene, cv2.COLOR_BGR2GRAY)
 # cv2.imshow('Scene', img_scene)
-img_baxter = cv2.imread('../images/001.jpg', cv2.IMREAD_COLOR)
-# cv2.imshow('Baxter', img_baxter)
+img_baxter = cv2.imread('../images/007.jpg', cv2.IMREAD_COLOR)
+img_baxter = cv2.resize(img_baxter, (640, 480))
 gray_baxter = cv2.cvtColor(img_baxter, cv2.COLOR_BGR2GRAY)
+# cv2.imshow('Baxter', img_baxter)
 
 descriptor = 'brief'
 kp_scene, des_scene = _get_features(gray_scene, descriptor)
@@ -74,6 +76,7 @@ matches = sorted(matches, key=lambda x: x.distance)
 print len(matches)
 img = _draw_matches(img_scene, kp_scene, img_baxter, kp_baxter, matches)
 cv2.imshow('Matches', img)
+cv2.imwrite('../images/matches003007.jpg', img)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
