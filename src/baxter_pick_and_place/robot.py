@@ -136,6 +136,8 @@ class Robot(object):
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             return ch
 
+        objpoints = list()
+        imgpoints = list()
         n_imgs_calib = 0
         while n_imgs_calib < self._N_IMGS_CALIB:
             print "Press 'r' to record an image."
@@ -143,11 +145,13 @@ class Robot(object):
             if k == 'r':
                 imgmsg = self._record_image()
                 self._display_image(imgmsg)
-                n_imgs_calib += 1
-                ret, objp, imgp = find_calibration_pattern(imgmsg,
-                                                           verbose=True)
-                print "Recorded %i of %i images." % (n_imgs_calib,
-                                                     self._N_IMGS_CALIB)
+                ret, op, ip = find_calibration_pattern(imgmsg, verbose=False)
+                if ret:
+                    objpoints.append(op)
+                    imgpoints.append(ip)
+                    n_imgs_calib += 1
+                    print "Recorded %i of %i images." % (n_imgs_calib,
+                                                         self._N_IMGS_CALIB)
             else:
                 pass
         # calibrate camera
