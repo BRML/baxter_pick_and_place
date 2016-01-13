@@ -152,8 +152,6 @@ class Robot(object):
                     n_imgs_calib += 1
                     print "Recorded %i of %i images." % (n_imgs_calib,
                                                          self._N_IMGS_CALIB)
-            else:
-                pass
         # calibrate camera
         # store parameters
 
