@@ -45,10 +45,11 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
+    resize_imgmsg,
+    find_calibration_pattern,
+    calibrate_camera,
     detect_object_candidates,
     select_image_patch,
-    find_calibration_pattern,
-    resize_imgmsg
 )
 
 
@@ -105,9 +106,10 @@ class Robot(object):
             self._rs.disable()
         return True
 
-    def write_setup(self, setup_file):
-        """ Perform the camera calibration of the robot's hand cameras.
+    def write_setup(self, setup_file, setup_images):
+        """ Perform the camera calibration of the robot's hand camera.
         :param setup_file: the file to write the calibration into.
+        :param setup_images: location to write the calibration images into
         """
         pose = [
             0.60,
@@ -145,14 +147,18 @@ class Robot(object):
             if k == 'r':
                 imgmsg = self._record_image()
                 self._display_image(imgmsg)
-                ret, op, ip = find_calibration_pattern(imgmsg, verbose=False)
+                s = setup_images + '/' + self._arm + str(n_imgs_calib) + '.jpg'
+                ret, op, ip = find_calibration_pattern(imgmsg, s, verbose=False)
                 if ret:
                     objpoints.append(op)
                     imgpoints.append(ip)
                     n_imgs_calib += 1
                     print "Recorded %i of %i images." % (n_imgs_calib,
                                                          self._N_IMGS_CALIB)
-        # calibrate camera
+        re_err, camera_matrix, dist_coeffs, rvecs, tvecs = \
+            calibrate_camera(objpoints, imgpoints, self._camera.resolution)
+        print "Camera calibrated with %i images; re-projection error %.2f" \
+            % (self._N_IMGS_CALIB, re_err)
         # store parameters
 
         # setup = dict()

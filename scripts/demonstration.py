@@ -45,9 +45,9 @@ class Demonstrator(object):
 
     def calibrate_camera(self):
         """
-        Calibrate the cameras if no setup is saved, or load it if one exists.
+        Calibrate the camera if no setup is saved, or load it if one exists.
         """
-        print "\nCalibrating cameras ..."
+        print "\nCalibrating camera ..."
         rospack = rospkg.RosPack()
         ns = rospack.get_path('baxter_pick_and_place')
         ns = os.path.join(ns, 'setup')
@@ -106,7 +106,16 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    demonstrator.robot.write_setup('test.dat')
+    rospack = rospkg.RosPack()
+    ns = rospack.get_path('baxter_pick_and_place')
+    ns = os.path.join(ns, 'setup')
+    if not os.path.exists(ns):
+        os.makedirs(ns)
+    setup_file = os.path.join(ns, 'setup.dat')
+    setup_images = os.path.join(ns, 'images')
+    if not os.path.exists(setup_images):
+        os.makedirs(setup_images)
+    demonstrator.robot.write_setup(setup_file, setup_images)
     # demonstrator.calibrate_camera()
     # demonstrator.demonstrate(args.number)
 

@@ -137,11 +137,12 @@ def _pose_from_location(location, cam_params):
     return 0., 0., 0., 0., 0., 0.
 
 
-def find_calibration_pattern(imgmsg, verbose=False):
+def find_calibration_pattern(imgmsg, imgname, verbose=False):
     """ Find 9x6 chessboard calibration pattern in an image and return point
     correspondences ([mm] to [pixel]) if successful.
     :param imgmsg: a ROS image message
-    :param verbose: show intermediate images or not
+    :param imgname: filename to write the image to if pattern was found
+    :param verbose: show control images or not
     :return: return value, object points, image points
     """
     """ Define calibration pattern """
@@ -159,9 +160,28 @@ def find_calibration_pattern(imgmsg, verbose=False):
     if ret:
         cv2.cornerSubPix(gray, corners, winSize=(5, 5), zeroZone=(-1, -1),
                          criteria=criteria)
+        cv2.imwrite(imgname, img)
         if verbose:
             cv2.drawChessboardCorners(img, pattern_size, corners, ret)
             cv2.imwrite('detected_corners.jpg', img)
         return ret, objp, corners
     print "Did not find calibration pattern."
     return ret, None, None
+
+
+def calibrate_camera(object_points, image_points, image_size, verbose=False):
+    """ Perform camera calibration.
+    :param object_points: list of object points from find_calibration_pattern
+    :param image_points: list of image points from find_calibration_pattern
+    :param image_size: the size of the images
+    :param verbose: show control images or not
+    :return: re-projection error, camera matrix, distortion coefficients,
+    rotation vectors, translation vectors
+    """
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+    re_err, camera_matrix, dist_coeffs, rvecs, tvecs = \
+        cv2.calibrateCamera(object_points, image_points, image_size,
+                            flags=None, criteria=criteria)
+    if verbose:
+        pass
+    return re_err, camera_matrix, dist_coeffs, rvecs, tvecs
