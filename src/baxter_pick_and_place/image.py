@@ -62,9 +62,24 @@ def _imgmsg2img(imgmsg):
     try:
         img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'rgb8')
     except cv_bridge.CvBridgeError:
-        print 'ERROR: Something is wrong with the ROS image message.'
         raise
+    except AttributeError:
+        print 'ERROR-imgmsg2img-Something is wrong with the ROS image message.'
     return np.asarray(img)
+
+
+def resize_imgmsg(imgmsg):
+    """ Resize a ROS image message to fit the screen of the baxter robot.
+    :param imgmsg: a ROS image message of arbitrary image size
+    :return: a ROS image message containing an image with 1024x600 pixels
+    """
+    img = _imgmsg2img(imgmsg)
+    img = cv2.resize(img, (1024, 600))
+    try:
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'rgb8')
+    except cv_bridge.CvBridgeError:
+        raise
+    return imgmsg
 
 
 def _find_object_candidates(image, n_candidates=None):
@@ -144,7 +159,8 @@ def find_calibration_pattern(imgmsg, verbose=False):
     if ret:
         corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
         if verbose:
+            print corners2
             cv2.drawChessboardCorners(img, pattern_size, corners, ret)
-            cv2.imshow('Detected corners', img)
-        return ret, objp, corners2, img
+            cv2.imwrite('detected_corners.jpg', img)
+        return ret, objp, corners2
     return ret, None, None

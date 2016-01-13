@@ -47,7 +47,8 @@ from baxter_interface import CHECK_VERSION
 from baxter_pick_and_place.image import (
     detect_object_candidates,
     select_image_patch,
-    find_calibration_pattern
+    find_calibration_pattern,
+    resize_imgmsg
 )
 
 
@@ -316,8 +317,10 @@ class Robot(object):
         :return: a ROS image message
         """
         s = '/cameras/' + self._arm + '_hand_camera/image'
+        self._imgmsg = None
         cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
-        time.sleep(0.1)
+        while self._imgmsg is None:
+            time.sleep(0.1)
         cam_sub.unregister()
         return self._imgmsg
 
@@ -335,9 +338,9 @@ class Robot(object):
         pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=10,
                               latch=True)
         try:
-            pub.publish(imgmsg)
+            pub.publish(resize_imgmsg(imgmsg))
         except TypeError:
-            print 'ERROR: Something is wrong with the ROS image message.'
+            print 'ERROR-display_image-Something is wrong with the ROS image message.'
 
     def _grasp_object(self):
         """ Close the gripper and validate that it grasped something.
