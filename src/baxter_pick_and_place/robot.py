@@ -24,7 +24,6 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-import string
 import time
 
 import rospy
@@ -159,7 +158,7 @@ class Robot(object):
                                                          self._N_IMGS_CALIB)
 
         """ Perform camera calibration """
-        print "Press 'r' to record a test image."
+        print "\nPress 'r' to record a test image."
         k = None
         while not k == 'r':
             k = getc()
@@ -181,9 +180,11 @@ class Robot(object):
         """ Load the camera calibration data from a file.
         :param setup_file: the file to read the calibration data from
         """
+        data = ['mtx', 'dist']
         setup = dict()
         with np.load(setup_file) as fp:
-            for name in fp.files:
+            # for name in fp.files:
+            for name in data:
                 setup[name] = fp[name]
         self._cam_params = setup
 
