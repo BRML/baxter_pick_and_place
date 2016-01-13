@@ -157,10 +157,11 @@ def find_calibration_pattern(imgmsg, verbose=False):
 
     ret, corners = cv2.findChessboardCorners(gray, pattern_size)
     if ret:
-        corners2 = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        cv2.cornerSubPix(gray, corners, winSize=(5, 5), zeroZone=(-1, -1),
+                         criteria=criteria)
         if verbose:
-            print corners2
             cv2.drawChessboardCorners(img, pattern_size, corners, ret)
             cv2.imwrite('detected_corners.jpg', img)
-        return ret, objp, corners2
+        return ret, objp, corners
+    print "Did not find calibration pattern."
     return ret, None, None
