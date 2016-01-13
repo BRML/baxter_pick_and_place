@@ -43,9 +43,10 @@ class Demonstrator(object):
         self.robot = Robot(limb)
         self._N_TRIES = 2
 
-    def calibrate_camera(self):
+    def calibrate_camera(self, force=False):
         """
         Calibrate the camera if no setup is saved, or load it if one exists.
+        :param force: force full camera calibration even if setup file exists
         """
         print "\nCalibrating camera ..."
         rospack = rospkg.RosPack()
@@ -53,11 +54,14 @@ class Demonstrator(object):
         ns = os.path.join(ns, 'setup')
         if not os.path.exists(ns):
             os.makedirs(ns)
-        setup_file = os.path.join(ns, 'setup.dat')
-        if not os.path.exists(setup_file):
-            print "No stored calibration found."
+        setup_file = os.path.join(ns, 'setup.npz')
+
+        if not os.path.exists(setup_file) or force:
             print "Performing full camera calibration."
-            self.robot.write_setup(setup_file)
+            setup_images = os.path.join(ns, 'images')
+            if not os.path.exists(setup_images):
+                os.makedirs(setup_images)
+            self.robot.write_setup(setup_file, setup_images)
         self.robot.load_setup(setup_file)
 
     def demonstrate(self, n_objects_to_pick):
@@ -106,17 +110,7 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    rospack = rospkg.RosPack()
-    ns = rospack.get_path('baxter_pick_and_place')
-    ns = os.path.join(ns, 'setup')
-    if not os.path.exists(ns):
-        os.makedirs(ns)
-    setup_file = os.path.join(ns, 'setup.dat')
-    setup_images = os.path.join(ns, 'images')
-    if not os.path.exists(setup_images):
-        os.makedirs(setup_images)
-    demonstrator.robot.write_setup(setup_file, setup_images)
-    # demonstrator.calibrate_camera()
+    demonstrator.calibrate_camera(force=True)
     # demonstrator.demonstrate(args.number)
 
     print 'Done.'

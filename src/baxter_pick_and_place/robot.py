@@ -82,7 +82,7 @@ class Robot(object):
             0.0*np.pi  # yaw = rotation
         ]
         self._N_TRIES = 2
-        self._N_IMGS_CALIB = 2
+        self._N_IMGS_CALIB = 15
 
         print "\nGetting robot state ... "
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
@@ -138,6 +138,8 @@ class Robot(object):
                 termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             return ch
 
+        """ Record desired number of calibration images """
+        self._move_to_pose(pose)
         objpoints = list()
         imgpoints = list()
         n_imgs_calib = 0
@@ -147,77 +149,42 @@ class Robot(object):
             if k == 'r':
                 imgmsg = self._record_image()
                 self._display_image(imgmsg)
-                s = setup_images + '/' + self._arm + str(n_imgs_calib) + '.jpg'
-                ret, op, ip = find_calibration_pattern(imgmsg, s, verbose=False)
+                s = setup_images + '/' + self._arm + str(n_imgs_calib)
+                ret, op, ip = find_calibration_pattern(imgmsg, s, verbose=True)
                 if ret:
                     objpoints.append(op)
                     imgpoints.append(ip)
                     n_imgs_calib += 1
                     print "Recorded %i of %i images." % (n_imgs_calib,
                                                          self._N_IMGS_CALIB)
+
+        """ Perform camera calibration """
+        print "Press 'r' to record a test image."
+        k = None
+        while not k == 'r':
+            k = getc()
+        imgmsg = self._record_image()
+        s = setup_images + '/' + self._arm + '_cal_result.jpg'
         re_err, camera_matrix, dist_coeffs, rvecs, tvecs = \
-            calibrate_camera(objpoints, imgpoints, self._camera.resolution)
+            calibrate_camera(objpoints, imgpoints, test_imgmsg=imgmsg,
+                             test_imgname=s)
         print "Camera calibrated with %i images; re-projection error %.2f" \
             % (self._N_IMGS_CALIB, re_err)
-        # store parameters
 
-        # setup = dict()
-        # for limb in self._limbs:
-        #     setup[limb] = dict()
-        #     # setup pose
-        #     setup[limb]['pose'] = pose
-        #     # distance camera--table
-        #     # TODO: make more robust
-        #     self._move_to_pose(limb, pose)
-        #     d = baxter_interface.analog_io.AnalogIO(limb + '_hand_range').state()
-        #     setup[limb]['distance'] = float(d/1000.0)
-        #     # camera resolution
-        #     setup[limb]['width'], setup[limb]['height'] = \
-        #         self._cameras[limb].resolution
-        #     # The following values are taken from
-        #     # http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
-        #     # meters per pixel at 1 m
-        #     setup[limb]['mpp'] = 0.0025
-        #     # camera offset in x
-        #     setup[limb]['ox'] = 0.01
-        #     # camera offset in y
-        #     setup[limb]['oy'] = -0.02
-        #     self._limbs[limb].move_to_neutral()
-
-        # with open(setup_file, 'w') as fp:
-        #     for limb in setup:
-        #         fp.write('%s\n' % limb)
-        #         for param in setup[limb]:
-        #             if param == 'pose':
-        #                 fp.write('%s ' % param)
-        #                 for p in setup[limb][param]:
-        #                     fp.write('%s ' % p)
-        #                 fp.write('\n')
-        #             else:
-        #                 fp.write('%s %s\n' % (param, str(setup[limb][param])))
+        """ Store setup parameters """
+        np.savez(setup_file,
+                 reerr=re_err,
+                 mtx=camera_matrix, dist=dist_coeffs,
+                 rvecs=rvecs, tvecs=tvecs)
 
     def load_setup(self, setup_file):
         """ Load the camera calibration data from a file.
         :param setup_file: the file to read the calibration data from
         """
         setup = dict()
-        # with open(setup_file, 'r') as fp:
-        #     for line in fp:
-        #         s = string.split(line)
-        #         if len(s) == 1:
-        #             limb = s[0]
-        #             setup[limb] = dict()
-        #         elif len(s) == 2:
-        #             if (s[0] == 'distance' or
-        #                     s[0] == 'mpp' or
-        #                     s[0] == 'ox' or
-        #                     s[0] == 'oy'):
-        #                 value = float(s[1])
-        #             else:
-        #                 value = int(s[1])
-        #             setup[limb][s[0]] = value
-        #         else:
-        #             setup[limb][s[0]] = [float(i) for i in s[1:]]
+        with np.load(setup_file) as fp:
+            for name in fp.files:
+                setup[name] = fp[name]
         self._cam_params = setup
 
     def pick_and_place_object(self):

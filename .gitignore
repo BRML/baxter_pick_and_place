@@ -1,5 +1,5 @@
 /setup/images
-setup.dat
+/setup/setup.npz
 *~
 
 # Byte-compiled / optimized / DLL files
