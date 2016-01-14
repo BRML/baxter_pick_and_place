@@ -82,6 +82,23 @@ def resize_imgmsg(imgmsg):
     return imgmsg
 
 
+def pose_estimation(imgmsg, obj_id):
+    img = _imgmsg2img(imgmsg)
+    table = _segment_table(img)
+    candidates = _find_object_candidates(table)
+    for candidate in candidates:
+        # check if it is the object we are looking for
+        if True:
+            # find point correspondences  # TODO: how????
+            # rvecs, tvecs, inliers = cv2.solvePnPRansac(object_points, image_points, cam_params['mtx'], cam_params['dist'])
+            # compensate for camera offset
+            # compensate for finger offset
+            # compensate current pose when recording the image
+            # move to pose
+            # grasp object
+            pass
+
+
 def _find_object_candidates(image, n_candidates=None):
     """ Detect object candidates in an image and return their pixel
     coordinates.
@@ -127,13 +144,19 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
     return img[y:y + h, x:x + w]
 
 
-def _pose_from_location(location, cam_params):
-    """ Compute robot coordinates (relative to wrist pose) from pixel
-    coordinates.
-    :param location: a pixel coordinate
+def _pose_from_location(object_points, image_points, cam_params):
+    """ Compute robot coordinates (relative to camera pose) from point
+    correspondences ([mm] to [pixel] using RANSAC.
+    :param object_points: list of object points from find_calibration_pattern
+    :param image_points: list of image points from find_calibration_pattern
     :param cam_params: camera parameters
     :return: a relative object pose (6-tuple)
     """
+
+    # See http://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_calib3d/py_pose/py_pose.html#pose-estimation
+    rvecs, tvecs, inliers = cv2.solvePnPRansac(object_points, image_points, cam_params['mtx'], cam_params['dist'])
+    print tvecs, rvecs
+    print inliers
     return 0., 0., 0., 0., 0., 0.
 
 
