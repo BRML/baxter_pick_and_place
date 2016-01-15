@@ -45,8 +45,6 @@ from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
     resize_imgmsg,
-    find_calibration_pattern,
-    calibrate_camera,
     detect_object_candidates,
     select_image_patch,
 )
@@ -71,7 +69,8 @@ class Robot(object):
             pass
         self._camera = baxter_interface.CameraController(self._arm + '_hand_camera')
         self._imgmsg = None
-        self._cam_params = None
+        self._dist = None
+        self._N_CALIB = 10
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -81,7 +80,6 @@ class Robot(object):
             0.0*np.pi  # yaw = rotation
         ]
         self._N_TRIES = 2
-        self._N_IMGS_CALIB = 15
 
         print "\nGetting robot state ... "
         self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
@@ -105,10 +103,9 @@ class Robot(object):
             self._rs.disable()
         return True
 
-    def write_setup(self, setup_file, setup_images):
-        """ Perform the camera calibration of the robot's hand camera.
-        :param setup_file: the file to write the calibration into.
-        :param setup_images: location to write the calibration images into
+    def perform_setup(self):
+        """ Perform the robot limb calibration, i.e., measure the distance from
+        the distance sensor to the table.
         """
         pose = [
             0.60,
@@ -118,75 +115,7 @@ class Robot(object):
             0.0*np.pi,
             0.0*np.pi
         ]
-
-        def getc():
-            """ Gets a single character from standard input. Does not echo to
-            the screen.
-            See http://code.activestate.com/recipes/134892/.
-            :return: a single character
-            """
-            import sys
-            import tty
-            import termios
-            fd = sys.stdin.fileno()
-            old_settings = termios.tcgetattr(fd)
-            try:
-                tty.setraw(sys.stdin.fileno())
-                ch = sys.stdin.read(1)
-            finally:
-                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-            return ch
-
-        """ Record desired number of calibration images """
-        self._move_to_pose(pose)
-        objpoints = list()
-        imgpoints = list()
-        n_imgs_calib = 0
-        while n_imgs_calib < self._N_IMGS_CALIB:
-            print "Press 'r' to record an image."
-            k = getc()
-            if k == 'r':
-                imgmsg = self._record_image()
-                self._display_image(imgmsg)
-                s = setup_images + '/' + self._arm + str(n_imgs_calib)
-                ret, op, ip = find_calibration_pattern(imgmsg, s, verbose=True)
-                if ret:
-                    objpoints.append(op)
-                    imgpoints.append(ip)
-                    n_imgs_calib += 1
-                    print "Recorded %i of %i images." % (n_imgs_calib,
-                                                         self._N_IMGS_CALIB)
-
-        """ Perform camera calibration """
-        print "\nPress 'r' to record a test image."
-        k = None
-        while not k == 'r':
-            k = getc()
-        imgmsg = self._record_image()
-        s = setup_images + '/' + self._arm + '_cal_result.jpg'
-        re_err, camera_matrix, dist_coeffs, rvecs, tvecs = \
-            calibrate_camera(objpoints, imgpoints, test_imgmsg=imgmsg,
-                             test_imgname=s)
-        print "Camera calibrated with %i images; re-projection error %.2f" \
-            % (self._N_IMGS_CALIB, re_err)
-
-        """ Store setup parameters """
-        np.savez(setup_file,
-                 reerr=re_err,
-                 mtx=camera_matrix, dist=dist_coeffs,
-                 rvecs=rvecs, tvecs=tvecs)
-
-    def load_setup(self, setup_file):
-        """ Load the camera calibration data from a file.
-        :param setup_file: the file to read the calibration data from
-        """
-        data = ['mtx', 'dist']
-        setup = dict()
-        with np.load(setup_file) as fp:
-            # for name in fp.files:
-            for name in data:
-                setup[name] = fp[name]
-        self._cam_params = setup
+        pass
 
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution

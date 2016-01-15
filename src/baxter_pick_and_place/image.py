@@ -145,73 +145,11 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
 
 
 def _pose_from_location(object_points, image_points, cam_params):
-    """ Compute robot coordinates (relative to camera pose) from point
-    correspondences ([mm] to [pixel] using RANSAC.
+    """ Compute robot base coordinates from image coordinates.
     :param object_points: list of object points from find_calibration_pattern
     :param image_points: list of image points from find_calibration_pattern
     :param cam_params: camera parameters
     :return: a relative object pose (6-tuple)
     """
 
-    # See http://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_calib3d/py_pose/py_pose.html#pose-estimation
-    rvecs, tvecs, inliers = cv2.solvePnPRansac(object_points, image_points, cam_params['mtx'], cam_params['dist'])
-    print tvecs, rvecs
-    print inliers
     return 0., 0., 0., 0., 0., 0.
-
-
-def find_calibration_pattern(imgmsg, imgname, verbose=False):
-    """ Find 9x6 chessboard calibration pattern in an image and return point
-    correspondences ([mm] to [pixel]) if successful.
-    :param imgmsg: a ROS image message
-    :param imgname: filename to write the image to if pattern was found,
-    without the extension
-    :param verbose: show control images or not
-    :return: return value, object points, image points
-    """
-    """ Define calibration pattern """
-    pattern_size = (9, 6)
-    objp = np.zeros((np.prod(pattern_size), 3), np.float32)
-    objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-    objp *= 0.02517  # m
-    """ Define sub-pixel criteria """
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-    img = _imgmsg2img(imgmsg)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    ret, corners = cv2.findChessboardCorners(gray, pattern_size)
-    if ret:
-        cv2.cornerSubPix(gray, corners, winSize=(5, 5), zeroZone=(-1, -1),
-                         criteria=criteria)
-        cv2.imwrite(imgname + '.jpg', img)
-        if verbose:
-            cv2.drawChessboardCorners(img, pattern_size, corners, ret)
-            cv2.imwrite(imgname + 'dcc.jpg', img)
-        return ret, objp, corners
-    print "Did not find calibration pattern."
-    return ret, None, None
-
-
-def calibrate_camera(object_points, image_points, test_imgmsg, test_imgname):
-    """ Perform camera calibration.
-    :param object_points: list of object points from find_calibration_pattern
-    :param image_points: list of image points from find_calibration_pattern
-    :param test_imgmsg: ROS image message to test the calibration on
-    :param test_imgname: filename to write the test image to
-    :return: re-projection error, camera matrix, distortion coefficients,
-    rotation vectors, translation vectors
-    """
-    test_image = _imgmsg2img(test_imgmsg)
-    h, w = test_image.shape[:2]
-    re_err, camera_matrix, dist_coeffs, rvecs, tvecs = \
-        cv2.calibrateCamera(object_points, image_points, (w, h))
-    new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix,
-                                                           dist_coeffs,
-                                                           (w, h), 1, (w, h))
-    undst = cv2.undistort(test_image, camera_matrix, dist_coeffs,
-                          newCameraMatrix=new_camera_matrix)
-    x, y, w, h = roi
-    undst = undst[y:y + h, x:x + w]
-    cv2.imwrite(test_imgname, undst)
-    return re_err, camera_matrix, dist_coeffs, rvecs, tvecs

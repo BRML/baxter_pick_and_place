@@ -26,10 +26,8 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import os
 
 import rospy
-import rospkg
 
 from baxter_pick_and_place.robot import Robot
 
@@ -42,27 +40,6 @@ class Demonstrator(object):
         """
         self.robot = Robot(limb)
         self._N_TRIES = 2
-
-    def calibrate_camera(self, force=False):
-        """
-        Calibrate the camera if no setup is saved, or load it if one exists.
-        :param force: force full camera calibration even if setup file exists
-        """
-        print "\nCalibrating camera ..."
-        rospack = rospkg.RosPack()
-        ns = rospack.get_path('baxter_pick_and_place')
-        ns = os.path.join(ns, 'setup')
-        if not os.path.exists(ns):
-            os.makedirs(ns)
-        setup_file = os.path.join(ns, 'setup.npz')
-
-        if not os.path.exists(setup_file) or force:
-            print "Performing full camera calibration."
-            setup_images = os.path.join(ns, 'images')
-            if not os.path.exists(setup_images):
-                os.makedirs(setup_images)
-            self.robot.write_setup(setup_file, setup_images)
-        self.robot.load_setup(setup_file)
 
     def demonstrate(self, n_objects_to_pick):
         """ Pick up a given number of objects and place them in a pre-defined
@@ -104,9 +81,6 @@ def main():
     parser.add_argument('-n', '--number', dest='number',
                         required=False, type=int, default=0,
                         help='The number of objects to pick up.')
-    parser.add_argument('-f', '--force', required=False,
-                        type=bool, default=False,
-                        help='Force camera calibration even if setup file exists.')
     args = parser.parse_args(rospy.myargv()[1:])
 
     print 'Initializing node ...'
@@ -114,7 +88,6 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    demonstrator.calibrate_camera(force=args.force)
     # demonstrator.demonstrate(args.number)
 
     print 'Done.'
