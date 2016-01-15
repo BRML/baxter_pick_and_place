@@ -71,6 +71,7 @@ class Robot(object):
         self._imgmsg = None
         self._dist = None
         self._N_CALIB = 10
+        self._perform_setup()
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -103,19 +104,33 @@ class Robot(object):
             self._rs.disable()
         return True
 
-    def perform_setup(self):
+    def _perform_setup(self):
         """ Perform the robot limb calibration, i.e., measure the distance from
         the distance sensor to the table.
+
+        Note: Obviously this cannot replace a full camera calibration and
+        proper pose estimation, but for the purpose of this demonstration the
+        implemented solution adapted from
+          http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
+        is sufficient.
         """
-        pose = [
-            0.60,
-            0.20,
-            0.15,
-            -1.0*np.pi,
-            0.0*np.pi,
-            0.0*np.pi
-        ]
-        pass
+        pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
+        dist = list()
+        sensor = baxter_interface.analog_io.AnalogIO(self._arm + '_hand_range')
+        print '\nPerforming setup ...'
+        while len(dist) < self._N_CALIB:
+            p = self._perturbe_pose(pose)
+            if self._move_to_pose(p):
+                d = sensor.state()
+                if d < 65000:
+                    dist.append(d/1000.0 - p[2])
+                    print ' recorded %i/%i measurements (d=%.3fm)' % (len(dist),
+                                                                      self._N_CALIB,
+                                                                      dist[-1])
+                else:
+                    print ' ERROR: no valid distance found'
+        self._dist = np.mean(dist)
+        print 'Will be working with average distance d=%.3fm.' % self._dist
 
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
@@ -195,7 +210,7 @@ class Robot(object):
         """ Add a small perturbation to the Cartesian pose of the robot.
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
-        :return: boolean flag on completion
+        :return: perturbed pose
         """
         perturbation = [
             np.random.random()*0.02,
@@ -206,10 +221,7 @@ class Robot(object):
             np.random.random()*2.0/180.0
         ]
         p = [a + b for a, b in zip(pose, perturbation)]
-        print pose
-        print perturbation
-        print p
-        return self._move_to_pose(p)
+        return p
 
     # def _endpoint_pose(self, limb):
     #     qp = self._limbs[limb].endpoint_pose()

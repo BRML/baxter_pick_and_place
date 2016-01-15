@@ -88,9 +88,10 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
+    demonstrator.robot.perform_setup()
     # demonstrator.demonstrate(args.number)
 
-    print 'Done.'
+    print '\nDone.'
 
 if __name__ == '__main__':
     main()
