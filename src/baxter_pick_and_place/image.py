@@ -173,7 +173,7 @@ def find_calibration_pattern(imgmsg, imgname, verbose=False):
     pattern_size = (9, 6)
     objp = np.zeros((np.prod(pattern_size), 3), np.float32)
     objp[:, :2] = np.mgrid[0:pattern_size[0], 0:pattern_size[1]].T.reshape(-1, 2)
-    objp *= 25.17  # mm
+    objp *= 0.02517  # m
     """ Define sub-pixel criteria """
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 

@@ -96,13 +96,17 @@ def main():
     Picks up objects that have been pointed out by a human operator by means
     of an eye tracker and places them in a pre-defined location.
     """
-    parser = argparse.ArgumentParser(description='Pick and place demonstration with the baxter research robot.')
+    parser = argparse.ArgumentParser(
+        description='Pick and place demonstration with the baxter research robot.')
     parser.add_argument('-l', '--limb', dest='limb', required=False,
                         choices=['left', 'right'], default='left',
                         help='The limb to pick objects up with.')
     parser.add_argument('-n', '--number', dest='number',
                         required=False, type=int, default=0,
                         help='The number of objects to pick up.')
+    parser.add_argument('-f', '--force', required=False,
+                        type=bool, default=False,
+                        help='Force camera calibration even if setup file exists.')
     args = parser.parse_args(rospy.myargv()[1:])
 
     print 'Initializing node ...'
@@ -110,7 +114,7 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    demonstrator.calibrate_camera(force=True)
+    demonstrator.calibrate_camera(force=args.force)
     # demonstrator.demonstrate(args.number)
 
     print 'Done.'
