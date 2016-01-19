@@ -71,7 +71,6 @@ class Robot(object):
         self._imgmsg = None
         self._dist = None
         self._N_CALIB = 10
-        self._perform_setup()
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -92,6 +91,9 @@ class Robot(object):
         self._limb.move_to_neutral()
         self._gripper.calibrate()
         self._camera.resolution = (1280, 800)
+        self._camera.fps = 14.0
+
+        self._perform_setup()
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
