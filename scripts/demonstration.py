@@ -88,8 +88,12 @@ def main():
 
     demonstrator = Demonstrator(args.limb)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    demonstrator.robot.perform_setup()
-    # demonstrator.demonstrate(args.number)
+    ret = demonstrator.demonstrate(args.number)
+    if ret:
+        print "\nPerformed demonstration successfully."
+    else:
+        print "\nFailed demonstration."
+    rospy.signal_shutdown('Done with demonstration.')
 
     print '\nDone.'
 

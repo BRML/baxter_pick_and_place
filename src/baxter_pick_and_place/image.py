@@ -60,7 +60,7 @@ def _imgmsg2img(imgmsg):
     :return: a numpy array containing an RGB image
     """
     try:
-        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'rgb8')
+        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
     except cv_bridge.CvBridgeError:
         raise
     except AttributeError:
@@ -76,7 +76,7 @@ def resize_imgmsg(imgmsg):
     img = _imgmsg2img(imgmsg)
     img = cv2.resize(img, (1024, 600))
     try:
-        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'rgb8')
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
     except cv_bridge.CvBridgeError:
         raise
     return imgmsg

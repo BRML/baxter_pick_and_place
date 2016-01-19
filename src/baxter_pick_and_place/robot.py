@@ -44,9 +44,7 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
-    resize_imgmsg,
-    detect_object_candidates,
-    select_image_patch,
+    resize_imgmsg
 )
 
 
@@ -94,6 +92,7 @@ class Robot(object):
         self._camera.fps = 14.0
 
         self._perform_setup()
+        self._detect_bin()
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -134,6 +133,16 @@ class Robot(object):
         self._dist = np.mean(dist)
         print 'Will be working with average distance d=%.3fm.' % self._dist
 
+    def _detect_bin(self):
+        """ Detect the bin to put the objects into.
+        :return: Pose above the bin.
+        """
+        print '\nLooking for bin to put objects into ...'
+        self._move_to_pose(self._top_pose)
+        # record top-down-view image
+        imgmsg = self._record_image()
+        self._display_image(imgmsg)
+
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
         command.
@@ -170,17 +179,17 @@ class Robot(object):
         # record top-down-view image
         imgmsg = self._record_image()
         self._display_image(imgmsg)
-        candidates = detect_object_candidates(imgmsg, self._cam_params)
-        probabilities = list()
-        for candidate in candidates:
-            # TODO: add offset to candidate pose
-            self._move_to_pose(candidate)
-            imgmsg = self._record_image()
-            img = select_image_patch(imgmsg, (200, 200))
-            # probabilities.append(call_service(img))
-        # idx = make_decision(probabilities)
-        idx = 0
-        self._move_to_pose(candidates[idx])
+        # candidates = detect_object_candidates(imgmsg, self._cam_params)
+        # probabilities = list()
+        # for candidate in candidates:
+        #     # TODO: add offset to candidate pose
+        #     self._move_to_pose(candidate)
+        #     imgmsg = self._record_image()
+        #     img = select_image_patch(imgmsg, (200, 200))
+        #     # probabilities.append(call_service(img))
+        # # idx = make_decision(probabilities)
+        # idx = 0
+        # self._move_to_pose(candidates[idx])
         if self._grasp_object():
             print '   grasped object'
             # move limb to target location
@@ -208,7 +217,8 @@ class Robot(object):
             self._limb.move_to_joint_positions(cmd)
         return True
 
-    def _perturbe_pose(self, pose):
+    @staticmethod
+    def _perturbe_pose(pose):
         """ Add a small perturbation to the Cartesian pose of the robot.
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
