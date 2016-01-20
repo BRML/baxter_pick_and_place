@@ -35,11 +35,7 @@ def resize_imgmsg(imgmsg):
     """
     img = _imgmsg2img(imgmsg)
     img = cv2.resize(img, (1024, 600))
-    try:
-        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
-    except cv_bridge.CvBridgeError:
-        raise
-    return imgmsg
+    return _img2imgmsg(img)
 
 
 def white_imgmsg():
@@ -50,11 +46,7 @@ def white_imgmsg():
     img = np.ones((600, 1024, 1), dtype=np.uint8)
     img *= 255
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    try:
-        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
-    except cv_bridge.CvBridgeError:
-        raise
-    return imgmsg
+    return _img2imgmsg(img)
 
 
 def black_imgmsg():
@@ -64,6 +56,14 @@ def black_imgmsg():
     """
     img = np.zeros((600, 1024, 1), dtype=np.uint8)
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    return _img2imgmsg(img)
+
+
+def _img2imgmsg(img):
+    """ Convert a numpy array holding an image to a ROS image message.
+    :param img: a numpy array
+    :return: a ROS image message
+    """
     try:
         imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
     except cv_bridge.CvBridgeError:
