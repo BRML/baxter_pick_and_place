@@ -28,6 +28,11 @@ import cv2
 import numpy as np
 
 
+""" ===========================================================================
+    Image and ROS image message handling
+=========================================================================== """
+
+
 def resize_imgmsg(imgmsg):
     """ Resize a ROS image message to fit the screen of the baxter robot.
     :param imgmsg: a ROS image message of arbitrary image size
@@ -84,6 +89,11 @@ def _imgmsg2img(imgmsg):
         print 'ERROR-imgmsg2img-Something is wrong with the ROS image message.'
         raise
     return img
+
+
+""" ===========================================================================
+    Object detection and pose estimation
+=========================================================================== """
 
 
 def detect_object_candidates(imgmsg, cam_params):
@@ -153,6 +163,11 @@ def _pose_from_location(object_points, image_points, cam_params):
     return 0., 0., 0., 0., 0., 0.
 
 
+""" ===========================================================================
+    Machine vision
+=========================================================================== """
+
+
 def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
                    upper_hsv=np.array([48, 41, 250]), verbose=False):
     """ Segment table in input image based on color information.
@@ -173,7 +188,8 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
         cv2.imshow('Table', table)
         cv2.waitKey(3)
         kernel = np.ones((5, 5), np.uint8)
-        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=10)
+        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel,
+                                   iterations=10)
         cv2.imshow('Closing', closing)
         cv2.waitKey(3)
         table2 = cv2.bitwise_and(img, img, mask=closing)
@@ -185,7 +201,8 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
         x, y, w, h = cv2.boundingRect(points)
         if verbose:
             image = img.copy()
-            cv2.rectangle(image, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
+            cv2.rectangle(image, (x, y), (x + w, y + h),
+                          np.array([0, 255, 0]), 2)
             cv2.imshow('Rectangle', image)
             cv2.waitKey(3)
             roi = image[y:y + h, x:x + w]
