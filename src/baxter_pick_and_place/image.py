@@ -1,4 +1,4 @@
-# Copyright (c) 2015, BRML
+# Copyright (c) 2015, 2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,64 @@ import cv2
 import numpy as np
 
 
+def resize_imgmsg(imgmsg):
+    """ Resize a ROS image message to fit the screen of the baxter robot.
+    :param imgmsg: a ROS image message of arbitrary image size
+    :return: a ROS image message containing an image with 1024x600 pixels
+    """
+    img = _imgmsg2img(imgmsg)
+    img = cv2.resize(img, (1024, 600))
+    try:
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
+    except cv_bridge.CvBridgeError:
+        raise
+    return imgmsg
+
+
+def white_imgmsg():
+    """ A white image of size 1024x600 pixels fitting the screen of the baxter
+    robot.
+    :return: a ROS image message.
+    """
+    img = np.ones((600, 1024, 1), dtype=np.uint8)
+    img *= 255
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    try:
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
+    except cv_bridge.CvBridgeError:
+        raise
+    return imgmsg
+
+
+def black_imgmsg():
+    """ A black image of size 1024x600 pixels fitting the screen of the baxter
+    robot.
+    :return: a ROS image message.
+    """
+    img = np.zeros((600, 1024, 1), dtype=np.uint8)
+    img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    try:
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
+    except cv_bridge.CvBridgeError:
+        raise
+    return imgmsg
+
+
+def _imgmsg2img(imgmsg):
+    """ Convert a ROS image message to a numpy array holding the image.
+    :param imgmsg: a ROS image message
+    :return: a numpy array containing an RGB image
+    """
+    try:
+        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
+    except cv_bridge.CvBridgeError:
+        raise
+    except AttributeError:
+        print 'ERROR-imgmsg2img-Something is wrong with the ROS image message.'
+        raise
+    return img
+
+
 def detect_object_candidates(imgmsg, cam_params):
     """ Detect object candidates and return their poses in robot coordinates.
     :param imgmsg: a ROS image message
@@ -54,37 +112,9 @@ def select_image_patch(imgmsg, patch_size=(200, 200)):
     return None  # image[mask]
 
 
-def _imgmsg2img(imgmsg):
-    """ Convert a ROS image message to a numpy array holding the image.
-    :param imgmsg: a ROS image message
-    :return: a numpy array containing an RGB image
-    """
-    try:
-        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
-    except cv_bridge.CvBridgeError:
-        raise
-    except AttributeError:
-        print 'ERROR-imgmsg2img-Something is wrong with the ROS image message.'
-    return np.asarray(img)
-
-
-def resize_imgmsg(imgmsg):
-    """ Resize a ROS image message to fit the screen of the baxter robot.
-    :param imgmsg: a ROS image message of arbitrary image size
-    :return: a ROS image message containing an image with 1024x600 pixels
-    """
-    img = _imgmsg2img(imgmsg)
-    img = cv2.resize(img, (1024, 600))
-    try:
-        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
-    except cv_bridge.CvBridgeError:
-        raise
-    return imgmsg
-
-
 def pose_estimation(imgmsg, obj_id):
     img = _imgmsg2img(imgmsg)
-    table = _segment_table(img)
+    table = _segment_table(img, verbose=True)
     candidates = _find_object_candidates(table)
     for candidate in candidates:
         # check if it is the object we are looking for
@@ -112,38 +142,6 @@ def _find_object_candidates(image, n_candidates=None):
     return locations
 
 
-def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
-                   upper_hsv=np.array([48, 41, 250]), verbose=False):
-    """ Segment table in input image based on color information.
-    :param img: the image to work on
-    :param lower_hsv: lower bound of HSV values to segment
-    :param upper_hsv: upper bound of HSV values to segment
-    :param verbose: show intermediate images or not
-    :return: image cropped to ROI (table)
-    """
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-    if verbose:
-        cv2.imshow('Mask', mask)
-        table = cv2.bitwise_and(img, img, mask=mask)
-        cv2.imshow('Table', table)
-        kernel = np.ones((5, 5), np.uint8)
-        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=10)
-        cv2.imshow('Closing', closing)
-        table2 = cv2.bitwise_and(img, img, mask=closing)
-        cv2.imshow('Table 2', table2)
-
-    points = cv2.findNonZero(mask)
-    x, y, w, h = cv2.boundingRect(points)
-    if verbose:
-        image = img.copy()
-        cv2.rectangle(image, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
-        cv2.imshow('Rectangle', image)
-        roi = image[y:y + h, x:x + w]
-        cv2.imshow('ROI', roi)
-    return img[y:y + h, x:x + w]
-
-
 def _pose_from_location(object_points, image_points, cam_params):
     """ Compute robot base coordinates from image coordinates.
     :param object_points: list of object points from find_calibration_pattern
@@ -153,3 +151,46 @@ def _pose_from_location(object_points, image_points, cam_params):
     """
 
     return 0., 0., 0., 0., 0., 0.
+
+
+def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
+                   upper_hsv=np.array([48, 41, 250]), verbose=False):
+    """ Segment table in input image based on color information.
+    :param img: the image to work on
+    :param lower_hsv: lower bound of HSV values to segment
+    :param upper_hsv: upper bound of HSV values to segment
+    :param verbose: show intermediate images or not
+    :return: image cropped to ROI (table)
+    """
+    cv2.imshow('Image', img)
+    cv2.waitKey(3)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
+    if verbose:
+        cv2.imshow('Mask', mask)
+        cv2.waitKey(3)
+        table = cv2.bitwise_and(img, img, mask=mask)
+        cv2.imshow('Table', table)
+        cv2.waitKey(3)
+        kernel = np.ones((5, 5), np.uint8)
+        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=10)
+        cv2.imshow('Closing', closing)
+        cv2.waitKey(3)
+        table2 = cv2.bitwise_and(img, img, mask=closing)
+        cv2.imshow('Table 2', table2)
+        cv2.waitKey(3)
+
+    points = cv2.findNonZero(mask)
+    try:
+        x, y, w, h = cv2.boundingRect(points)
+        if verbose:
+            image = img.copy()
+            cv2.rectangle(image, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
+            cv2.imshow('Rectangle', image)
+            cv2.waitKey(3)
+            roi = image[y:y + h, x:x + w]
+            cv2.imshow('ROI', roi)
+            cv2.waitKey(3)
+    except:
+        raise
+    return img[y:y + h, x:x + w]

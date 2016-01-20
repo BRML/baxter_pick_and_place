@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2015, BRML
+# Copyright (c) 2015, 2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -90,12 +90,12 @@ def main():
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
     ret = demonstrator.demonstrate(args.number)
     if ret:
-        print "\nPerformed demonstration successfully."
+        print "\nSuccessfully performed demonstration."
     else:
         print "\nFailed demonstration."
-    rospy.signal_shutdown('Done with demonstration.')
 
-    print '\nDone.'
+    print "\nDone with experiment. Press 'Ctrl-C' to exit."
+    rospy.spin()
 
 if __name__ == '__main__':
     main()

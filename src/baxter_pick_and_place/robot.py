@@ -1,4 +1,4 @@
-# Copyright (c) 2015, BRML
+# Copyright (c) 2015, 2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -44,7 +44,9 @@ import baxter_interface
 from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
-    resize_imgmsg
+    resize_imgmsg,
+    white_imgmsg,
+    pose_estimation
 )
 
 
@@ -67,8 +69,11 @@ class Robot(object):
             pass
         self._camera = baxter_interface.CameraController(self._arm + '_hand_camera')
         self._imgmsg = None
-        self._dist = None
-        self._N_CALIB = 10
+        self._cam_pars = None
+
+        self._display_pub = rospy.Publisher('/robot/xdisplay', Image,
+                                            queue_size=10, latch=True)
+
         self._top_pose = [
             0.50,  # x = front back
             0.00,  # y = left right
@@ -85,6 +90,7 @@ class Robot(object):
         print "Enabling robot... "
         self._rs.enable()
 
+        self._display_image(white_imgmsg())
         self._limb.set_joint_position_speed(0.5)
         self._limb.move_to_neutral()
         self._gripper.calibrate()
@@ -99,6 +105,7 @@ class Robot(object):
         :return: True on completion
         """
         print "\nExiting demonstrator ..."
+        self._display_image(white_imgmsg())
         self._limb.move_to_neutral()
         if not self._init_state:
             print "Disabling robot..."
@@ -116,22 +123,25 @@ class Robot(object):
         is sufficient.
         """
         pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
+        n_calibrations = 10
+        self._cam_pars = dict()
+
         dist = list()
         sensor = baxter_interface.analog_io.AnalogIO(self._arm + '_hand_range')
         print '\nPerforming setup ...'
-        while len(dist) < self._N_CALIB:
+        while len(dist) < n_calibrations:
             p = self._perturbe_pose(pose)
             if self._move_to_pose(p):
                 d = sensor.state()
                 if d < 65000:
                     dist.append(d/1000.0 - p[2])
-                    print ' recorded %i/%i measurements (d=%.3fm)' % (len(dist),
-                                                                      self._N_CALIB,
-                                                                      dist[-1])
+                    print ' recorded %i/%i measurements (d=%.3fm)' % \
+                          (len(dist), n_calibrations, dist[-1])
                 else:
                     print ' ERROR: no valid distance found'
-        self._dist = np.mean(dist)
-        print 'Will be working with average distance d=%.3fm.' % self._dist
+        self._cam_pars['dist'] = np.mean(dist)
+        print 'Will be working with average distance d=%.3fm.' % \
+              self._cam_pars['dist']
 
     def _detect_bin(self):
         """ Detect the bin to put the objects into.
@@ -142,6 +152,7 @@ class Robot(object):
         # record top-down-view image
         imgmsg = self._record_image()
         self._display_image(imgmsg)
+        pose_estimation(imgmsg, 0)
 
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
@@ -202,6 +213,45 @@ class Robot(object):
         self._release_object()
         return False
 
+    def _record_image(self):
+        """ Record an image from one of the robots' hand cameras.
+        :return: a ROS image message
+        """
+        s = '/cameras/' + self._arm + '_hand_camera/image'
+        self._imgmsg = None
+        cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
+        while self._imgmsg is None:
+            time.sleep(0.1)
+        cam_sub.unregister()
+        return self._imgmsg
+
+    def _camera_callback(self, data):
+        """
+        Callback routine for the camera subscriber.
+        """
+        self._imgmsg = data
+
+    def _display_image(self, imgmsg):
+        """ Display an image on the screen of the robot.
+        :param imgmsg: a ROS image message
+        """
+        try:
+            self._display_pub.publish(resize_imgmsg(imgmsg))
+        except TypeError:
+            print 'ERROR-display_image-Something is wrong with the ROS image message.'
+
+    def _grasp_object(self):
+        """ Close the gripper and validate that it grasped something.
+        :return: bool describing if the position move has been preempted by a
+        position command exceeding the moving_force threshold denoting a grasp
+        """
+        self._gripper.close(block=True)
+        return self._gripper.gripping()
+
+    def _release_object(self):
+        """ Open the gripper. """
+        self._gripper.open(block=True)
+
     def _move_to_pose(self, pose):
         """ Move robot limb to Cartesian pose.
         :type pose: [float, float, float, float, float, float]
@@ -216,6 +266,17 @@ class Robot(object):
         else:
             self._limb.move_to_joint_positions(cmd)
         return True
+
+    def _approach_pose(self, pose):
+        """ Move robot limb to Cartesian pose, except for an offset in
+        z-direction.
+        :type pose: [float, float, float, float, float, float]
+        :param pose: desired Cartesian pose to approach
+        :return: boolean flag on completion
+        """
+        offset = [0.0, 0.0, 5.0, 0.0, 0.0, 0.0]
+        p = [a + b for a, b in zip(pose, offset)]
+        return self._move_to_pose(p)
 
     @staticmethod
     def _perturbe_pose(pose):
@@ -240,49 +301,6 @@ class Robot(object):
     #     r = transformations.euler_from_quaternion(qp['orientation'])
     #     return [qp['position'][0], qp['position'][1], qp['position'][2],
     #             r[0], r[1], r[2]]
-
-    def _record_image(self):
-        """ Record an image from one of the robots hand cameras.
-        :return: a ROS image message
-        """
-        s = '/cameras/' + self._arm + '_hand_camera/image'
-        self._imgmsg = None
-        cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
-        while self._imgmsg is None:
-            time.sleep(0.1)
-        cam_sub.unregister()
-        return self._imgmsg
-
-    def _camera_callback(self, data):
-        """
-        Callback routine for the camera subscriber.
-        """
-        self._imgmsg = data
-
-    @staticmethod
-    def _display_image(imgmsg):
-        """ Display an image on the screen of the robot.
-        :param imgmsg: a ROS image message
-        """
-        pub = rospy.Publisher('/robot/xdisplay', Image, queue_size=10,
-                              latch=True)
-        try:
-            pub.publish(resize_imgmsg(imgmsg))
-        except TypeError:
-            print 'ERROR-display_image-Something is wrong with the ROS image message.'
-
-    def _grasp_object(self):
-        """ Close the gripper and validate that it grasped something.
-        :return: bool describing if the position move has been preempted by a
-        position command exceeding the moving_force threshold denoting a grasp
-        """
-        self._gripper.close(block=True)
-        return self._gripper.gripping()
-
-    def _release_object(self):
-        """ Open the gripper.
-        """
-        self._gripper.open(block=True)
 
     def _inverse_kinematics(self, pose=None):
         """ Inverse kinematics of one Baxter arm.
