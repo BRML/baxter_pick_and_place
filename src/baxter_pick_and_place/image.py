@@ -64,6 +64,15 @@ def black_imgmsg():
     return _img2imgmsg(img)
 
 
+def write_imgmsg(imgmsg, filename):
+    """ Convert a ROS image message into an image and save it to the disc.
+    :param imgmsg: a ROS image message
+    :param filename: the filename to save the image, without the extension
+    """
+    img = _imgmsg2img(imgmsg)
+    cv2.imwrite(filename + '.jpg', img)
+
+
 def _img2imgmsg(img):
     """ Convert a numpy array holding an image to a ROS image message.
     :param img: a numpy array

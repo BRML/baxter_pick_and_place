@@ -26,7 +26,9 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
+import os
 
+import rospkg
 import rospy
 
 from baxter_pick_and_place.robot import Robot
@@ -34,11 +36,11 @@ from baxter_pick_and_place.robot import Robot
 
 class Demonstrator(object):
 
-    def __init__(self, limb):
+    def __init__(self, limb, outpath):
         """
         Picks up objects pointed out and places them in a pre-defined location.
         """
-        self.robot = Robot(limb)
+        self.robot = Robot(limb, outpath)
         self._N_TRIES = 2
 
     def demonstrate(self, n_objects_to_pick):
@@ -83,10 +85,15 @@ def main():
                         help='The number of objects to pick up.')
     args = parser.parse_args(rospy.myargv()[1:])
 
+    ns = rospkg.RosPack().get_path('baxter_pick_and_place')
+    datapath = os.path.join(ns, 'data')
+    if not os.path.exists(datapath):
+        os.makedirs(datapath)
+
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    demonstrator = Demonstrator(args.limb)
+    demonstrator = Demonstrator(args.limb, datapath)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
     ret = demonstrator.demonstrate(args.number)
     if ret:

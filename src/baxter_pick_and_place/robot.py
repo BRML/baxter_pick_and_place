@@ -24,6 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
+import os
 import time
 
 import rospy
@@ -46,15 +47,18 @@ from baxter_interface import CHECK_VERSION
 from baxter_pick_and_place.image import (
     resize_imgmsg,
     white_imgmsg,
+    write_imgmsg,
     pose_estimation
 )
 
 
 class Robot(object):
 
-    def __init__(self, limb):
+    def __init__(self, limb, outpath):
         """
          A baxter research robot instance with some additional functionality.
+         :param limb: The limb to use for the demonstration.
+         :param outpath: The path to write output files into.
         """
         self._arm = limb
         self._limb = baxter_interface.Limb(self._arm)
@@ -71,6 +75,7 @@ class Robot(object):
         self._imgmsg = None
         self._cam_pars = None
 
+        self._outpath = outpath
         self._display_pub = rospy.Publisher('/robot/xdisplay', Image,
                                             queue_size=10, latch=True)
 
@@ -97,7 +102,7 @@ class Robot(object):
         self._camera.resolution = (1280, 800)
         self._camera.fps = 14.0
 
-        self._perform_setup()
+        # self._perform_setup()  # TODO: un-comment to perform setup
         self._detect_bin()
 
     def clean_shutdown(self):
@@ -151,8 +156,9 @@ class Robot(object):
         self._move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
-        self._display_image(imgmsg)
-        pose_estimation(imgmsg, 0)
+        write_imgmsg(imgmsg, os.path.join(self._outpath, 'top_view'))
+        # self._display_image(imgmsg)
+        # pose_estimation(imgmsg, 0)
 
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
