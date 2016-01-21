@@ -102,9 +102,10 @@ class Robot(object):
         self._camera.resolution = (1280, 800)
         self._camera.fps = 14.0
 
-        self._perform_setup()  # TODO: un-comment to perform setup
-        pose = self._detect_bin()
-        self._approach_pose(pose)
+        self._perform_setup()
+        print self._cam_pars
+        # pose = self._detect_bin()
+        # self._approach_pose(pose)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -123,7 +124,10 @@ class Robot(object):
     ======================================================================= """
     def _perform_setup(self):
         """ Perform the robot limb calibration, i.e., measure the distance from
-        the distance sensor to the table.
+        the distance sensor to the table and set some other parameters, if no
+        setup file exists. If a setup file exists, load it.
+
+        Note: To force performing a new camera setup delete the old setup file.
 
         Note: Obviously this cannot replace a full camera calibration and
         proper pose estimation, but for the purpose of this demonstration the
@@ -131,33 +135,44 @@ class Robot(object):
           http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
         is sufficient.
         """
-        pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
-        n_calibrations = 10
-        self._cam_pars = dict()
+        spath = os.path.join(self._outpath, 'setup')
+        if not os.path.exists(spath):
+            os.makedirs(spath)
+        sfile = os.path.join(spath, 'setup.npz')
+        if not os.path.exists(sfile):
+            pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
+            n_calibrations = 10
+            self._cam_pars = dict()
 
-        dist = list()
-        sensor = baxter_interface.analog_io.AnalogIO(self._arm + '_hand_range')
-        print '\nPerforming setup ...'
-        while len(dist) < n_calibrations:
-            p = self._perturbe_pose(pose)
-            if self._move_to_pose(p):
-                d = sensor.state()
-                if d < 65000:
-                    dist.append(d/1000.0 - p[2])
-                    print ' recorded %i/%i measurements (d=%.3fm)' % \
-                          (len(dist), n_calibrations, dist[-1])
-                else:
-                    print ' ERROR: no valid distance found'
-        self._cam_pars['dist'] = np.mean(dist)
-        print 'Will be working with average distance d=%.3fm.' % \
-              self._cam_pars['dist']
+            dist = list()
+            sensor = baxter_interface.analog_io.AnalogIO(self._arm + '_hand_range')
+            print '\nPerforming camera setup ...'
+            while len(dist) < n_calibrations:
+                p = self._perturbe_pose(pose)
+                if self._move_to_pose(p):
+                    d = sensor.state()
+                    if d < 65000:
+                        dist.append(d/1000.0 - p[2])
+                        print ' recorded %i/%i measurements (d=%.3fm)' % \
+                              (len(dist), n_calibrations, dist[-1])
+                    else:
+                        print ' ERROR: no valid distance found'
+            self._cam_pars['dist'] = np.mean(dist)
+            print 'Will be working with average distance d=%.3fm.' % \
+                  self._cam_pars['dist']
 
-        self._cam_pars['mpp'] = 0.0025  # meters per pixel @ 1m
-        self._cam_pars['x_offset'] = 0.01
-        self._cam_pars['y_offset'] = -0.02
-        # TODO: adapt to baxter finger height:
-        bfh = 0.0
-        self._cam_pars['z_offset'] = 0.02 + 0.01 + bfh
+            self._cam_pars['mpp'] = 0.0025  # meters per pixel @ 1m
+            self._cam_pars['x_offset'] = 0.01
+            self._cam_pars['y_offset'] = -0.02
+            # TODO: adapt to baxter finger height:
+            bfh = 0.0
+            self._cam_pars['z_offset'] = 0.02 + 0.01 + bfh
+
+            np.savez(sfile, cam_pars=self._cam_pars)
+        else:
+            print '\nLoading camera setup ...'
+            fp = np.load(sfile)
+            self._cam_pars = fp['cam_pars']
 
     def _detect_bin(self):
         """ Detect the bin to put the objects into.
