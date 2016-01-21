@@ -48,7 +48,7 @@ from baxter_pick_and_place.image import (
     resize_imgmsg,
     white_imgmsg,
     write_imgmsg,
-    pose_estimation
+    segment_bin
 )
 
 
@@ -102,8 +102,9 @@ class Robot(object):
         self._camera.resolution = (1280, 800)
         self._camera.fps = 14.0
 
-        # self._perform_setup()  # TODO: un-comment to perform setup
-        self._detect_bin()
+        self._perform_setup()  # TODO: un-comment to perform setup
+        pose = self._detect_bin()
+        self._approach_pose(pose)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -117,6 +118,9 @@ class Robot(object):
             self._rs.disable()
         return True
 
+    """ =======================================================================
+        Set system up and prepare things
+    ======================================================================= """
     def _perform_setup(self):
         """ Perform the robot limb calibration, i.e., measure the distance from
         the distance sensor to the table.
@@ -148,6 +152,13 @@ class Robot(object):
         print 'Will be working with average distance d=%.3fm.' % \
               self._cam_pars['dist']
 
+        self._cam_pars['mpp'] = 0.0025  # meters per pixel @ 1m
+        self._cam_pars['x_offset'] = 0.01
+        self._cam_pars['y_offset'] = -0.02
+        # TODO: adapt to baxter finger height:
+        bfh = 0.0
+        self._cam_pars['z_offset'] = 0.02 + 0.01 + bfh
+
     def _detect_bin(self):
         """ Detect the bin to put the objects into.
         :return: Pose above the bin.
@@ -157,9 +168,20 @@ class Robot(object):
         # record top-down-view image
         imgmsg = self._record_image()
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'top_view'))
-        # self._display_image(imgmsg)
-        # pose_estimation(imgmsg, 0)
+        # rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
+        #                             c_low=50, c_high=190)
+        # print 'Found bin at (%i, %i).' % (int(rect[0][0]), int(rect[0][1]))
+        center = (430.7, 340.02)
+        print 'Found bin at (%i, %i).' % (int(center[0]), int(center[1]))
+        print 'Computing baxter coordinates from pixel coordinates ...'
+        pose = self._pixel2position(center)
+        print pose
+        return pose
 
+
+    """ =======================================================================
+        Pick and place routine
+    ======================================================================= """
     def pick_and_place_object(self):
         """ Detect, pick up and place an object upon receiving an execution
         command.
@@ -199,8 +221,7 @@ class Robot(object):
         # candidates = detect_object_candidates(imgmsg, self._cam_params)
         # probabilities = list()
         # for candidate in candidates:
-        #     # TODO: add offset to candidate pose
-        #     self._move_to_pose(candidate)
+        #     self._approach_pose(candidate)
         #     imgmsg = self._record_image()
         #     img = select_image_patch(imgmsg, (200, 200))
         #     # probabilities.append(call_service(img))
@@ -219,6 +240,9 @@ class Robot(object):
         self._release_object()
         return False
 
+    """ =======================================================================
+        Helper functions and kinematics
+    ======================================================================= """
     def _record_image(self):
         """ Record an image from one of the robots' hand cameras.
         :return: a ROS image message
@@ -245,6 +269,19 @@ class Robot(object):
             self._display_pub.publish(resize_imgmsg(imgmsg))
         except TypeError:
             print 'ERROR-display_image-Something is wrong with the ROS image message.'
+
+    def _pixel2position(self, px):
+        """ Compute Cartesian position in base coordinates from image pixels.
+        :param px: A pixel coordinate
+        :return: A pose [x, y, z, 0, 0, 0]
+        """
+        w, h = self._camera.resolution
+        x = (px[1] - h/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
+            self._endpoint_pose()[0] + self._cam_pars['x_offset']
+        y = (px[0] - w/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
+            self._endpoint_pose()[1] + self._cam_pars['y_offset']
+        z = self._cam_pars['dist'] - self._cam_pars['z_offset']
+        return [x, y, z, 0., 0., 0.]
 
     def _grasp_object(self):
         """ Close the gripper and validate that it grasped something.
@@ -280,6 +317,7 @@ class Robot(object):
         :param pose: desired Cartesian pose to approach
         :return: boolean flag on completion
         """
+        # TODO: set approach offset here:
         offset = [0.0, 0.0, 5.0, 0.0, 0.0, 0.0]
         p = [a + b for a, b in zip(pose, offset)]
         return self._move_to_pose(p)
@@ -302,11 +340,11 @@ class Robot(object):
         p = [a + b for a, b in zip(pose, perturbation)]
         return p
 
-    # def _endpoint_pose(self, limb):
-    #     qp = self._limbs[limb].endpoint_pose()
-    #     r = transformations.euler_from_quaternion(qp['orientation'])
-    #     return [qp['position'][0], qp['position'][1], qp['position'][2],
-    #             r[0], r[1], r[2]]
+    def _endpoint_pose(self):
+        qp = self._limb.endpoint_pose()
+        r = transformations.euler_from_quaternion(qp['orientation'])
+        return [qp['position'][0], qp['position'][1], qp['position'][2],
+                r[0], r[1], r[2]]
 
     def _inverse_kinematics(self, pose=None):
         """ Inverse kinematics of one Baxter arm.
