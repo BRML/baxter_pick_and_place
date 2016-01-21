@@ -271,7 +271,7 @@ def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
     if len(ret) != 1:
         raise Exception('ERROR-segment_bin-No/Too many contour(s) found!' +
                         ' Please adjust Canny thresholds.')
-    return ret
+    return ret[0]
 
 
 def _flood_fill(canny):
