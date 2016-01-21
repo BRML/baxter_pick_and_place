@@ -271,12 +271,13 @@ def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
     if len(ret) != 1:
         raise Exception('ERROR-segment_bin-No/Too many contour(s) found!' +
                         ' Please adjust Canny thresholds.')
-    return ret[0]
+    return ret
 
 
 def _flood_fill(canny):
     """ Flood fill an image from the border to leave only connected components
-    untouched.
+    untouched. Adapted from
+      http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing
     :param canny: Edge image to work on.
     :return: Image with connected components black, remainder white.
     """

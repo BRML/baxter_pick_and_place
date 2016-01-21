@@ -171,13 +171,12 @@ class Robot(object):
         # rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
         #                             c_low=50, c_high=190)
         # print 'Found bin at (%i, %i).' % (int(rect[0][0]), int(rect[0][1]))
-        center = (430.7, 340.02)
+        center = (640, 400)
         print 'Found bin at (%i, %i).' % (int(center[0]), int(center[1]))
         print 'Computing baxter coordinates from pixel coordinates ...'
         pose = self._pixel2position(center)
         print pose
         return pose
-
 
     """ =======================================================================
         Pick and place routine
@@ -268,19 +267,25 @@ class Robot(object):
         try:
             self._display_pub.publish(resize_imgmsg(imgmsg))
         except TypeError:
-            print 'ERROR-display_image-Something is wrong with the ROS image message.'
+            rospy.logerr('display_image - ' +
+                         'Something is wrong with the ROS image message.')
 
     def _pixel2position(self, px):
         """ Compute Cartesian position in base coordinates from image pixels.
+        Adapted from
+          http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
         :param px: A pixel coordinate
         :return: A pose [x, y, z, 0, 0, 0]
         """
         w, h = self._camera.resolution
+        print w, h
+        # x is front/back, so aligned with image height
         x = (px[1] - h/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
-            self._endpoint_pose()[0] + self._cam_pars['x_offset']
+            self._cam_pars['x_offset']
+        # y is left/right, so aligned with image width
         y = (px[0] - w/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
-            self._endpoint_pose()[1] + self._cam_pars['y_offset']
-        z = self._cam_pars['dist'] - self._cam_pars['z_offset']
+            self._cam_pars['y_offset']
+        z = - self._cam_pars['dist'] + self._cam_pars['z_offset']
         return [x, y, z, 0., 0., 0.]
 
     def _grasp_object(self):
@@ -376,8 +381,9 @@ class Robot(object):
             return dict(zip(ik_response.joints[0].name,
                             ik_response.joints[0].position))
         else:
-            rospy.logerr("ERROR - inverse kinematics - No valid joint configuration found")
-            raise Exception("ERROR - inverse kinematics - No valid joint configuration found")
+            s = "inverse kinematics - No valid joint configuration found"
+            rospy.logerr(s)
+            raise Exception(s)
 
 
 def list_to_pose(pose_list):

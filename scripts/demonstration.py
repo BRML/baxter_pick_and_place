@@ -74,6 +74,10 @@ def main():
 
     Picks up objects that have been pointed out by a human operator by means
     of an eye tracker and places them in a pre-defined location.
+
+    The implementation of this demonstration is in parts inspired by an example
+    found at
+      http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
     """
     parser = argparse.ArgumentParser(
         description='Pick and place demonstration with the baxter research robot.')
