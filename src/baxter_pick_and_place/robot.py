@@ -225,7 +225,8 @@ class Robot(object):
             while n_tries > 0:
                 print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
-                if self._perturbe_pose(self._top_pose):
+                pose = self._perturbe_pose(self._top_pose)
+                if self._move_to_pose(pose):
                     print 'perturbation worked'
                     n_tries = -1
             if not n_tries == -1:
