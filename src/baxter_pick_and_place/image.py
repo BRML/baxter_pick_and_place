@@ -26,6 +26,7 @@
 import cv_bridge
 import cv2
 import numpy as np
+import os
 
 
 """ ===========================================================================
@@ -70,6 +71,14 @@ def write_imgmsg(imgmsg, filename):
     :param filename: the filename to save the image, without the extension
     """
     img = _imgmsg2img(imgmsg)
+    cv2.imwrite(filename + '.jpg', img)
+
+
+def _write_img(img, filename):
+    """ Save an image to the disc.
+    :param img: a numpy array containing an image
+    :param filename: the filename to save the image, without the extension
+    """
     cv2.imwrite(filename + '.jpg', img)
 
 
@@ -220,3 +229,77 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
     except:
         raise
     return img[y:y + h, x:x + w]
+
+
+def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
+    """ Segment bin to put objects into.
+    :param imgmsg: a ROS image message
+    :param outpath: the path to where to write intermediate images to
+    :param c_low: lower bound for Canny threshold
+    :param c_high: upper bound for Canny threshold
+    :return: ((cx, cy), (w, h), alpha), corners
+    """
+    img = _imgmsg2img(imgmsg)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+    # do Canny edge extraction and widen edges
+    canny = cv2.Canny(gray, c_low, c_high, apertureSize=3)
+    kernel = np.ones((3, 3), np.uint8)
+    canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel, iterations=1)
+    if outpath:
+        _write_img(canny, os.path.join(outpath, 'canny'))
+
+    # flood fill image to extract bounded regions
+    print " Flood fill edge image. This may take a while! Please be patient."
+    flooded = _flood_fill(canny)
+    if outpath:
+        _write_img(flooded, os.path.join(outpath, 'flooded'))
+
+    # find contours, largest contour equals our bin
+    contours, _ = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    ret = list()
+    for c in contours:
+        if 10000 < cv2.contourArea(c) < 100000:
+            rect = cv2.minAreaRect(c)
+            box = cv2.cv.BoxPoints(rect)
+            ret.append((rect, box))
+            b = np.int0(box)
+            cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
+            cv2.circle(img, (int(rect[0][0]), int(rect[0][1])), 3, (0, 0, 255), 2)
+    if outpath:
+        _write_img(img, os.path.join(outpath, 'contours'))
+    if len(ret) != 1:
+        raise Exception('ERROR-segment_bin-No/Too many contour(s) found!' +
+                        ' Please adjust Canny thresholds.')
+    return ret[0]
+
+
+def _flood_fill(canny):
+    """ Flood fill an image from the border to leave only connected components
+    untouched.
+    :param canny: Edge image to work on.
+    :return: Image with connected components black, remainder white.
+    """
+    h, w = canny.shape
+    white = 255
+    black = 0
+
+    # set border pixels to white
+    canny[0, :] = white
+    canny[-1, :] = white
+    canny[:, 0] = white
+    canny[:, -1] = white
+
+    # prime to-do list
+    to_do = [(2, 2), (2, h - 3), (w - 3, h - 3), (w - 3, 2)]
+
+    # test pixels
+    while len(to_do) > 0:
+        x, y = to_do.pop()
+        if canny[y, x] == black:
+            canny[y, x] = white
+            to_do.append((x, y - 1))
+            to_do.append((x, y + 1))
+            to_do.append((x - 1, y))
+            to_do.append((x + 1, y))
+    return canny

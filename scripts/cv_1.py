@@ -6,8 +6,8 @@ import numpy as np
 print cv2.__version__
 
 
-def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
-                   upper_hsv=np.array([48, 41, 250]), offset=20,
+def _segment_table(img, lower_hsv=np.array([170, 10, 60]),
+                   upper_hsv=np.array([190, 20, 90]), offset=20,
                    verbose=False):
     """ Segment table in input image based on color information.
     :param img: the image to work on
@@ -35,8 +35,8 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
         image = img.copy()
         cv2.rectangle(image, (x, y), (x + w, y + h), np.array([0, 255, 0]), 2)
         cv2.rectangle(image, (x + offset, y + offset),
-                       (x + w - offset, y + h - offset),
-                       np.array([255, 0, 0]), 2)
+                      (x + w - offset, y + h - offset),
+                      np.array([255, 0, 0]), 2)
         cv2.imshow('Rectangle', image)
     # mask = np.zeros(img.shape[:2], np.uint8)
     # mask[y + offset:y + h - offset, x + offset:x + w - offset] = 1
@@ -47,7 +47,7 @@ def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
     y += offset
     w -= 2*offset
     h -= 2*offset
-    return img[y:y + h, x:x + h], (x, y)
+    return img[y:y + h, x:x + w], (x, y)
 
 
 def get_neighbors((row, column), neighborhood=8):
@@ -114,10 +114,10 @@ def blob_detector(label_image):
     return blobs
 
 
-image = cv2.imread('../images/001.jpg', cv2.IMREAD_COLOR)
-# cv2.imshow('Image', image)
+image = cv2.imread('../data/top_view.jpg', cv2.IMREAD_COLOR)
+cv2.imshow('Image', image)
 
-cropped, xy_cropped = _segment_table(image, verbose=False)
+cropped, xy_cropped = _segment_table(image, verbose=True)
 cv2.imshow('cropped', cropped)
 
 shifted = cv2.pyrMeanShiftFiltering(cropped, 21, 21)
