@@ -191,7 +191,7 @@ class Robot(object):
         rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
                                     c_low=50, c_high=190)
         center = rect[0]
-        # center = (544, 430)
+        # center = (542, 478)
         print ' Found bin at (%i, %i) pixels.' % (int(center[0]),
                                                   int(center[1]))
         print ' Computing baxter coordinates from pixel coordinates ...'
