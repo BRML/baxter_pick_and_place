@@ -88,6 +88,7 @@ class Robot(object):
             0.0*np.pi,  # pitch = vertical
             0.0*np.pi  # yaw = rotation
         ]
+        self._bin_pose = None
         self._N_TRIES = 2
 
         print "\nGetting robot state ... "
@@ -104,8 +105,7 @@ class Robot(object):
         self._camera.fps = 14.0
 
         self._perform_setup(finger='short')
-        pose = self._detect_bin()
-        self._approach_pose(pose)
+        self._detect_bin()
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -181,7 +181,6 @@ class Robot(object):
 
     def _detect_bin(self):
         """ Detect the bin to put the objects into.
-        :return: Pose above the bin.
         """
         print '\nLooking for bin to put objects into ...'
         self._move_to_pose(self._top_pose)
@@ -195,10 +194,10 @@ class Robot(object):
         print ' Found bin at (%i, %i) pixels.' % (int(center[0]),
                                                   int(center[1]))
         print ' Computing baxter coordinates from pixel coordinates ...'
-        pose = self._pixel2position(center)
-        print 'Detected bin at (%.2f, %.2f, %.2f) m.' % (pose[0], pose[1],
-                                                         pose[2])
-        return pose
+        self._bin_pose = self._pixel2position(center)
+        print 'Detected bin at (%.2f, %.2f, %.2f) m.' % (self._bin_pose[0],
+                                                         self._bin_pose[1],
+                                                         self._bin_pose[2])
 
     """ =======================================================================
         Pick and place routine
@@ -214,9 +213,11 @@ class Robot(object):
         def _trigger_dummy(max_time):
             t = np.random.uniform(0.0, max_time)
             time.sleep(t)
-            print '  an object was triggered after %.2fs' % t
+            idx = np.random.randint(0, 5)
+            print "  object '%i' was triggered after %.2fs" % (idx, t)
+            return idx
 
-        _trigger_dummy(10.0)
+        object_id = _trigger_dummy(10.0)
 
         # move limb to top-down-view pose
         # try up to 3 times to find a valid pose
@@ -231,30 +232,36 @@ class Robot(object):
                     n_tries = -1
             if not n_tries == -1:
                 return False
-        return self._try_object()
+        return self._try_object(object_id=object_id)
 
-    def _try_object(self):
+    def _try_object(self, object_id):
         """ Try to select, pick up and place the target object.
+        :param object_id: the id of the desired object in the data base.
         :return: boolean flag on completion
         """
         # record top-down-view image
         imgmsg = self._record_image()
         self._display_image(imgmsg)
-        # candidates = detect_object_candidates(imgmsg, self._cam_params)
-        # probabilities = list()
-        # for candidate in candidates:
-        #     self._approach_pose(candidate)
-        #     imgmsg = self._record_image()
-        #     img = select_image_patch(imgmsg, (200, 200))
-        #     # probabilities.append(call_service(img))
-        # # idx = make_decision(probabilities)
-        # idx = 0
-        # self._move_to_pose(candidates[idx])
+        # candidates = detect_object_candidates(imgmsg)
+        # ignore candidates already in bin
+        # candidate = candidates[0]
+        # center, dots = candidate
+        # pose = self._pixel2position(center)
+        # r, p, y = self._estimate_grasp_orientation(dots, object_id)
+        # pose[3] = r
+        # pose[4] = p
+        # pose[5] = y
+        # self._approach_pose(pose)
+        # self._move_to_pose(pose)
         if self._grasp_object():
             print '   grasped object'
-            # move limb to target location
+            self._move_to_pose(self._top_pose)
+            bin_pose = self._perturbe_pose(self._bin_pose)
+            self._approach_pose(bin_pose)
+            self._move_to_pose(bin_pose)
             self._release_object()
             print '   released object'
+            self._move_to_pose(self._top_pose)
             self._limb.move_to_neutral()
             print '  object placed successfully'
             return True
