@@ -187,7 +187,7 @@ class Robot(object):
         self._move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
-        write_imgmsg(imgmsg, os.path.join(self._outpath, 'top_view'))
+        write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
         rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
                                     c_low=50, c_high=190)
         center = rect[0]

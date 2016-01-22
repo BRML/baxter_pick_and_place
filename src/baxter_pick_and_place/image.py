@@ -247,13 +247,13 @@ def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
     kernel = np.ones((3, 3), np.uint8)
     canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel, iterations=1)
     if outpath:
-        _write_img(canny, os.path.join(outpath, 'canny'))
+        _write_img(canny, os.path.join(outpath, 'bin_canny'))
 
     # flood fill image to extract bounded regions
     print " Flood fill edge image. This may take a while! Please be patient."
     flooded = _flood_fill(canny)
     if outpath:
-        _write_img(flooded, os.path.join(outpath, 'flooded'))
+        _write_img(flooded, os.path.join(outpath, 'bin_flooded'))
 
     # find contours, largest contour equals our bin
     contours, _ = cv2.findContours(canny, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -267,7 +267,7 @@ def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
             cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
             cv2.circle(img, (int(rect[0][0]), int(rect[0][1])), 3, (0, 0, 255), 2)
     if outpath:
-        _write_img(img, os.path.join(outpath, 'contours'))
+        _write_img(img, os.path.join(outpath, 'bin_contours'))
     if len(ret) != 1:
         raise Exception('ERROR-segment_bin-No/Too many contour(s) found!' +
                         ' Please adjust Canny thresholds.')
