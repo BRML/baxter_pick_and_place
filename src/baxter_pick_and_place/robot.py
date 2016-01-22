@@ -226,9 +226,9 @@ class Robot(object):
             while n_tries > 0:
                 print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
-                pose = self._perturbe_pose(self._top_pose)
-                if self._move_to_pose(pose):
-                    print 'perturbation worked'
+                ppose = self._perturbe_pose(self._top_pose)
+                if self._move_to_pose(ppose):
+                    print '  perturbation worked'
                     n_tries = -1
             if not n_tries == -1:
                 return False
@@ -251,8 +251,28 @@ class Robot(object):
         # pose[3] = r
         # pose[4] = p
         # pose[5] = y
-        # self._approach_pose(pose)
-        # self._move_to_pose(pose)
+        pose = [0.54, -0.11, -0.26, 1.0*np.pi, 0.0, 0.0]
+        if not self._pick_and_place(pose, object_id=object_id):
+            n_tries = self._N_TRIES
+            while n_tries > 0:
+                print '   trying', n_tries, 'more time(s)'
+                n_tries -= 1
+                ppose = self._perturbe_pose(pose)
+                if self._pick_and_place(ppose, object_id=object_id):
+                    n_tries = -1
+            if not n_tries == -1:
+                print "  failed to grasp object '%i'" % object_id
+                return False
+        return True
+
+    def _pick_and_place(self, pose, object_id):
+        """ Try to approach, grasp, relocate and put down an object.
+        :param pose: The pose of the selected object.
+        :param object_id: The id of the object in the data base.
+        :return: Boolean flag on completion.
+        """
+        self._approach_pose(pose)
+        self._move_to_pose(pose)
         if self._grasp_object():
             print '   grasped object'
             self._move_to_pose(self._top_pose)
@@ -262,8 +282,7 @@ class Robot(object):
             self._release_object()
             print '   released object'
             self._move_to_pose(self._top_pose)
-            self._limb.move_to_neutral()
-            print '  object placed successfully'
+            print "  object '%i' placed successfully" % object_id
             return True
         print '  missed object'
         self._release_object()
@@ -337,6 +356,12 @@ class Robot(object):
         :return: boolean flag on completion
         """
         try:
+            # TODO: fix this (does not yet work as expected):
+            z_min = - self._cam_pars['dist'] + self._cam_pars['z_offset']
+            if pose[2] < z_min:
+                rospy.logwarn("Replaced requested z=%.2fm with z_min=.2fm." %
+                              pose[2], z_min)
+                pose[2] = z_min
             cmd = self._inverse_kinematics(pose)
         except Exception:
             return False
