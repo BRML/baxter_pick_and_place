@@ -6,6 +6,7 @@ project(baxter_pick_and_place)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   baxter_core_msgs
+  dynamic_reconfigure
   geometry_msgs
   rospy
   sensor_msgs
@@ -88,10 +89,10 @@ catkin_python_setup()
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
-# generate_dynamic_reconfigure_options(
-#   cfg/DynReconf1.cfg
+generate_dynamic_reconfigure_options(
+  cfg/CamConfig.cfg
 #   cfg/DynReconf2.cfg
-# )
+)
 
 ###################################
 ## catkin specific configuration ##
