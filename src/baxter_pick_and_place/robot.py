@@ -103,9 +103,18 @@ class Robot(object):
         self._gripper.calibrate()
         self._camera.resolution = (1280, 800)
         self._camera.fps = 14.0
+        # http://www.productionapprentice.com/featured/the-truth-about-video-gain-and-how-to-use-it-properly/
+        self._camera.exposure = -1  # 70
+        self._camera.gain = 0
+        self._camera.white_balance_red = -1
+        self._camera.white_balance_green = -1
+        self._camera.white_balance_blue = -1
 
         self._perform_setup(finger='short')
+        print self._cam_pars['dist'], self._cam_pars['z_offset']
         self._detect_bin()
+        self._approach_pose(self._bin_pose)
+        self._move_to_pose(self._bin_pose)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
@@ -170,7 +179,12 @@ class Robot(object):
             bfh_short = 0.073 + 0.003
             bfh_long = 0.112 + 0.003
             bfh = bfh_short if finger is 'short' else bfh_long
-            self._cam_pars['z_offset'] = 0.02 + 0.01 + bfh
+            self._cam_pars['z_offset'] = (
+                0.025 +  # distance camera--palm
+                0.01 +  # safety offset
+                bfh +  # height of fingers
+                0.015  # magic constant
+            )
 
             with open(sfile, 'w') as f:
                 pickle.dump(self._cam_pars, f)
@@ -188,7 +202,7 @@ class Robot(object):
         imgmsg = self._record_image()
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
         rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
-                                    c_low=50, c_high=190)
+                                    c_low=110, c_high=175)
         center = rect[0]
         # center = (542, 478)
         print ' Found bin at (%i, %i) pixels.' % (int(center[0]),
@@ -355,18 +369,13 @@ class Robot(object):
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
+        rospy.loginfo('Move to x: %.2f, y: %.2f, z: %.2f, a: %.2f' %
+                      (pose[0], pose[1], pose[2], pose[3]))
         try:
-            # TODO: fix this (does not yet work as expected):
-            z_min = - self._cam_pars['dist'] + self._cam_pars['z_offset']
-            if pose[2] < z_min:
-                rospy.logwarn("Replaced requested z=%.2fm with z_min=.2fm." %
-                              pose[2], z_min)
-                pose[2] = z_min
             cmd = self._inverse_kinematics(pose)
         except Exception:
             return False
-        else:
-            self._limb.move_to_joint_positions(cmd)
+        self._limb.move_to_joint_positions(cmd)
         return True
 
     def _approach_pose(self, pose):

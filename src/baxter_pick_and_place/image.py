@@ -241,9 +241,13 @@ def segment_bin(imgmsg, outpath=None, c_low=50, c_high=270):
     """
     img = _imgmsg2img(imgmsg)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    equ = cv2.equalizeHist(gray)
+    if outpath:
+        _write_img(gray, os.path.join(outpath, 'bin_gray'))
+        _write_img(equ, os.path.join(outpath, 'bin_contrast'))
 
     # do Canny edge extraction and widen edges
-    canny = cv2.Canny(gray, c_low, c_high, apertureSize=3)
+    canny = cv2.Canny(equ, c_low, c_high, apertureSize=3)
     kernel = np.ones((3, 3), np.uint8)
     canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel, iterations=1)
     if outpath:
