@@ -110,12 +110,6 @@ class Robot(object):
         self._camera.white_balance_green = -1
         self._camera.white_balance_blue = -1
 
-        self._perform_setup(finger='short')
-        print self._cam_pars['dist'], self._cam_pars['z_offset']
-        self._detect_bin()
-        self._approach_pose(self._bin_pose)
-        self._move_to_pose(self._bin_pose)
-
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
         :return: True on completion
@@ -132,6 +126,13 @@ class Robot(object):
     """ =======================================================================
         Set system up and prepare things
     ======================================================================= """
+    def _set_up(self):
+        self._perform_setup(finger='short')
+        print self._cam_pars['dist'], self._cam_pars['z_offset']
+        self._detect_bin()
+        self._approach_pose(self._bin_pose)
+        self._move_to_pose(self._bin_pose)
+
     def _perform_setup(self, finger='short'):
         """ Perform the robot limb calibration, i.e., measure the distance from
         the distance sensor to the table and set some other parameters, if no
@@ -221,6 +222,9 @@ class Robot(object):
         command.
         :return: boolean flag on completion
         """
+        if self._cam_pars is None:
+            self._set_up()
+
         print ' rabbiting away ...'
         # Wait for object to be triggered---dummy
 

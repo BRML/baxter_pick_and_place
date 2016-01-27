@@ -1,24 +1,22 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2013-2015, Rethink Robotics
+# Copyright (c) 2015--2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #
 # 1. Redistributions of source code must retain the above copyright notice,
-#    this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither the name of the Rethink Robotics nor the names of its
-#    contributors may be used to endorse or promote products derived from
-#    this software without specific prior written permission.
+# this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
 #
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
 # LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
 # CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
 # SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
@@ -27,104 +25,55 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# The code in this file is adapted from the 'joint_position_waypoints'-example
+# provided by rethink robotics in the Baxter SDK found in the baxter_examples
+# repository.
+
 import argparse
-import cv2
-import cv_bridge
+import os
 import random
-
+import rospkg
 import rospy
-from sensor_msgs.msg import Image
+import sys
+import tty
+import termios
 
-import baxter_interface
+from baxter_pick_and_place.image import write_imgmsg
+from baxter_pick_and_place.robot import Robot
 
 
-class Waypoints(object):
-    def __init__(self, limb):
-        # Create baxter_interface limb instance
+class Images(object):
+    def __init__(self, limb, outpath):
         self._arm = limb
-        self._limb = baxter_interface.Limb(self._arm)
-        self._camera = baxter_interface.CameraController('%s_hand_camera' % self._arm)
-        self._camera.resolution = (960, 600)
-        # Recorded waypoints
-        self._imgmsg = None
-        self._image = None
-
-        # Recording state
-        self._is_recording = False
-
-        # Verify robot is enabled
-        print("Getting robot state... ")
-        self._rs = baxter_interface.RobotEnable()
-        self._init_state = self._rs.state().enabled
-        print("Enabling robot... ")
-        self._rs.enable()
-
-        # Create Navigator I/O
-        self._navigator_io = baxter_interface.Navigator(self._arm)
-
-    def _record_image(self, value):
-        """
-        Record an image from one of the robots hand cameras.
-        """
-        if value:
-            try:
-                self._image = cv_bridge.CvBridge().imgmsg_to_cv2(self._imgmsg, 'rgb8')
-            except cv_bridge.CvBridgeError:
-                raise
-            fname = rand_x_digit_num(12)
-            cv2.imwrite(fname + '.jpg', self._image)
-            print "recorded image '%s.jpg'" % fname
-
-    def _stop_recording(self, value):
-        """
-        Sets is_recording to false
-
-        Navigator 'Rethink' button callback
-        """
-        # On navigator Rethink button press, stop recording
-        if value:
-            self._is_recording = False
-
-    def _camera_callback(self, data):
-        """
-        Callback routine for the camera subscriber.
-        """
-        self._imgmsg = data
+        self._outpath = outpath
+        self.robot = Robot(self._arm, self._outpath)
 
     def record(self):
-        """
-        Records joint position waypoints upon each Navigator 'OK/Wheel' button
-        press.
-        """
-        rospy.loginfo("Image Recording Started")
-        print("Press Navigator 'OK/Wheel' button to record a new image.")
-        print("Press Navigator 'Rethink' button when finished recording.")
-        # Connect Navigator I/O signals
-        # Navigator scroll wheel button press
-        self._navigator_io.button0_changed.connect(self._record_image)
-        # Navigator Rethink button press
-        self._navigator_io.button2_changed.connect(self._stop_recording)
+        print "\nRecording images. Press 'Ctrl+C' to stop."
+        while not rospy.is_shutdown():
+            # TODO: display current image
+            # pose = self.robot._perturbe_pose(self.robot._top_pose)
+            # self.robot._move_to_pose(pose)
+            self.robot._move_to_pose(self.robot._top_pose)
+            print "Press 'r' to record image."
+            # TODO: getch() is blocking, replace with callback of some sort
+            while not rospy.is_shutdown() and not self.getch() == 'r':
+                pass
+            imgmsg = self.robot._record_image()
+            fname = os.path.join(self._outpath, rand_x_digit_num(12)) + '.jpg'
+            write_imgmsg(imgmsg, fname)
+            print " Recorded image '%s'." % fname
 
-        # Set recording flag
-        self._is_recording = True
-
-        # Loop until waypoints are done being recorded ('Rethink' Button Press)
-        s = '/cameras/' + self._arm + '_hand_camera/image'
-        cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
-        while self._is_recording and not rospy.is_shutdown():
-            rospy.sleep(1.0)
-
-        cam_sub.unregister()
-        # We are now done with the navigator I/O signals, disconnecting them
-        self._navigator_io.button0_changed.disconnect(self._record_image)
-        self._navigator_io.button2_changed.disconnect(self._stop_recording)
-
-    def clean_shutdown(self):
-        print("\nExiting image recording...")
-        if not self._init_state:
-            print("Disabling robot...")
-            self._rs.disable()
-        return True
+    @staticmethod
+    def getch():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
 
 
 def rand_x_digit_num(x, leading_zeroes=True):
@@ -153,20 +102,24 @@ def main():
     required = parser.add_argument_group('required arguments')
     required.add_argument(
         '-l', '--limb', required=True, choices=['left', 'right'],
-        help='limb to record/playback waypoints'
+        help='limb to record images with'
     )
     args = parser.parse_args(rospy.myargv()[1:])
+
+    rospack = rospkg.RosPack()
+    ns = rospack.get_path('baxter_pick_and_place')
+    ns = os.path.join(ns, 'data')
+    if not os.path.exists(ns):
+        os.makedirs(ns)
 
     print("Initializing node... ")
     rospy.init_node("image_recording_%s" % (args.limb,))
 
-    waypoints = Waypoints(args.limb)
-
-    # Register clean shutdown
-    rospy.on_shutdown(waypoints.clean_shutdown)
+    images = Images(args.limb, outpath=ns)
+    rospy.on_shutdown(images.robot.clean_shutdown)
 
     # Begin example program
-    waypoints.record()
+    images.record()
 
 if __name__ == '__main__':
     main()
