@@ -10,6 +10,7 @@ caffe_root = '/home/baxter/software/caffe/'
 model_root = caffe_root + 'models/bvlc_reference_caffenet/'
 model_file = model_root + 'bvlc_reference_caffenet.caffemodel'
 model_proto = model_root + 'deploy.prototxt'
+# we do not need this if run from console, but for pycharm
 sys.path.insert(0, caffe_root + 'python')
 import caffe
 
@@ -38,8 +39,8 @@ net.blobs['data'].data[...] = transformer.preprocess('data', caffe.io.load_image
 out = net.forward()
 print("Predicted class is #{}.".format(out['prob'][0].argmax()))
 
-plt.imshow(transformer.deprocess('data', net.blobs['data'].data[0]))
-plt.show()
+# plt.imshow(transformer.deprocess('data', net.blobs['data'].data[0]))
+# plt.show()
 
 # load labels
 imagenet_labels_filename = caffe_root + 'data/ilsvrc12/synset_words.txt'
