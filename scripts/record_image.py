@@ -68,9 +68,9 @@ class Images(object):
             print " Press 'r' to record image, 's' to stop."
             ch = self.getch()
             if ch == 'r':
-                fname = os.path.join(self._outpath, rand_x_digit_num(12)) + '.jpg'
+                fname = os.path.join(self._outpath, rand_x_digit_num(12))
                 write_imgmsg(self._imgmsg, fname)
-                print " Recorded image '%s'." % fname
+                print " Recorded image '%s.jpg'." % fname
             elif ch == 's':
                 self._cam_sub.unregister()
                 break
@@ -139,7 +139,7 @@ def main():
 
     rospack = rospkg.RosPack()
     ns = rospack.get_path('baxter_pick_and_place')
-    ns = os.path.join(ns, 'data')
+    ns = os.path.join(ns, 'data', 'sdd')
     if not os.path.exists(ns):
         os.makedirs(ns)
 
