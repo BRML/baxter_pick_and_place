@@ -34,31 +34,29 @@ def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
     :param csv_filename: source file containing image descriptions
     :param data_dirname: directory to write data sets to
     :param labels: sample only data from the first number of labels
-    :param images: number of images to use
+    :param images: number of images to use [-1 for all]
     :param split: test/train/val split to use [default is (.7, .3)]
     :return: boolean flag
     """
-    # number of images per split
     if not 0 < len(split) < 4:
         return False
-    nr = [int(np.floor(images*s)) for s in split]
-    nr = [np.sum(nr[:s]) for s in range(1, len(nr) + 1)]
-    print nr
-    split = ['train', 'test', 'val']
 
     # read data, shuffle order and subsample
     df = pd.read_csv(csv_filename, index_col=0, compression='gzip')
     df = df.iloc[np.random.permutation(df.shape[0])]
     if labels > 0:
         df = df.loc[df['label'] < labels]
-    if 0 < nr[-1] < df.shape[0]:
-        for idx in range(len(nr)):
-            if idx == 0:
-                df[split[idx]] = df.iloc[0:nr[idx]]
-            else:
-                df[split[idx]] = df.iloc[nr[idx - 1]:nr[idx]]
-    else:
-        return False
+    if images > df.shape[0] or images == -1:
+        images = df.shape[0]
+    # number of images per split
+    nr = [int(np.floor(images*s)) for s in split]
+    nr = [np.sum(nr[:s]) for s in range(1, len(nr) + 1)]
+    split = ['train', 'test', 'val']
+    for idx in range(len(nr)):
+        if idx == 0:
+            df[split[idx]] = df.iloc[0:nr[idx]]
+        else:
+            df[split[idx]] = df.iloc[nr[idx - 1]:nr[idx]]
 
     # write out training and testing file lists
     for idx in range(len(nr)):
@@ -66,7 +64,7 @@ def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
         df[split[idx]][['image_filename', 'label']].to_csv(filename, sep=' ',
                                                            header=None,
                                                            index=None)
-    print 'Wrote data sets for %i images.' % df.shape[0]
+    print 'Wrote data sets for %i images.' % np.sum(nr)
     return True
 
 
