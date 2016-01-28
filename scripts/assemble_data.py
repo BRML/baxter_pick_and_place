@@ -1,4 +1,6 @@
+import numpy as np
 import os
+import pandas as pd
 
 
 objects = ['bin', 'duplo_brick', 'extra_mints', 'glue_stick', 'golf_ball', 'pen']
@@ -23,6 +25,51 @@ def read_objects(filename):
     return objects
 
 
+def assemble_data():
+    pass
+
+
+def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
+    """
+    :param csv_filename: source file containing image descriptions
+    :param data_dirname: directory to write data sets to
+    :param labels: sample only data from the first number of labels
+    :param images: number of images to use
+    :param split: test/train/val split to use [default is (.7, .3)]
+    :return: boolean flag
+    """
+    # number of images per split
+    if not 0 < len(split) < 4:
+        return False
+    nr = [int(np.floor(images*s)) for s in split]
+    nr = [np.sum(nr[:s]) for s in range(1, len(nr) + 1)]
+    print nr
+    split = ['train', 'test', 'val']
+
+    # read data, shuffle order and subsample
+    df = pd.read_csv(csv_filename, index_col=0, compression='gzip')
+    df = df.iloc[np.random.permutation(df.shape[0])]
+    if labels > 0:
+        df = df.loc[df['label'] < labels]
+    if 0 < nr[-1] < df.shape[0]:
+        for idx in range(len(nr)):
+            if idx == 0:
+                df[split[idx]] = df.iloc[0:nr[idx]]
+            else:
+                df[split[idx]] = df.iloc[nr[idx - 1]:nr[idx]]
+    else:
+        return False
+
+    # write out training and testing file lists
+    for idx in range(len(nr)):
+        filename = os.path.join(data_dirname, '%s.txt' % split[idx])
+        df[split[idx]][['image_filename', 'label']].to_csv(filename, sep=' ',
+                                                           header=None,
+                                                           index=None)
+    print 'Wrote data sets for %i images.' % df.shape[0]
+    return True
+
+
 def main():
     """ Assemble data for the 'synthetic demo data' set.
 
@@ -35,11 +82,14 @@ def main():
                                                 'synthetic_demo_data'))
     if not os.path.exists(data_dirname):
         os.makedirs(data_dirname)
+    image_dirname = os.path.join(data_dirname, 'images')
+    if not os.path.exists(image_dirname):
+        os.makedirs(image_dirname)
 
     # write object names (label strings) to file,
     # their order in the file gives the label int's
-    fn = os.path.join(data_dirname, 'object_names.txt')
-    write_objects(filename=fn)
+    # fn = os.path.join(data_dirname, 'object_names.txt')
+    # write_objects(filename=fn)
 
 if __name__ == '__main__':
     main()
