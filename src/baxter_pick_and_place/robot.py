@@ -373,8 +373,8 @@ class Robot(object):
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
-        rospy.loginfo('Move to x: %.2f, y: %.2f, z: %.2f, a: %.2f' %
-                      (pose[0], pose[1], pose[2], pose[3]))
+        # rospy.loginfo('Move to x: %.2f, y: %.2f, z: %.2f, a: %.2f' %
+        #               (pose[0], pose[1], pose[2], pose[3]))
         try:
             cmd = self._inverse_kinematics(pose)
         except Exception:

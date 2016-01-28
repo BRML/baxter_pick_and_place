@@ -25,11 +25,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# The code in this file is adapted from the 'joint_position_waypoints'-example
-# provided by rethink robotics in the Baxter SDK found in the baxter_examples
-# repository.
-
 import argparse
+import cv2
 import os
 import random
 import rospkg
@@ -38,34 +35,52 @@ import sys
 import tty
 import termios
 
-from baxter_pick_and_place.image import write_imgmsg
+from sensor_msgs.msg import Image
+
+from baxter_pick_and_place.image import write_imgmsg, _imgmsg2img
 from baxter_pick_and_place.robot import Robot
 
 
 class Images(object):
     def __init__(self, limb, outpath):
+        """ Image recorder.
+        :param limb: the limb to record images with
+        :param outpath: the path to write the images to
+        """
         self._arm = limb
         self._outpath = outpath
+
         self.robot = Robot(self._arm, self._outpath)
+        self._imgmsg = None
+        self._cam_sub = None
 
     def record(self):
-        print "\nRecording images. Press 'Ctrl+C' to stop."
+        """ Records an image each time key 'r' is pressed. Stops upon pressing
+        key 's'.
+        """
+        s = '/cameras/' + self._arm + '_hand_camera/image'
+        self._cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
+        print "\nRecording images ..."
         while not rospy.is_shutdown():
-            # TODO: display current image
             # pose = self.robot._perturbe_pose(self.robot._top_pose)
             # self.robot._move_to_pose(pose)
             self.robot._move_to_pose(self.robot._top_pose)
-            print "Press 'r' to record image."
-            # TODO: getch() is blocking, replace with callback of some sort
-            while not rospy.is_shutdown() and not self.getch() == 'r':
-                pass
-            imgmsg = self.robot._record_image()
-            fname = os.path.join(self._outpath, rand_x_digit_num(12)) + '.jpg'
-            write_imgmsg(imgmsg, fname)
-            print " Recorded image '%s'." % fname
+            print " Press 'r' to record image, 's' to stop."
+            ch = self.getch()
+            if ch == 'r':
+                fname = os.path.join(self._outpath, rand_x_digit_num(12)) + '.jpg'
+                write_imgmsg(self._imgmsg, fname)
+                print " Recorded image '%s'." % fname
+            elif ch == 's':
+                self._cam_sub.unregister()
+                break
 
     @staticmethod
     def getch():
+        """ getch()-like unbuffered character reading from stdin.
+        See http://code.activestate.com/recipes/134892/.
+        :return: a single character
+        """
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -75,11 +90,27 @@ class Images(object):
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
         return ch
 
+    def _camera_callback(self, data):
+        """
+        Callback routine for the camera subscriber.
+        """
+        self._imgmsg = data
+        img = _imgmsg2img(self._imgmsg)
+        h, w, = img.shape[:2]
+        img = cv2.resize(img, (w/2, h/2))
+        cv2.imshow('%s image' % self._arm, img)
+        cv2.waitKey(3)
+
 
 def rand_x_digit_num(x, leading_zeroes=True):
-    """Return an X digit number, leading_zeroes returns a string, otherwise int
-    See http://stackoverflow.com/questions/13496087/
-    python-how-to-generate-a-12-digit-random-number"""
+    """ Return an X digit number, leading_zeroes returns a string, otherwise
+    int. See
+    http://stackoverflow.com/questions/13496087/python-how-to-generate-a-12-
+    digit-random-number.
+    :param x: number of digits to generate
+    :param leading_zeroes: return an str (True) or int (False)
+    :return: an X digit number
+    """
     if not leading_zeroes:
         # wrap with str() for uniform results
         return random.randint(10**(x-1), 10**x-1)
@@ -93,8 +124,8 @@ def rand_x_digit_num(x, leading_zeroes=True):
 def main():
     """Image recorder software
 
-    Records an image each time the navigator 'OK/wheel' button is pressed.
-    Upon pressing the navigator 'Rethink' button, the program exits.
+    Records an image each time the key 'r' (for 'record') is pressed.
+    Upon pressing the key 's' (for 'stop'), the program exits.
     """
     arg_fmt = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=arg_fmt,
@@ -117,9 +148,8 @@ def main():
 
     images = Images(args.limb, outpath=ns)
     rospy.on_shutdown(images.robot.clean_shutdown)
-
-    # Begin example program
     images.record()
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
