@@ -75,7 +75,7 @@ def _assemble_image(bg_list, fg_list, image_dirname):
 
 
 def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
-    """
+    """ Create a (train/test/validation)-data set from the data set definition.
     :param csv_filename: source file containing image descriptions
     :param data_dirname: directory to write data sets to
     :param labels: sample only data from the first number of labels
