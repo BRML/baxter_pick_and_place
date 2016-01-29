@@ -1,10 +1,13 @@
 import csv
+import cv2
 import glob
 import gzip
 import numpy as np
 import os
 import pandas as pd
 import time
+
+from baxter_pick_and_place.rand import rand_x_digit_num
 
 
 def write_objects(objects, filename):
@@ -66,12 +69,86 @@ def assemble_data(objects, images, base_dirname, image_dirname, csv_filename,
             csv_writer = csv.writer(fp)
             csv_writer.writerow(d)
 
-    print 'Wrote %i images in %.3fs.' % (images, time.time() - start)
+    print 'Wrote %i image(s) in %.3fs.' % (images, time.time() - start)
+    cv2.destroyAllWindows()
+
+
+parameters = dict()
+parameters['max_nr_patches'] = 5
+parameters['x_min'] = 400
+parameters['x_max'] = 1020
+parameters['y_min'] = 310
+parameters['y_max'] = 670
 
 
 def _assemble_image(bg_list, fg_list, image_dirname):
-    data = ['bla1', 'bla2', ((1, 2, 3), (5, 6, 7), (8, 9, 10), (12, 13, 14)), (0, 1, 2, 3)]
-    return data
+    image_name = rand_x_digit_num(12)
+    image_filename = os.path.join(image_dirname, image_name + '.jpg')
+
+    # sample image parameters
+    # sample background
+    background_file = bg_list[np.random.randint(len(bg_list))]
+    img = cv2.imread(background_file)
+    cv2.imshow('image', img)
+    cv2.waitKey(1000)
+    # sample number of patches to overlay
+    nr_patches = np.random.randint(parameters['max_nr_patches'])
+    patches = [fg_list[np.random.randint(len(fg_list))]
+               for _ in range(nr_patches)]
+    for p in patches:
+        patch = cv2.imread(p)
+        h, w = patch.shape[:2]
+        if w > 400 or h > 400:
+            raise ValueError('Something is wrong with patch %s!' % p)
+
+        # random rotation of patch
+        alpha = 180*(np.random.random() - 0.5)
+        patch = _aug_rotate(patch, alpha)
+        nh, nw = patch.shape[:2]
+
+        # random translation of patch
+        # TODO: sometimes 'ValueError: low >= high' is thrown ...
+        tx = np.random.randint(parameters['x_min'], parameters['x_max'] - nw)
+        ty = np.random.randint(parameters['y_min'], parameters['y_max'] - nh)
+        img[ty:ty + nh, tx:tx + nw] = patch
+        cv2.imshow('image', img)
+        cv2.waitKey(0)
+    patch_parameters = ((1, 2, 3), (5, 6, 7), (8, 9, 10), (12, 13, 14))
+    label = (0, 1, 2, 3)
+    return [image_name, image_filename, patch_parameters, label]
+
+
+def _aug_rotate(image, angle):
+    """ Rotate image by an angle in degrees.
+    :param image: the image to rotate
+    :param angle: the angle by which to rotate (in degrees). Positive values
+    rotate clockwise
+    :return: the rotated image
+    """
+    h, w = image.shape[:2]
+    # compute size after rotation
+    nw, nh = _newdim(w, h, angle)
+    # shift original image to center of new image
+    tx = .5*(nw - w)
+    ty = .5*(nh - h)
+    trans = np.array([[1, 0, tx], [0, 1, ty]])
+    image = cv2.warpAffine(image, trans, (nw, nh))
+    # rotate image by given angle
+    rot = cv2.getRotationMatrix2D((.5*nw, .5*nh), angle, 1.0)
+    return cv2.warpAffine(image, rot, (nw, nh))
+
+
+def _newdim(w, h, angle):
+        """ Compute new dimension of patch after rotation.
+        :param w: original patch width
+        :param h: original patch height
+        :param angle: rotation angle in degrees
+        :return: tuple (width, height)
+        """
+        corners = .5*np.array([[-w, -h], [w, -h], [-w, h], [w, h]])
+        rot = cv2.getRotationMatrix2D((0, 0), angle, 1.0)
+        corners_hat = np.dot(rot[:, :2], corners.transpose())
+        return tuple([int(a) for a in np.ceil(corners_hat.ptp(axis=1))])
 
 
 def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
@@ -139,7 +216,7 @@ def main():
     # fn = os.path.join(data_dirname, 'object_names.txt')
     # write_objects(filename=fn)
 
-    assemble_data(objects, 10, base_dirname, image_dirname, csv_filename, overwrite=True)
+    assemble_data(objects, 1, base_dirname, image_dirname, csv_filename, overwrite=True)
     # create_split(csv_filename, data_dirname, 0, 10)
 
 if __name__ == '__main__':
