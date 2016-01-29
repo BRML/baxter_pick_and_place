@@ -60,6 +60,8 @@ def assemble_data(objects, images, base_dirname, image_dirname, csv_filename,
     # and write them to CSV file
     for idx in range(images):
         d = _assemble_image(background_list, object_list, image_dirname)
+        if len(d) != len(csv_header):
+            raise ValueError('Mismatch between image description data and -header!')
         with gzip.open(csv_filename, 'a') as fp:
             csv_writer = csv.writer(fp)
             csv_writer.writerow(d)
