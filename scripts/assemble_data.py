@@ -7,11 +7,9 @@ import pandas as pd
 import time
 
 
-objects = ['bin', 'duplo_brick', 'extra_mints', 'glue_stick', 'golf_ball', 'pen']
-
-
-def write_objects(filename):
+def write_objects(objects, filename):
     """ Write list of objects to file.
+    :param objects: list of objects
     :param filename: name of file to write to
     """
     with open(filename, 'w') as thefile:
@@ -134,6 +132,8 @@ def main():
 
     # write object names (label strings) to file,
     # their order in the file gives the label int's
+    objects = ['bin', 'duplo_brick', 'extra_mints', 'glue_stick',
+               'golf_ball', 'pen']
     # fn = os.path.join(data_dirname, 'object_names.txt')
     # write_objects(filename=fn)
 
