@@ -28,7 +28,6 @@
 import argparse
 import cv2
 import os
-import random
 import rospkg
 import rospy
 import sys
@@ -38,6 +37,7 @@ import termios
 from sensor_msgs.msg import Image
 
 from baxter_pick_and_place.image import write_imgmsg, _imgmsg2img
+from baxter_pick_and_place.rand import rand_x_digit_num
 from baxter_pick_and_place.robot import Robot
 
 
@@ -100,25 +100,6 @@ class Images(object):
         img = cv2.resize(img, (w/2, h/2))
         cv2.imshow('%s image' % self._arm, img)
         cv2.waitKey(3)
-
-
-def rand_x_digit_num(x, leading_zeroes=True):
-    """ Return an X digit number, leading_zeroes returns a string, otherwise
-    int. See
-    http://stackoverflow.com/questions/13496087/python-how-to-generate-a-12-
-    digit-random-number.
-    :param x: number of digits to generate
-    :param leading_zeroes: return an str (True) or int (False)
-    :return: an X digit number
-    """
-    if not leading_zeroes:
-        # wrap with str() for uniform results
-        return random.randint(10**(x-1), 10**x-1)
-    else:
-        if x > 6000:
-            return ''.join([str(random.randint(0, 9)) for i in xrange(x)])
-        else:
-            return '{0:0{x}d}'.format(random.randint(0, 10**x-1), x=x)
 
 
 def main():
