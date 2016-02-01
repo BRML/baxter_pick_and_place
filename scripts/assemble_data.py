@@ -188,11 +188,11 @@ def _aug_rotate(image, angle):
     tx = .5*(nw - w)
     ty = .5*(nh - h)
     trans = np.array([[1, 0, tx], [0, 1, ty]])
-    image = cv2.warpAffine(image, trans, (nw, nh))
+    border_mode = cv2.BORDER_REPLICATE
+    image = cv2.warpAffine(image, trans, (nw, nh), borderMode=border_mode)
     # rotate image by given angle
     rot = cv2.getRotationMatrix2D((.5*nw, .5*nh), angle, 1.0)
-    # TODO: border mode for affine transform
-    return cv2.warpAffine(image, rot, (nw, nh))
+    return cv2.warpAffine(image, rot, (nw, nh), borderMode=border_mode)
 
 
 def _newdim(w, h, angle):
