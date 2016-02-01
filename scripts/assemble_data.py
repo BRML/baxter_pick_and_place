@@ -70,7 +70,8 @@ def assemble_data(objects, num_patches, images, base_dirname, image_dirname,
     :param csv_filename: CSV file to write generated images' parameter to
     :param overwrite: Whether to overwrite existing CSV file
     """
-    csv_header = ['image_name', 'image_filename', 'patch_parameters', 'labels']
+    csv_header = ['image_name', 'image_filename', 'background_filename',
+                  'patch_filename', 'x', 'y', 'w', 'h', 'alpha', 'label']
     parameters = dict()
     parameters['max_nr_patches'] = num_patches
     # table workspace in pixel coordinates (background images)
@@ -107,13 +108,14 @@ def assemble_data(objects, num_patches, images, base_dirname, image_dirname,
     # generate required number of images with custom properties
     # and write them to CSV file
     for idx in range(images):
-        d = _assemble_image(background_list, object_list, parameters,
-                            image_dirname)
-        if len(d) != len(csv_header):
-            raise ValueError('Mismatch between image description data and -header!')
-        with gzip.open(csv_filename, 'a') as fp:
-            csv_writer = csv.writer(fp)
-            csv_writer.writerow(d)
+        description = _assemble_image(background_list, object_list, parameters,
+                                      image_dirname)
+        for desc in description:
+            if len(desc) != len(csv_header):
+                raise ValueError('Mismatch between image description data and -header!')
+            with gzip.open(csv_filename, 'a') as fp:
+                csv_writer = csv.writer(fp)
+                csv_writer.writerow(desc)
 
     print 'Wrote %i image(s) in %.3fs.' % (images, time.time() - start)
     cv2.destroyAllWindows()
@@ -129,6 +131,7 @@ def _assemble_image(bg_list, fg_list, parameters, image_dirname):
     :return: image-description list [image name, image filename, [list of
     foreground placement parameters], [list of corresponding labels]]
     """
+    description = list()
     image_name = rand_x_digit_num(12)
     image_filename = os.path.join(image_dirname, image_name + '.jpg')
 
@@ -142,8 +145,6 @@ def _assemble_image(bg_list, fg_list, parameters, image_dirname):
     nr_patches = np.random.randint(parameters['max_nr_patches'])
     patches = [fg_list[np.random.randint(len(fg_list))]
                for _ in range(nr_patches)]
-    patch_parameters = list()
-    labels = list()
     for p, lbl in patches:
         patch = cv2.imread(p)
         h, w = patch.shape[:2]
@@ -165,13 +166,13 @@ def _assemble_image(bg_list, fg_list, parameters, image_dirname):
         ty = np.random.randint(parameters['y_min'], parameters['y_max'] - nh)
         img[ty:ty + nh, tx:tx + nw] = patch
 
-        patch_parameters.append((p, (tx, ty, w, h, alpha)))
-        labels.append(lbl)
+        description.append([image_name, image_filename, background_file,
+                            p, tx, ty, w, h, alpha, lbl])
 
     cv2.imshow('image', img)
     cv2.waitKey(0)
     cv2.imwrite(image_filename, img)
-    return [image_name, image_filename, patch_parameters, labels]
+    return description
 
 
 def _aug_rotate(image, angle):
@@ -213,6 +214,7 @@ def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
     :param csv_filename: source file containing image descriptions
     :param data_dirname: directory to write data sets to
     :param labels: sample only data from the first number of labels
+    [0 for all]
     :param images: number of images to use [-1 for all]
     :param split: test/train/val split to use [default is (.7, .3)]
     :return: boolean flag
@@ -221,29 +223,28 @@ def create_split(csv_filename, data_dirname, labels, images, split=(.7, .3)):
         return False
 
     # read data, shuffle order and subsample
-    df = pd.read_csv(csv_filename, index_col=0, compression='gzip')
+    df = pd.read_csv(csv_filename, index_col=None, compression='gzip')
     df = df.iloc[np.random.permutation(df.shape[0])]
     if labels > 0:
+        print " selecting labels", range(labels),
         df = df.loc[df['label'] < labels]
+        print "... %d samples left" % df.shape[0]
     if images > df.shape[0] or images == -1:
         images = df.shape[0]
+    df = df.iloc[:images, :]
     # number of images per split
     nr = [int(np.floor(images*s)) for s in split]
-    nr = [np.sum(nr[:s]) for s in range(1, len(nr) + 1)]
-    split = ['train', 'test', 'val']
-    for idx in range(len(nr)):
-        if idx == 0:
-            df[split[idx]] = df.iloc[0:nr[idx]]
-        else:
-            df[split[idx]] = df.iloc[nr[idx - 1]:nr[idx]]
-
+    nr = [int(np.sum(nr[:s])) for s in range(1, len(nr) + 1)]
     # write out training and testing file lists
-    for idx in range(len(nr)):
+    nr = [0] + nr
+    split = ['train', 'test', 'val']
+    for idx in range(len(nr) - 1):
         filename = os.path.join(data_dirname, '%s.txt' % split[idx])
-        df[split[idx]][['image_filename', 'label']].to_csv(filename, sep=' ',
-                                                           header=None,
-                                                           index=None)
-    print 'Wrote data sets for %i images.' % np.sum(nr)
+        # TODO: write only df[required columns].iloc()
+        df.iloc[nr[idx]:nr[idx + 1], :].to_csv(filename, sep=' ',
+                                               header=None, index=None)
+
+    print 'Wrote data sets for %i images.' % images
     return True
 
 
@@ -273,10 +274,11 @@ def main():
     # fn = os.path.join(data_dirname, 'object_names.txt')
     # write_objects(filename=fn)
 
-    assemble_data(objects, num_patches=5, images=1, base_dirname=base_dirname,
-                  image_dirname=image_dirname, csv_filename=csv_filename,
-                  overwrite=True)
-    # create_split(csv_filename, data_dirname, 0, 10)
+    # assemble_data(objects, num_patches=5, images=5, base_dirname=base_dirname,
+    #               image_dirname=image_dirname, csv_filename=csv_filename,
+    #               overwrite=True)
+    create_split(csv_filename, data_dirname, labels=0, images=-1,
+                 split=(.7, .2, .1))
 
 if __name__ == '__main__':
     main()
