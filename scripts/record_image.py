@@ -36,7 +36,7 @@ import termios
 
 from sensor_msgs.msg import Image
 
-from baxter_pick_and_place.image import write_imgmsg, _imgmsg2img
+from baxter_pick_and_place.image import _write_img, _imgmsg2img
 from baxter_pick_and_place.rand import rand_x_digit_num
 from baxter_pick_and_place.robot import Robot
 
@@ -51,7 +51,7 @@ class Images(object):
         self._outpath = outpath
 
         self.robot = Robot(self._arm, self._outpath)
-        self._imgmsg = None
+        self._image = None
         self._cam_sub = None
 
     def record(self):
@@ -69,7 +69,7 @@ class Images(object):
             ch = self.getch()
             if ch == 'r':
                 fname = os.path.join(self._outpath, rand_x_digit_num(12))
-                write_imgmsg(self._imgmsg, fname)
+                _write_img(self._image, fname)
                 print " Recorded image '%s.jpg'." % fname
             elif ch == 's':
                 self._cam_sub.unregister()
@@ -94,8 +94,15 @@ class Images(object):
         """
         Callback routine for the camera subscriber.
         """
-        self._imgmsg = data
-        img = _imgmsg2img(self._imgmsg)
+        img = _imgmsg2img(data)
+
+        # histogram equalization
+        ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
+        img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
+        self._image = img
+
+        # visualization
         h, w, = img.shape[:2]
         img = cv2.resize(img, (w/2, h/2))
         cv2.imshow('%s image' % self._arm, img)
