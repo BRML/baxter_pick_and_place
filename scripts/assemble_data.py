@@ -1,5 +1,33 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2015--2016, BRML
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice,
+# this list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
+
 import csv
 import cv2
+import errno
 import glob
 import gzip
 import numpy as np
@@ -30,27 +58,35 @@ def read_objects(filename):
     return objects
 
 
-def assemble_data(objects, images, base_dirname, image_dirname, csv_filename,
-                  overwrite=True):
+def assemble_data(objects, num_patches, images, base_dirname, image_dirname,
+                  csv_filename, overwrite=True):
     """ Generate data set and data set description with a given number of
     images from a set of base images (background plus foreground objects).
     :param objects: list of objects to use
+    :param num_patches: maximum number of objects to place on each image
     :param images: number of images to generate
     :param base_dirname: directory to read base images from
     :param image_dirname: directory to write generated images to
     :param csv_filename: CSV file to write generated images' parameter to
     :param overwrite: Whether to overwrite existing CSV file
     """
-    csv_header = ['image_name', 'image_filename', 'patch_parameters', 'label']
+    csv_header = ['image_name', 'image_filename', 'patch_parameters', 'labels']
+    parameters = dict()
+    parameters['max_nr_patches'] = num_patches
+    # table workspace in pixel coordinates (background images)
+    parameters['x_min'] = 400
+    parameters['x_max'] = 1020
+    parameters['y_min'] = 310
+    parameters['y_max'] = 670
 
-    # prepare lists of available base images for image generation
+    # prepare lists of available base images (plus labels) for image generation
     files = glob.glob(os.path.join(base_dirname, '*.jpg'))
     background_list = [f for f in files if 'background' in f]
     object_list = list()
     for f in files:
-        for obj in objects:
+        for idx, obj in enumerate(objects):
             if obj in f:
-                object_list.append(f)
+                object_list.append((f, idx))
 
     # write header to CSV file
     if overwrite:
@@ -58,11 +94,21 @@ def assemble_data(objects, images, base_dirname, image_dirname, csv_filename,
             csv_writer = csv.writer(fp)
             csv_writer.writerow(csv_header)
 
+        # overwriting, therefore remove old images
+        old_images = glob.glob(os.path.join(image_dirname, '*.jpg'))
+        for oi in old_images:
+            try:
+                os.remove(oi)
+            except OSError as e:
+                if e.errno != errno.ENOENT:  # 'no such file or directory'
+                    raise  # re-raise if different error occurred
+
     start = time.time()
     # generate required number of images with custom properties
     # and write them to CSV file
     for idx in range(images):
-        d = _assemble_image(background_list, object_list, image_dirname)
+        d = _assemble_image(background_list, object_list, parameters,
+                            image_dirname)
         if len(d) != len(csv_header):
             raise ValueError('Mismatch between image description data and -header!')
         with gzip.open(csv_filename, 'a') as fp:
@@ -73,15 +119,16 @@ def assemble_data(objects, images, base_dirname, image_dirname, csv_filename,
     cv2.destroyAllWindows()
 
 
-parameters = dict()
-parameters['max_nr_patches'] = 5
-parameters['x_min'] = 400
-parameters['x_max'] = 1020
-parameters['y_min'] = 310
-parameters['y_max'] = 670
-
-
-def _assemble_image(bg_list, fg_list, image_dirname):
+def _assemble_image(bg_list, fg_list, parameters, image_dirname):
+    """ Assemble one image for the synthetic data set.
+    :param bg_list: list of background image files
+    :param fg_list: list of foreground image files
+    :param parameters: dictionary of parameters for random foreground
+    placement
+    :param image_dirname: directory to save generated images to
+    :return: image-description list [image name, image filename, [list of
+    foreground placement parameters], [list of corresponding labels]]
+    """
     image_name = rand_x_digit_num(12)
     image_filename = os.path.join(image_dirname, image_name + '.jpg')
 
@@ -90,32 +137,41 @@ def _assemble_image(bg_list, fg_list, image_dirname):
     background_file = bg_list[np.random.randint(len(bg_list))]
     img = cv2.imread(background_file)
     cv2.imshow('image', img)
-    cv2.waitKey(1000)
+
     # sample number of patches to overlay
     nr_patches = np.random.randint(parameters['max_nr_patches'])
     patches = [fg_list[np.random.randint(len(fg_list))]
                for _ in range(nr_patches)]
-    for p in patches:
+    patch_parameters = list()
+    labels = list()
+    for p, lbl in patches:
         patch = cv2.imread(p)
         h, w = patch.shape[:2]
-        if w > 400 or h > 400:
+        if w > 360 or h > 360:
             raise ValueError('Something is wrong with patch %s!' % p)
 
         # random rotation of patch
         alpha = 180*(np.random.random() - 0.5)
         patch = _aug_rotate(patch, alpha)
         nh, nw = patch.shape[:2]
+        if not (parameters['x_max'] - nw > parameters['x_min'] and
+                parameters['y_max'] - nh > parameters['y_min']):
+            continue
+            # raise ValueError("Rotated patch too large for background table!")
 
         # random translation of patch
-        # TODO: sometimes 'ValueError: low >= high' is thrown ...
+        # TODO: make sure that patches do not overlay???
         tx = np.random.randint(parameters['x_min'], parameters['x_max'] - nw)
         ty = np.random.randint(parameters['y_min'], parameters['y_max'] - nh)
         img[ty:ty + nh, tx:tx + nw] = patch
-        cv2.imshow('image', img)
-        cv2.waitKey(0)
-    patch_parameters = ((1, 2, 3), (5, 6, 7), (8, 9, 10), (12, 13, 14))
-    label = (0, 1, 2, 3)
-    return [image_name, image_filename, patch_parameters, label]
+
+        patch_parameters.append((p, (tx, ty, w, h, alpha)))
+        labels.append(lbl)
+
+    cv2.imshow('image', img)
+    cv2.waitKey(0)
+    cv2.imwrite(image_filename, img)
+    return [image_name, image_filename, patch_parameters, labels]
 
 
 def _aug_rotate(image, angle):
@@ -135,6 +191,7 @@ def _aug_rotate(image, angle):
     image = cv2.warpAffine(image, trans, (nw, nh))
     # rotate image by given angle
     rot = cv2.getRotationMatrix2D((.5*nw, .5*nh), angle, 1.0)
+    # TODO: border mode for affine transform
     return cv2.warpAffine(image, rot, (nw, nh))
 
 
@@ -216,7 +273,9 @@ def main():
     # fn = os.path.join(data_dirname, 'object_names.txt')
     # write_objects(filename=fn)
 
-    assemble_data(objects, 1, base_dirname, image_dirname, csv_filename, overwrite=True)
+    assemble_data(objects, num_patches=5, images=1, base_dirname=base_dirname,
+                  image_dirname=image_dirname, csv_filename=csv_filename,
+                  overwrite=True)
     # create_split(csv_filename, data_dirname, 0, 10)
 
 if __name__ == '__main__':
