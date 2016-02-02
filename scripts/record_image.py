@@ -52,6 +52,7 @@ class Images(object):
         self._outpath = outpath
 
         self.robot = Robot(self._arm, self._outpath)
+        self.robot._camera.exposure = 100
         self._image = None
         self._cam_sub = None
 
@@ -95,19 +96,34 @@ class Images(object):
         """
         Callback routine for the camera subscriber.
         """
-        img = _imgmsg2img(data)
+        self._image = self._segment_filter(_imgmsg2img(data))
 
-        # histogram equalization
-        # ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-        # ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
-        # img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
-        self._image = img
+    def _segment_filter(self, image):
+        """ Segment and filter / enhance the recorded image.
+        :param image: the image to modify
+        :return: the modified image
+        """
+        # hard-coded segmentation of relevant workspace
+        seg = image[table['y_min']:table['y_max'],
+                    table['x_min']:table['x_max'], :]
+
+        # noise reduction
+        fil = cv2.bilateralFilter(seg, d=3, sigmaColor=5, sigmaSpace=5)
+        diff = seg - fil
+
+        # adaptive histogram equalization
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        cl = clahe.apply(cv2.cvtColor(fil, cv2.COLOR_BGR2GRAY))
+        cl = cv2.cvtColor(cl, cv2.COLOR_GRAY2BGR)  # Why does this not work?
 
         # visualization
-        cv2.imshow('%s image' % self._arm, img[table['y_min']:table['y_max'],
-                                               table['x_min']:table['x_max'],
-                                               :])
+        cv2.imshow('%s workspace' % self._arm, seg)
+        cv2.imshow('%s denoised' % self._arm, fil)
+        cv2.imshow('%s difference' % self._arm, diff)
+        cv2.imshow('%s clahe' % self._arm, cl)
         cv2.waitKey(3)
+
+        return cl
 
 
 def main():

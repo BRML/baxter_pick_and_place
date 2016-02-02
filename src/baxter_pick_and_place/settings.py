@@ -27,5 +27,5 @@
 parameters = dict()
 parameters['x_min'] = 400
 parameters['x_max'] = 1020
-parameters['y_min'] = 310
+parameters['y_min'] = 295
 parameters['y_max'] = 670
