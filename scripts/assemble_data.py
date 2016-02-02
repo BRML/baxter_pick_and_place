@@ -252,12 +252,11 @@ def main():
     'augment' the data set (cf. data augmentation).
     """
     script_dirname = os.path.abspath(os.path.dirname(__file__))
-    base_dirname = os.path.abspath(os.path.join(script_dirname, '..', 'data',
-                                                'sdd'))
     data_dirname = os.path.abspath(os.path.join(script_dirname, '..', 'data',
                                                 'synthetic_demo_data'))
     if not os.path.exists(data_dirname):
         os.makedirs(data_dirname)
+    base_dirname = os.path.join(data_dirname, 'base')
     image_dirname = os.path.join(data_dirname, 'images')
     if not os.path.exists(image_dirname):
         os.makedirs(image_dirname)
