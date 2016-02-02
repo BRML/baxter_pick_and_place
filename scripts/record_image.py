@@ -39,6 +39,7 @@ from sensor_msgs.msg import Image
 from baxter_pick_and_place.image import _write_img, _imgmsg2img
 from baxter_pick_and_place.rand import rand_x_digit_num
 from baxter_pick_and_place.robot import Robot
+from baxter_pick_and_place.settings import parameters as table
 
 
 class Images(object):
@@ -97,15 +98,15 @@ class Images(object):
         img = _imgmsg2img(data)
 
         # histogram equalization
-        ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
-        ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
-        img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
+        # ycrcb = cv2.cvtColor(img, cv2.COLOR_BGR2YCR_CB)
+        # ycrcb[:, :, 0] = cv2.equalizeHist(ycrcb[:, :, 0])
+        # img = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
         self._image = img
 
         # visualization
-        h, w, = img.shape[:2]
-        img = cv2.resize(img, (w/2, h/2))
-        cv2.imshow('%s image' % self._arm, img)
+        cv2.imshow('%s image' % self._arm, img[table['y_min']:table['y_max'],
+                                               table['x_min']:table['x_max'],
+                                               :])
         cv2.waitKey(3)
 
 

@@ -36,6 +36,7 @@ import pandas as pd
 import time
 
 from baxter_pick_and_place.rand import rand_x_digit_num
+from baxter_pick_and_place.settings import parameters as table
 
 
 def write_objects(objects, filename):
@@ -72,13 +73,8 @@ def assemble_data(objects, num_patches, images, base_dirname, image_dirname,
     """
     csv_header = ['image_name', 'image_filename', 'background_filename',
                   'patch_filename', 'x', 'y', 'w', 'h', 'alpha', 'label']
-    parameters = dict()
+    parameters = table
     parameters['max_nr_patches'] = num_patches
-    # table workspace in pixel coordinates (background images)
-    parameters['x_min'] = 400
-    parameters['x_max'] = 1020
-    parameters['y_min'] = 310
-    parameters['y_max'] = 670
 
     # prepare lists of available base images (plus labels) for image generation
     files = glob.glob(os.path.join(base_dirname, '*.jpg'))
