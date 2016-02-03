@@ -71,7 +71,9 @@ class Images(object):
             ch = self.getch()
             if ch == 'r':
                 fname = os.path.join(self._outpath, rand_x_digit_num(12))
-                _write_img(self._image, fname)
+                _write_img(self._image[0], fname)
+                _write_img(self._image[1], fname + '_fil')
+                _write_img(self._image[2], fname + '_ahe')
                 print " Recorded image '%s.jpg'." % fname
             elif ch == 's':
                 self._cam_sub.unregister()
@@ -132,7 +134,7 @@ class Images(object):
         # cv2.imshow('%s clahe filtered' % self._arm, fil2)
         cv2.waitKey(3)
 
-        return cl
+        return seg, fil, cl
 
 
 def main():
