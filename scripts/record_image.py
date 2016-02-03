@@ -36,7 +36,7 @@ import termios
 
 from sensor_msgs.msg import Image
 
-from baxter_pick_and_place.image import _write_img, _imgmsg2img
+from baxter_pick_and_place.image import _write_img, _imgmsg2img, _img2imgmsg
 from baxter_pick_and_place.rand import rand_x_digit_num
 from baxter_pick_and_place.robot import Robot
 from baxter_pick_and_place.settings import parameters as table
@@ -126,9 +126,10 @@ class Images(object):
         # diff2 = cl - fil2
 
         # visualization
+        self.robot._display_image(_img2imgmsg(seg))
         cv2.imshow('%s workspace' % self._arm, seg)
-        cv2.imshow('%s denoised' % self._arm, fil)
-        cv2.imshow('%s difference' % self._arm, diff)
+        # cv2.imshow('%s denoised' % self._arm, fil)
+        # cv2.imshow('%s difference' % self._arm, diff)
         cv2.imshow('%s clahe' % self._arm, cl)
         # cv2.imshow('%s clahe difference' % self._arm, diff2)
         # cv2.imshow('%s clahe filtered' % self._arm, fil2)
