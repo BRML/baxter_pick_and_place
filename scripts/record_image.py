@@ -112,15 +112,24 @@ class Images(object):
         diff = seg - fil
 
         # adaptive histogram equalization
+        ycrcb = cv2.cvtColor(fil, cv2.COLOR_BGR2YCR_CB)
+        channels = cv2.split(ycrcb)
         clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        cl = clahe.apply(cv2.cvtColor(fil, cv2.COLOR_BGR2GRAY))
-        cl = cv2.cvtColor(cl, cv2.COLOR_GRAY2BGR)  # Why does this not work?
+        channels[0] = clahe.apply(channels[0])
+        ycrcb = cv2.merge(channels)
+        cl = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
+
+        # noise reduction
+        # fil2 = cv2.bilateralFilter(cl, d=5, sigmaColor=5, sigmaSpace=9)
+        # diff2 = cl - fil2
 
         # visualization
         cv2.imshow('%s workspace' % self._arm, seg)
         cv2.imshow('%s denoised' % self._arm, fil)
         cv2.imshow('%s difference' % self._arm, diff)
         cv2.imshow('%s clahe' % self._arm, cl)
+        # cv2.imshow('%s clahe difference' % self._arm, diff2)
+        # cv2.imshow('%s clahe filtered' % self._arm, fil2)
         cv2.waitKey(3)
 
         return cl
