@@ -52,7 +52,7 @@ class Images(object):
         self._outpath = outpath
 
         self.robot = Robot(self._arm, self._outpath)
-        self.robot._camera.exposure = 100
+        self.robot._camera.exposure = 50
         self._image = None
         self._cam_sub = None
 
@@ -71,9 +71,7 @@ class Images(object):
             ch = self.getch()
             if ch == 'r':
                 fname = os.path.join(self._outpath, rand_x_digit_num(12))
-                _write_img(self._image[0], fname)
-                _write_img(self._image[1], fname + '_fil')
-                _write_img(self._image[2], fname + '_ahe')
+                _write_img(self._image, fname)
                 print " Recorded image '%s.jpg'." % fname
             elif ch == 's':
                 self._cam_sub.unregister()
@@ -110,16 +108,16 @@ class Images(object):
                     table['x_min']:table['x_max'], :]
 
         # noise reduction
-        fil = cv2.bilateralFilter(seg, d=3, sigmaColor=5, sigmaSpace=5)
-        diff = seg - fil
+        # fil = cv2.bilateralFilter(seg, d=3, sigmaColor=5, sigmaSpace=5)
+        # diff = seg - fil
 
         # adaptive histogram equalization
-        ycrcb = cv2.cvtColor(fil, cv2.COLOR_BGR2YCR_CB)
-        channels = cv2.split(ycrcb)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        channels[0] = clahe.apply(channels[0])
-        ycrcb = cv2.merge(channels)
-        cl = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
+        # ycrcb = cv2.cvtColor(fil, cv2.COLOR_BGR2YCR_CB)
+        # channels = cv2.split(ycrcb)
+        # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        # channels[0] = clahe.apply(channels[0])
+        # ycrcb = cv2.merge(channels)
+        # cl = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
 
         # noise reduction
         # fil2 = cv2.bilateralFilter(cl, d=5, sigmaColor=5, sigmaSpace=9)
@@ -130,12 +128,12 @@ class Images(object):
         cv2.imshow('%s workspace' % self._arm, seg)
         # cv2.imshow('%s denoised' % self._arm, fil)
         # cv2.imshow('%s difference' % self._arm, diff)
-        cv2.imshow('%s clahe' % self._arm, cl)
+        # cv2.imshow('%s clahe' % self._arm, cl)
         # cv2.imshow('%s clahe difference' % self._arm, diff2)
         # cv2.imshow('%s clahe filtered' % self._arm, fil2)
         cv2.waitKey(3)
 
-        return seg, fil, cl
+        return seg  #, fil, cl
 
 
 def main():
