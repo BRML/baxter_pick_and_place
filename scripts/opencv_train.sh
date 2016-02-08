@@ -16,3 +16,7 @@ opencv_traincascade \
 -weightTrimRate 0.95 \
 -maxDepth 1 \
 -mode ALL
+
+mv \
+/home/baxter/ros_ws/src/baxter_pick_and_place/data/sdd/cascade.xml \
+/home/baxter/ros_ws/src/baxter_pick_and_place/data/sdd/bin_cascade.xml
