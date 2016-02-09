@@ -1,4 +1,4 @@
-# Copyright (c) 2015, 2016, BRML
+# Copyright (c) 2015--2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -47,10 +47,12 @@ from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
     resize_imgmsg,
+    cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
     segment_bin
 )
+from baxter_pick_and_place.settings import parameters as table
 
 
 class Robot(object):
@@ -104,7 +106,7 @@ class Robot(object):
         self._camera.resolution = (1280, 800)
         self._camera.fps = 14.0
         # http://www.productionapprentice.com/featured/the-truth-about-video-gain-and-how-to-use-it-properly/
-        self._camera.exposure = -1  # 70
+        self._camera.exposure = 50
         self._camera.gain = 0
         self._camera.white_balance_red = -1
         self._camera.white_balance_green = -1
@@ -201,10 +203,11 @@ class Robot(object):
         # record top-down-view image
         imgmsg = self._record_image()
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
-        rect, corners = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
-                                    c_low=110, c_high=175)
-        center = rect[0]
-        # center = (542, 478)
+        rroi, roi = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
+                                th=210, c_low=110, c_high=175)
+        x, y, w, h = roi
+        center = table['x_min']+x+w/2, table['y_min']+y+h/2
+        # center = (571, 488)
         print ' Found bin at (%i, %i) pixels.' % (int(center[0]),
                                                   int(center[1]))
         print ' Computing baxter coordinates from pixel coordinates ...'
@@ -247,6 +250,7 @@ class Robot(object):
             if not n_tries == -1:
                 return False
         return self._try_object(object_id=object_id)
+        return True
 
     def _try_object(self, object_id):
         """ Try to select, pick up and place the target object.
@@ -315,7 +319,7 @@ class Robot(object):
         while self._imgmsg is None:
             time.sleep(0.1)
         cam_sub.unregister()
-        return self._imgmsg
+        return cut_imgmsg(self._imgmsg, **table)
 
     def _camera_callback(self, data):
         """
