@@ -47,18 +47,18 @@ To train new classifiers, the `scripts/opencv_i_*.ipynb` notebooks can be
 used, where `i` is the step in the training pipeline.
 The scripts should be very much self-explanatory:
 
-#### 0
+#### `i` = 0
 Prepare negative (background) samples.
 
-#### 1
+#### `i` = 1
 Mark-up positive (object) samples, i.e., label the positive samples.
 
-#### 2
+#### `i` = 2
 Use the marked-up positive samples from step 1 to create an augmented data set.
  
-#### 3
+#### `i` = 3
 Train a classifier using the augmented data set from step 2.
 
-#### 4
+#### `i` = 4
 For a quick reference, test the trained classifier from step 3 on the not 
 augmented data.
