@@ -8,9 +8,9 @@ front of the baxter robot. A network service is used to classify the selected
 object and returns 5 object labels and their respective probabilities of being 
 the object being asked for. 
 
-The baxter robot looks for objects on the table, calls the network service on 
-them in turn, selects the most probable object, picks it up and places it in a 
-pre-defined location.
+The baxter robot looks for objects on the table, selects the most probable 
+object, uses a Haar cascade classifier to detect it on the table, picks it up 
+and places it in a bin it detected previously.
 
 ## How to install and use
 The baxter pick and place demonstration is implemented as a ROS package.
@@ -39,4 +39,26 @@ $ . baxter.sh
 $ rosrun baxter_pick_and_place demonstration.py -n N
 ```
 `N` is the number of objects the robot is supposed to pick up and place in a 
-pre-defined location.
+bin.
+
+
+## Train new classifiers
+To train new classifiers, the `scripts/opencv_i_*.ipynb` notebooks can be 
+used, where `i` is the step in the training pipeline.
+The scripts should be very much self-explanatory:
+
+#### 0
+Prepare negative (background) samples.
+
+#### 1
+Mark-up positive (object) samples, i.e., label the positive samples.
+
+#### 2
+Use the marked-up positive samples from step 1 to create an augmented data set.
+ 
+#### 3
+Train a classifier using the augmented data set from step 2.
+
+#### 4
+For a quick reference, test the trained classifier from step 3 on the not 
+augmented data.
