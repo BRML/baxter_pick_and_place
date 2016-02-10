@@ -104,7 +104,7 @@ def main():
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
+    demonstrator = Demonstrator(limb=args.limb, outpath=ns)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
     ret = demonstrator.demonstrate(args.number)
