@@ -28,8 +28,8 @@
 import argparse
 import os
 
-import rospkg
 import rospy
+import rospkg
 
 from baxter_pick_and_place.robot import Robot
 
@@ -75,10 +75,6 @@ def main():
 
     Picks up objects that have been pointed out by a human operator by means
     of an eye tracker and places them in a bin.
-
-    The implementation of this demonstration is in parts inspired by an example
-    found at
-      http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
     """
     arg_fmt = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=arg_fmt,
@@ -97,9 +93,9 @@ def main():
 
     rospack = rospkg.RosPack()
     ns = rospack.get_path('baxter_pick_and_place')
-    data_dirname = os.path.join(ns, 'data')
-    if not os.path.exists(data_dirname):
-        os.makedirs(data_dirname)
+    ns = os.path.join(ns, 'data')
+    if not os.path.exists(ns):
+        os.makedirs(ns)
 
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
@@ -107,14 +103,9 @@ def main():
     demonstrator = Demonstrator(limb=args.limb, outpath=ns)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
-    ret = demonstrator.demonstrate(args.number)
-    if ret:
-        print "\nSuccessfully performed demonstration."
-    else:
-        print "\nFailed demonstration."
+    demonstrator.demonstrate(args.number)
 
-    print "\nDone with experiment. Press 'Ctrl-C' to exit."
-    rospy.spin()
+    print 'Done.'
 
 if __name__ == '__main__':
     main()
