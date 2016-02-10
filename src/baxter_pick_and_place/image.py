@@ -89,7 +89,7 @@ def write_imgmsg(imgmsg, filename):
     cv2.imwrite(filename + '.jpg', img)
 
 
-def _write_img(img, filename):
+def write_img(img, filename):
     """ Save an image to the disc.
     :param img: a numpy array containing an image
     :param filename: the filename to save the image, without the extension

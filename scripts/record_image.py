@@ -36,40 +36,57 @@ import termios
 
 from sensor_msgs.msg import Image
 
-from baxter_pick_and_place.image import _write_img, _imgmsg2img, _img2imgmsg
+from baxter_pick_and_place.baxter_robot import BaxterRobot
+from baxter_pick_and_place.image import (
+    cut_imgmsg,
+    imgmsg2img,
+    white_imgmsg,
+    write_img
+)
 from baxter_pick_and_place.rand import rand_x_digit_num
-from baxter_pick_and_place.robot import Robot
 from baxter_pick_and_place.settings import parameters as table
+from baxter_pick_and_place.settings import top_pose
 
 
-class ImageRecorder(object):
+class ImageRecorder(BaxterRobot):
     def __init__(self, limb, outpath):
         """ Image recorder.
         :param limb: the limb to record images with
         :param outpath: the path to write the images to
         """
-        self._arm = limb
+        BaxterRobot.__init__(self, limb=limb)
         self._outpath = outpath
 
-        self.robot = Robot(self._arm, self._outpath)
-        self.robot._camera.exposure = 50
         self._image = None
         self._cam_sub = None
+        self._top_pose = top_pose
+
+    def clean_shutdown(self):
+        print "\nExiting demonstrator ..."
+        self.display_image(white_imgmsg())
+        self.move_to_pose(self._top_pose)
+        self._limb.move_to_neutral()
+        if not self._init_state:
+            print "Disabling robot..."
+            self._rs.disable()
+        cv2.destroyAllWindows()
+        return True
 
     def record(self):
         """ Records an image each time key 'r' is pressed. Stops upon pressing
         key 's'.
         """
         s = '/cameras/' + self._arm + '_hand_camera/image'
-        self._cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
+        self._cam_sub = rospy.Subscriber(s, Image,
+                                         callback=self._camera_callback)
         print "\nRecording images ..."
         while not rospy.is_shutdown():
-            self.robot._move_to_pose(self.robot._top_pose)
+            self.move_to_pose(top_pose)
             print " Press 'r' to record image, 's' to stop."
             ch = self.getch()
             if ch == 'r':
                 fname = os.path.join(self._outpath, rand_x_digit_num(12))
-                _write_img(self._image, fname)
+                write_img(self._image, fname)
                 print " Recorded image '%s.jpg'." % fname
             elif ch == 's':
                 self._cam_sub.unregister()
@@ -94,11 +111,9 @@ class ImageRecorder(object):
         """
         Callback routine for the camera subscriber.
         """
-        img = _imgmsg2img(data)
-        self._image = img[table['y_min']:table['y_max'],
-                          table['x_min']:table['x_max'],
-                          :]
-        self.robot._display_image(_img2imgmsg(self._image))
+        data = cut_imgmsg(data, **table)
+        self._image = imgmsg2img(data)
+        self.display_image(data)
         cv2.imshow('%s workspace' % self._arm, self._image)
         cv2.waitKey(3)
 
@@ -127,10 +142,9 @@ def main():
     print("Initializing node... ")
     rospy.init_node("image_recording_%s" % (args.limb,))
 
-    images = ImageRecorder(limb=args.limb, outpath=data_dirname)
-    rospy.on_shutdown(images.robot.clean_shutdown)
-    images.record()
-    cv2.destroyAllWindows()
+    ir = ImageRecorder(limb=args.limb, outpath=data_dirname)
+    rospy.on_shutdown(ir.clean_shutdown)
+    ir.record()
 
 if __name__ == '__main__':
     main()
