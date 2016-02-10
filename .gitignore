@@ -5,6 +5,9 @@ data/synthetic_demo_data/*
 
 *~
 
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+
 # Distribution / packaging
 build/
 
