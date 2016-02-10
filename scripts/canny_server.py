@@ -82,7 +82,7 @@ class Cam(object):
         self._limb.move_to_neutral()
         self._cam.resolution = (1280, 800)
         self._cam.fps = 14.0
-        self._cam.exposure = 70
+        self._cam.exposure = 50
         self._cam.gain = 0
         self._cam.white_balance_red = -1
         self._cam.white_balance_green = -1
