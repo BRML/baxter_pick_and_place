@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2015, 2016, BRML
+# Copyright (c) 2015--2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -38,14 +38,15 @@ class Demonstrator(object):
 
     def __init__(self, limb, outpath):
         """
-        Picks up objects pointed out and places them in a pre-defined location.
+        Picks up objects pointed out and places them in a bin.
+        :param limb: limb to pick objects up with
+        :param outpath: path to write (debugging) images to
         """
         self.robot = Robot(limb, outpath)
         self._N_TRIES = 2
 
     def demonstrate(self, n_objects_to_pick):
-        """ Pick up a given number of objects and place them in a pre-defined
-        location.
+        """ Pick up a given number of objects and place them in a bin.
         :param n_objects_to_pick: The number of objects to pick up.
         :return: True on completion.
         """
@@ -73,32 +74,38 @@ def main():
     """ Pick and place demonstration with the baxter research robot.
 
     Picks up objects that have been pointed out by a human operator by means
-    of an eye tracker and places them in a pre-defined location.
+    of an eye tracker and places them in a bin.
 
     The implementation of this demonstration is in parts inspired by an example
     found at
       http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
     """
-    parser = argparse.ArgumentParser(
-        description='Pick and place demonstration with the baxter research robot.')
-    parser.add_argument('-l', '--limb', dest='limb', required=False,
-                        choices=['left', 'right'], default='left',
-                        help='The limb to pick objects up with.')
-    parser.add_argument('-n', '--number', dest='number',
-                        required=False, type=int, default=0,
-                        help='The number of objects to pick up.')
+    arg_fmt = argparse.RawDescriptionHelpFormatter
+    parser = argparse.ArgumentParser(formatter_class=arg_fmt,
+                                     description=main.__doc__)
+    required = parser.add_argument_group('required arguments')
+    required.add_argument(
+        '-l', '--limb', required=True, choices=['left', 'right'],
+        help='The limb to pick objects up with.'
+    )
+    parser.add_argument(
+        '-n', '--number', dest='number',
+        required=False, type=int, default=0,
+        help='The number of objects to pick up.'
+    )
     args = parser.parse_args(rospy.myargv()[1:])
 
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
-    datapath = os.path.join(ns, 'data')
-    if not os.path.exists(datapath):
-        os.makedirs(datapath)
+    data_dirname = os.path.join(ns, 'data')
+    if not os.path.exists(data_dirname):
+        os.makedirs(data_dirname)
 
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    demonstrator = Demonstrator(args.limb, datapath)
+    demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
+
     ret = demonstrator.demonstrate(args.number)
     if ret:
         print "\nSuccessfully performed demonstration."
