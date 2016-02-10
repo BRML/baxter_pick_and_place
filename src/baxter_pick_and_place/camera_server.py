@@ -26,7 +26,6 @@
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 import cv2
-import cv_bridge
 import rospy
 from tf import transformations
 
@@ -40,6 +39,8 @@ from geometry_msgs.msg import (
 )
 from sensor_msgs.msg import Image
 
+from baxter_pick_and_place.image import cut_imgmsg, _imgmsg2img
+from baxter_pick_and_place.settings import parameters as table
 from baxter_pick_and_place.settings import top_pose
 
 
@@ -89,14 +90,7 @@ class BaseCameraServer(object):
 
     def _cam_callback(self, data):
         """ Callback routine for the camera subscriber. """
-        try:
-            img = cv_bridge.CvBridge().imgmsg_to_cv2(data, 'bgr8')
-        except cv_bridge.CvBridgeError:
-            raise
-        except AttributeError:
-            print 'ERROR-imgmsg2img-Something is wrong with the ROS image message.'
-            raise
-        self._do_on_callback(img)
+        self._do_on_callback(_imgmsg2img(cut_imgmsg(data, **table)))
 
     def _do_on_callback(self, image):
         """ Implement what should be done with the image during each camera
