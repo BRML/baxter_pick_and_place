@@ -40,7 +40,7 @@ def resize_imgmsg(imgmsg):
     :param imgmsg: a ROS image message of arbitrary image size
     :return: a ROS image message containing an image with 1024x600 pixels
     """
-    img = _imgmsg2img(imgmsg)
+    img = imgmsg2img(imgmsg)
     img = cv2.resize(img, (1024, 600))
     return _img2imgmsg(img)
 
@@ -75,7 +75,7 @@ def cut_imgmsg(imgmsg, x_min, y_min, x_max, y_max):
     :param y_max: ROI right lower corner y coordinate
     :return: a ROS image message
     """
-    img = _imgmsg2img(imgmsg)
+    img = imgmsg2img(imgmsg)
     img = img[y_min:y_max, x_min:x_max]
     return _img2imgmsg(img)
 
@@ -85,7 +85,7 @@ def write_imgmsg(imgmsg, filename):
     :param imgmsg: a ROS image message
     :param filename: the filename to save the image, without the extension
     """
-    img = _imgmsg2img(imgmsg)
+    img = imgmsg2img(imgmsg)
     cv2.imwrite(filename + '.jpg', img)
 
 
@@ -109,7 +109,7 @@ def _img2imgmsg(img):
     return imgmsg
 
 
-def _imgmsg2img(imgmsg):
+def imgmsg2img(imgmsg):
     """ Convert a ROS image message to a numpy array holding the image.
     :param imgmsg: a ROS image message
     :return: a numpy array containing an RGB image
@@ -135,7 +135,7 @@ def detect_object_candidates(imgmsg, cam_params):
     :param cam_params: dict of camera parameters
     :return: list of poses (6-tuples) of object candidates
     """
-    image = _imgmsg2img(imgmsg)
+    image = imgmsg2img(imgmsg)
     locations = _find_object_candidates(image)
     poses = [_pose_from_location(location, cam_params) for location in locations]
     return [(0., 0., 0., 0., 0., 0.), (0., 0., 0., 0., 0., 0.)]
@@ -147,7 +147,7 @@ def select_image_patch(imgmsg, patch_size=(200, 200)):
     :param patch_size: the patch size of the image patch to return
     :return: an image patch
     """
-    image = _imgmsg2img(imgmsg)
+    image = imgmsg2img(imgmsg)
     center = _find_object_candidates(image, 1)[0]
     cx, cy = center
     mask = [cx - patch_size[0]/2, cy - patch_size[1]/2,
@@ -156,7 +156,7 @@ def select_image_patch(imgmsg, patch_size=(200, 200)):
 
 
 def pose_estimation(imgmsg, obj_id):
-    img = _imgmsg2img(imgmsg)
+    img = imgmsg2img(imgmsg)
     table = _segment_table(img, verbose=True)
     candidates = _find_object_candidates(table)
     for candidate in candidates:
@@ -260,7 +260,7 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
     :returns: a tuple (rroi, roi) containing the rotated roi and corners and
     the upright roi enclosing the bin
     """
-    img = _imgmsg2img(imgmsg)
+    img = imgmsg2img(imgmsg)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     equ = cv2.equalizeHist(gray)
 

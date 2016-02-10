@@ -113,7 +113,8 @@ class Robot(BaxterRobot):
             self._cam_pars = dict()
 
             dist = list()
-            sensor = baxter_interface.analog_io.AnalogIO(self._arm + '_hand_range')
+            sensor = baxter_interface.analog_io.AnalogIO(self._arm +
+                                                         '_hand_range')
             print '\nPerforming camera setup ...'
             while len(dist) < n_calibrations:
                 p = self._perturbe_pose(pose)
