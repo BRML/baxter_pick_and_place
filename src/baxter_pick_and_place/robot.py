@@ -30,32 +30,22 @@ import time
 
 import rospy
 
-from tf import transformations
 from sensor_msgs.msg import Image
-from geometry_msgs.msg import (
-    Pose,
-    PoseStamped
-)
-from baxter_core_msgs.srv import (
-    SolvePositionIK,
-    SolvePositionIKRequest
-)
-from std_srvs.srv import Empty
 
 import baxter_interface
-from baxter_interface import CHECK_VERSION
 
 from baxter_pick_and_place.image import (
-    resize_imgmsg,
     cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
     segment_bin
 )
+from baxter_pick_and_place.baxter_robot import BaxterRobot
 from baxter_pick_and_place.settings import parameters as table
+from baxter_pick_and_place.settings import top_pose
 
 
-class Robot(object):
+class Robot(BaxterRobot):
 
     def __init__(self, limb, outpath):
         """
@@ -63,68 +53,32 @@ class Robot(object):
          :param limb: The limb to use for the demonstration.
          :param outpath: The path to write output files into.
         """
-        self._arm = limb
-        self._limb = baxter_interface.Limb(self._arm)
-        self._gripper = baxter_interface.Gripper(self._arm)
-        # camera handling is one fragile thing ...
-        reset_srv = rospy.ServiceProxy('cameras/reset', Empty)
-        rospy.wait_for_service('cameras/reset', timeout=10)
-        reset_srv()
-        try:
-            baxter_interface.CameraController('head_camera').close()
-        except AttributeError:
-            pass
-        self._camera = baxter_interface.CameraController(self._arm + '_hand_camera')
+        BaxterRobot.__init__(self, limb=limb)
+        self._outpath = outpath
+
         self._imgmsg = None
         self._cam_pars = None
 
-        self._outpath = outpath
-        self._display_pub = rospy.Publisher('/robot/xdisplay', Image,
-                                            queue_size=10, latch=True)
-
-        self._top_pose = [
-            0.45,  # x = (+) front, (-) back
-            0.0,  # y = (+) left, (-) right
-            0.15,  # z = (+) up, (-) down
-            -1.0*np.pi,  # roll = horizontal
-            0.0*np.pi,  # pitch = vertical
-            0.0*np.pi  # yaw = rotation
-        ]
+        self._top_pose = top_pose
         self._bin_pose = None
         self._N_TRIES = 2
 
-        print "\nGetting robot state ... "
-        self._rs = baxter_interface.RobotEnable(CHECK_VERSION)
-        self._init_state = self._rs.state().enabled
-        print "Enabling robot... "
-        self._rs.enable()
-
-        self._display_image(white_imgmsg())
+        self.display_image(white_imgmsg())
         self._limb.set_joint_position_speed(0.5)
-        self._limb.move_to_neutral()
-        self._gripper.calibrate()
-        self._camera.resolution = (1280, 800)
-        self._camera.fps = 14.0
-        # http://www.productionapprentice.com/featured/the-truth-about-video-gain-and-how-to-use-it-properly/
-        self._camera.exposure = 50
-        self._camera.gain = 0
-        self._camera.white_balance_red = -1
-        self._camera.white_balance_green = -1
-        self._camera.white_balance_blue = -1
 
         self._perform_setup(finger='short')
         print self._cam_pars['dist'], self._cam_pars['z_offset']
         self._detect_bin()
         self._approach_pose(self._bin_pose)
-        self._move_to_pose(self._bin_pose)
+        self.move_to_pose(self._bin_pose)
 
     def clean_shutdown(self):
         """ Clean shutdown of the robot.
         :return: True on completion
         """
         print "\nExiting demonstrator ..."
-        self._display_image(white_imgmsg())
-        self._move_to_pose(self._top_pose)
+        self.display_image(white_imgmsg())
+        self.move_to_pose(self._top_pose)
         self._limb.move_to_neutral()
         if not self._init_state:
             print "Disabling robot..."
@@ -163,7 +117,7 @@ class Robot(object):
             print '\nPerforming camera setup ...'
             while len(dist) < n_calibrations:
                 p = self._perturbe_pose(pose)
-                if self._move_to_pose(p):
+                if self.move_to_pose(p):
                     d = sensor.state()
                     if d < 65000:
                         dist.append(d/1000.0 - p[2])
@@ -199,7 +153,7 @@ class Robot(object):
         """ Detect the bin to put the objects into.
         """
         print '\nLooking for bin to put objects into ...'
-        self._move_to_pose(self._top_pose)
+        self.move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
@@ -238,19 +192,18 @@ class Robot(object):
 
         # move limb to top-down-view pose
         # try up to 3 times to find a valid pose
-        if not self._move_to_pose(self._top_pose):
+        if not self.move_to_pose(self._top_pose):
             n_tries = self._N_TRIES
             while n_tries > 0:
                 print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
                 ppose = self._perturbe_pose(self._top_pose)
-                if self._move_to_pose(ppose):
+                if self.move_to_pose(ppose):
                     print '  perturbation worked'
                     n_tries = -1
             if not n_tries == -1:
                 return False
         return self._try_object(object_id=object_id)
-        return True
 
     def _try_object(self, object_id):
         """ Try to select, pick up and place the target object.
@@ -259,7 +212,7 @@ class Robot(object):
         """
         # record top-down-view image
         imgmsg = self._record_image()
-        self._display_image(imgmsg)
+        self.display_image(imgmsg)
         # candidates = detect_object_candidates(imgmsg)
         # ignore candidates already in bin
         # candidate = candidates[0]
@@ -290,20 +243,20 @@ class Robot(object):
         :return: Boolean flag on completion.
         """
         self._approach_pose(pose)
-        self._move_to_pose(pose)
-        if self._grasp_object():
+        self.move_to_pose(pose)
+        if self.grasp_object():
             print '   grasped object'
-            self._move_to_pose(self._top_pose)
+            self.move_to_pose(self._top_pose)
             bin_pose = self._perturbe_pose(self._bin_pose)
             self._approach_pose(bin_pose)
-            self._move_to_pose(bin_pose)
-            self._release_object()
+            self.move_to_pose(bin_pose)
+            self.release_object()
             print '   released object'
-            self._move_to_pose(self._top_pose)
+            self.move_to_pose(self._top_pose)
             print "  object '%i' placed successfully" % object_id
             return True
         print '  missed object'
-        self._release_object()
+        self.release_object()
         return False
 
     """ =======================================================================
@@ -327,16 +280,6 @@ class Robot(object):
         """
         self._imgmsg = data
 
-    def _display_image(self, imgmsg):
-        """ Display an image on the screen of the robot.
-        :param imgmsg: a ROS image message
-        """
-        try:
-            self._display_pub.publish(resize_imgmsg(imgmsg))
-        except TypeError:
-            rospy.logerr('display_image - ' +
-                         'Something is wrong with the ROS image message.')
-
     def _pixel2position(self, pixel):
         """ Compute Cartesian position in base coordinates from image pixels.
         Adapted from
@@ -355,34 +298,7 @@ class Robot(object):
         z = - self._cam_pars['dist'] + self._cam_pars['z_offset']
         return [x, y, z, -1.0*np.pi, 0., 0.]
 
-    def _grasp_object(self):
-        """ Close the gripper and validate that it grasped something.
-        :return: bool describing if the position move has been preempted by a
-        position command exceeding the moving_force threshold denoting a grasp
-        """
-        self._gripper.close(block=True)
-        return self._gripper.gripping()
-
-    def _release_object(self):
-        """ Open the gripper. """
-        self._gripper.open(block=True)
-
-    def _move_to_pose(self, pose):
-        """ Move robot limb to Cartesian pose.
-        :type pose: [float, float, float, float, float, float]
-        :param pose: desired Cartesian pose
-        :return: boolean flag on completion
-        """
-        rospy.loginfo('Move to x: %.2f, y: %.2f, z: %.2f, a: %.2f' %
-                      (pose[0], pose[1], pose[2], pose[3]))
-        try:
-            cmd = self._inverse_kinematics(pose)
-        except Exception:
-            return False
-        self._limb.move_to_joint_positions(cmd)
-        return True
-
-    def _approach_pose(self, pose):
+    def _approach_pose(self, pose=None):
         """ Move robot limb to Cartesian pose, except for an offset in
         z-direction.
         :type pose: [float, float, float, float, float, float]
@@ -391,16 +307,15 @@ class Robot(object):
         """
         # TODO: set approach offset here:
         offset = [0.0, 0.0, 0.05, 0.0, 0.0, 0.0]
-        p = [a + b for a, b in zip(pose, offset)]
-        return self._move_to_pose(p)
+        return self.move_to_pose(self._modify_pose(offset=offset, pose=pose))
 
-    @staticmethod
-    def _perturbe_pose(pose):
+    def _perturbe_pose(self, pose=None):
         """ Add a small perturbation to the Cartesian pose of the robot.
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
         :return: perturbed pose
         """
+        # TODO: set perturbation amplitude here:
         perturbation = [
             np.random.random()*0.02,
             np.random.random()*0.03,
@@ -409,97 +324,4 @@ class Robot(object):
             np.random.random()*2.0/180.0,
             np.random.random()*2.0/180.0
         ]
-        p = [a + b for a, b in zip(pose, perturbation)]
-        return p
-
-    def _endpoint_pose(self):
-        qp = self._limb.endpoint_pose()
-        r = transformations.euler_from_quaternion(qp['orientation'])
-        return [qp['position'][0], qp['position'][1], qp['position'][2],
-                r[0], r[1], r[2]]
-
-    def _inverse_kinematics(self, pose=None):
-        """ Inverse kinematics of one Baxter arm.
-        Compute valid set of joint angles for a given Cartesian pose using the
-        inverse kinematics service. Return current joint angles if None pose is
-        given.
-        :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
-        :param pose: desired Cartesian pose
-        :return: valid set of joint angles
-        """
-        if pose is None:
-            return self._limb.joint_angles()
-
-        qp = list_to_pose_stamped(pose, "base")
-
-        node = "ExternalTools/" + self._arm + "/PositionKinematicsNode/IKService"
-        ik_service = rospy.ServiceProxy(node, SolvePositionIK)
-        ik_request = SolvePositionIKRequest()
-        ik_request.pose_stamp.append(qp)
-        try:
-            rospy.wait_for_service(node, 5.0)
-            ik_response = ik_service(ik_request)
-        except (rospy.ServiceException, rospy.ROSException), error_message:
-            rospy.logerr("Service request failed: %r" % (error_message,))
-            raise
-
-        if ik_response.isValid[0]:
-            # convert response to joint position control dictionary
-            return dict(zip(ik_response.joints[0].name,
-                            ik_response.joints[0].position))
-        else:
-            s = "inverse kinematics - No valid joint configuration found"
-            rospy.logerr(s)
-            raise Exception(s)
-
-
-def list_to_pose(pose_list):
-    """ Pose list to ROS Pose msg.
-    :param pose_list: pose list
-    :return: ROS Pose message
-    """
-    pose_msg = Pose()
-    if len(pose_list) == 7:
-        pose_msg.position.x = pose_list[0]
-        pose_msg.position.y = pose_list[1]
-        pose_msg.position.z = pose_list[2]
-        pose_msg.orientation.x = pose_list[3]
-        pose_msg.orientation.y = pose_list[4]
-        pose_msg.orientation.z = pose_list[5]
-        pose_msg.orientation.w = pose_list[6]
-    elif len(pose_list) == 6:
-        pose_msg.position.x = pose_list[0]
-        pose_msg.position.y = pose_list[1]
-        pose_msg.position.z = pose_list[2]
-        q = transformations.quaternion_from_euler(pose_list[3], pose_list[4],
-                                                  pose_list[5])
-        pose_msg.orientation.x = q[0]
-        pose_msg.orientation.y = q[1]
-        pose_msg.orientation.z = q[2]
-        pose_msg.orientation.w = q[3]
-    else:
-        print "Expected either 6 or 7 elements in list: (x,y,z,r,p,y) or (x,y,z,qx,qy,qz,qw)"
-    return pose_msg
-
-
-def list_to_pose_stamped(pose_list, target_frame):
-    """ Pose list to ROS PoseStamped msg.
-    :param pose_list: pose list
-    :param target_frame: name of the target frame
-    :return: ROS PoseStamped message
-    """
-    pose_msg = PoseStamped()
-    pose_msg.pose = list_to_pose(pose_list)
-    pose_msg.header.frame_id = target_frame
-    pose_msg.header.stamp = rospy.Time.now()
-    return pose_msg
-
-
-def pose_to_list(pose):
-    """ Baxter pose to pose list.
-    :type pose: {'position': (x, y, z), 'orientation': (a, b, c)}
-    :param pose: baxter pose
-    :return: pose list
-    """
-    return [pose['position'][0], pose['position'][1], pose['position'][2],
-            pose['orientation'][0], pose['orientation'][1], pose['orientation'][2]]
+        return self._modify_pose(offset=perturbation, pose=pose)
