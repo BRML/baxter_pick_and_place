@@ -261,7 +261,7 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
     the upright roi enclosing the bin
     """
     img = _imgmsg2img(imgmsg)
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     equ = cv2.equalizeHist(gray)
 
     # try binary threshold
