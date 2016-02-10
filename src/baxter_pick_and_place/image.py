@@ -201,51 +201,6 @@ def _pose_from_location(object_points, image_points, cam_params):
 =========================================================================== """
 
 
-def _segment_table(img, lower_hsv=np.array([38, 20, 125]),
-                   upper_hsv=np.array([48, 41, 250]), verbose=False):
-    """ Segment table in input image based on color information.
-    :param img: the image to work on
-    :param lower_hsv: lower bound of HSV values to segment
-    :param upper_hsv: upper bound of HSV values to segment
-    :param verbose: show intermediate images or not
-    :return: image cropped to ROI (table)
-    """
-    cv2.imshow('Image', img)
-    cv2.waitKey(3)
-    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    mask = cv2.inRange(hsv, lower_hsv, upper_hsv)
-    if verbose:
-        cv2.imshow('Mask', mask)
-        cv2.waitKey(3)
-        table = cv2.bitwise_and(img, img, mask=mask)
-        cv2.imshow('Table', table)
-        cv2.waitKey(3)
-        kernel = np.ones((5, 5), np.uint8)
-        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel,
-                                   iterations=10)
-        cv2.imshow('Closing', closing)
-        cv2.waitKey(3)
-        table2 = cv2.bitwise_and(img, img, mask=closing)
-        cv2.imshow('Table 2', table2)
-        cv2.waitKey(3)
-
-    points = cv2.findNonZero(mask)
-    try:
-        x, y, w, h = cv2.boundingRect(points)
-        if verbose:
-            image = img.copy()
-            cv2.rectangle(image, (x, y), (x + w, y + h),
-                          np.array([0, 255, 0]), 2)
-            cv2.imshow('Rectangle', image)
-            cv2.waitKey(3)
-            roi = image[y:y + h, x:x + w]
-            cv2.imshow('ROI', roi)
-            cv2.waitKey(3)
-    except:
-        raise
-    return img[y:y + h, x:x + w]
-
-
 def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
                 ff_connectivity=4):
     """ Segment bin to put objects into on an image using algorithms of
