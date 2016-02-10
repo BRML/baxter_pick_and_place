@@ -105,8 +105,8 @@ generate_dynamic_reconfigure_options(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES baxter_pick-and-place
-#  CATKIN_DEPENDS baxter_core_msgs geometry_msgs rospy sensor_msgs std_msgs std_srvs
+  LIBRARIES baxter_pick-and-place
+  CATKIN_DEPENDS baxter_core_msgs dynamic_reconfigure geometry_msgs rospy sensor_msgs std_msgs std_srvs
 #  DEPENDS system_lib
 )
 
