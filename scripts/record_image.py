@@ -64,8 +64,6 @@ class ImageRecorder(object):
         self._cam_sub = rospy.Subscriber(s, Image, callback=self._camera_callback)
         print "\nRecording images ..."
         while not rospy.is_shutdown():
-            # pose = self.robot._perturbe_pose(self.robot._top_pose)
-            # self.robot._move_to_pose(pose)
             self.robot._move_to_pose(self.robot._top_pose)
             print " Press 'r' to record image, 's' to stop."
             ch = self.getch()
@@ -96,44 +94,13 @@ class ImageRecorder(object):
         """
         Callback routine for the camera subscriber.
         """
-        self._image = self._segment_filter(_imgmsg2img(data))
-
-    def _segment_filter(self, image):
-        """ Segment and filter / enhance the recorded image.
-        :param image: the image to modify
-        :return: the modified image
-        """
-        # hard-coded segmentation of relevant workspace
-        seg = image[table['y_min']:table['y_max'],
-                    table['x_min']:table['x_max'], :]
-
-        # noise reduction
-        # fil = cv2.bilateralFilter(seg, d=3, sigmaColor=5, sigmaSpace=5)
-        # diff = seg - fil
-
-        # adaptive histogram equalization
-        # ycrcb = cv2.cvtColor(fil, cv2.COLOR_BGR2YCR_CB)
-        # channels = cv2.split(ycrcb)
-        # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        # channels[0] = clahe.apply(channels[0])
-        # ycrcb = cv2.merge(channels)
-        # cl = cv2.cvtColor(ycrcb, cv2.COLOR_YCR_CB2BGR)
-
-        # noise reduction
-        # fil2 = cv2.bilateralFilter(cl, d=5, sigmaColor=5, sigmaSpace=9)
-        # diff2 = cl - fil2
-
-        # visualization
-        self.robot._display_image(_img2imgmsg(seg))
-        cv2.imshow('%s workspace' % self._arm, seg)
-        # cv2.imshow('%s denoised' % self._arm, fil)
-        # cv2.imshow('%s difference' % self._arm, diff)
-        # cv2.imshow('%s clahe' % self._arm, cl)
-        # cv2.imshow('%s clahe difference' % self._arm, diff2)
-        # cv2.imshow('%s clahe filtered' % self._arm, fil2)
+        img = _imgmsg2img(data)
+        self._image = img[table['y_min']:table['y_max'],
+                          table['x_min']:table['x_max'],
+                          :]
+        self.robot._display_image(_img2imgmsg(self._image))
+        cv2.imshow('%s workspace' % self._arm, self._image)
         cv2.waitKey(3)
-
-        return seg  #, fil, cl
 
 
 def main():
