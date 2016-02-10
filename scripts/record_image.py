@@ -42,7 +42,7 @@ from baxter_pick_and_place.robot import Robot
 from baxter_pick_and_place.settings import parameters as table
 
 
-class Images(object):
+class ImageRecorder(object):
     def __init__(self, limb, outpath):
         """ Image recorder.
         :param limb: the limb to record images with
@@ -152,16 +152,15 @@ def main():
     )
     args = parser.parse_args(rospy.myargv()[1:])
 
-    rospack = rospkg.RosPack()
-    ns = rospack.get_path('baxter_pick_and_place')
-    ns = os.path.join(ns, 'data', 'sdd')
-    if not os.path.exists(ns):
-        os.makedirs(ns)
+    ns = rospkg.RosPack().get_path('baxter_pick_and_place')
+    data_dirname = os.path.join(ns, 'data', 'sdd')
+    if not os.path.exists(data_dirname):
+        os.makedirs(data_dirname)
 
     print("Initializing node... ")
     rospy.init_node("image_recording_%s" % (args.limb,))
 
-    images = Images(args.limb, outpath=ns)
+    images = ImageRecorder(limb=args.limb, outpath=data_dirname)
     rospy.on_shutdown(images.robot.clean_shutdown)
     images.record()
     cv2.destroyAllWindows()
