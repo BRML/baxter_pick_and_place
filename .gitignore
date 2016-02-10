@@ -3,10 +3,13 @@ data/*
 data/synthetic_demo_data/*
 !data/synthetic_demo_data/*_cascade.xml
 
+setup/*
+
 *~
 
 # Distribution / packaging
 build/
+*.pyc
 
 # PyCharm stuff:
 .idea/
