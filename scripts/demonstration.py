@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright (c) 2015--2016, BRML
+# Copyright (c) 2015, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -36,17 +36,31 @@ from baxter_pick_and_place.robot import Robot
 
 class Demonstrator(object):
 
-    def __init__(self, limb, outpath):
+    def __init__(self):
         """
-        Picks up objects pointed out and places them in a bin.
-        :param limb: limb to pick objects up with
-        :param outpath: path to write (debugging) images to
+        Picks up objects pointed out and places them in a pre-defined location.
         """
-        self.robot = Robot(limb, outpath)
+        self.robot = Robot()
         self._N_TRIES = 2
 
+    def calibrate_camera(self):
+        """
+        Calibrate the cameras if no setup is saved, or load it if one exists.
+        """
+        print "\nCalibrating cameras ..."
+        rospack = rospkg.RosPack()
+        ns = rospack.get_path('baxter_pick_and_place')
+        ns = os.path.join(ns, 'setup')
+        if not os.path.exists(ns):
+            os.makedirs(ns)
+        setup_file = os.path.join(ns, 'setup.dat')
+        if not os.path.exists(setup_file):
+            self.robot.write_setup(setup_file)
+        self.robot.load_setup(setup_file)
+
     def demonstrate(self, n_objects_to_pick):
-        """ Pick up a given number of objects and place them in a bin.
+        """ Pick up a given number of objects and place them in a pre-defined
+        location.
         :param n_objects_to_pick: The number of objects to pick up.
         :return: True on completion.
         """
@@ -74,35 +88,20 @@ def main():
     """ Pick and place demonstration with the baxter research robot.
 
     Picks up objects that have been pointed out by a human operator by means
-    of an eye tracker and places them in a bin.
+    of an eye tracker and places them in a pre-defined location.
     """
-    arg_fmt = argparse.RawDescriptionHelpFormatter
-    parser = argparse.ArgumentParser(formatter_class=arg_fmt,
-                                     description=main.__doc__)
-    required = parser.add_argument_group('required arguments')
-    required.add_argument(
-        '-l', '--limb', required=True, choices=['left', 'right'],
-        help='The limb to pick objects up with.'
-    )
-    parser.add_argument(
-        '-n', '--number', dest='number',
-        required=False, type=int, default=0,
-        help='The number of objects to pick up.'
-    )
+    parser = argparse.ArgumentParser(description='Pick and place demonstration with the baxter research robot.')
+    parser.add_argument('-n', '--number', dest='number',
+                        required=False, type=int, default=0,
+                        help='The number of objects to pick up.')
     args = parser.parse_args(rospy.myargv()[1:])
-
-    rospack = rospkg.RosPack()
-    ns = rospack.get_path('baxter_pick_and_place')
-    ns = os.path.join(ns, 'data')
-    if not os.path.exists(ns):
-        os.makedirs(ns)
 
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    demonstrator = Demonstrator(limb=args.limb, outpath=ns)
+    demonstrator = Demonstrator()
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-
+    demonstrator.calibrate_camera()
     demonstrator.demonstrate(args.number)
 
     print 'Done.'
