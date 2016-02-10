@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(baxter_pick_and_place)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   baxter_core_msgs
   dynamic_reconfigure
@@ -17,10 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
-
-## Uncomment this if the package has a setup.py. This macro ensures
-## modules and global scripts declared therein get installed
-## See http://ros.org/doc/api/catkin/html/user_guide/setup_dot_py.html
 catkin_python_setup()
 
 ################################################
@@ -78,17 +71,6 @@ catkin_python_setup()
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################
 
-## To declare and build dynamic reconfigure parameters within this
-## package, follow these steps:
-## * In the file package.xml:
-##   * add a build_depend and a run_depend tag for "dynamic_reconfigure"
-## * In this file (CMakeLists.txt):
-##   * add "dynamic_reconfigure" to
-##     find_package(catkin REQUIRED COMPONENTS ...)
-##   * uncomment the "generate_dynamic_reconfigure_options" section below
-##     and list every .cfg file to be processed
-
-## Generate dynamic reconfigure parameters in the 'cfg' folder
 generate_dynamic_reconfigure_options(
   cfg/CamConfig.cfg
   cfg/CannyConfig.cfg
@@ -105,8 +87,8 @@ generate_dynamic_reconfigure_options(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
 #  INCLUDE_DIRS include
-#  LIBRARIES baxter_pick-and-place
-#  CATKIN_DEPENDS baxter_core_msgs geometry_msgs rospy sensor_msgs std_msgs std_srvs
+  LIBRARIES baxter_pick-and-place
+  CATKIN_DEPENDS baxter_core_msgs dynamic_reconfigure geometry_msgs rospy sensor_msgs std_msgs std_srvs
 #  DEPENDS system_lib
 )
 

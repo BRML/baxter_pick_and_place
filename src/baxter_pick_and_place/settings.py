@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # Copyright (c) 2016, BRML
 # All rights reserved.
 #
@@ -25,21 +23,22 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-# Dynamic reconfigure configuration file for baxter camera parameter server.
-# See http://wiki.ros.org/dynamic_reconfigure/Tutorials/HowToWriteYourFirstCfgFile
+import numpy as np
 
-PACKAGE = "baxter_pick_and_place"
 
-from dynamic_reconfigure.parameter_generator_catkin import ParameterGenerator
-from dynamic_reconfigure.parameter_generator_catkin import int_t
+""" top pose """
+top_pose = [
+    0.45,  # x = (+) front, (-) back
+    0.0,  # y = (+) left, (-) right
+    0.15,  # z = (+) up, (-) down
+    -1.0*np.pi,  # roll = horizontal
+    0.0*np.pi,  # pitch = vertical
+    0.0*np.pi  # yaw = rotation
+]
 
-gen = ParameterGenerator()
-
-gen.add("exposure", int_t, 0, "Camera exposure", -1, -1, 100)
-gen.add("gain", int_t, 0, "Camera gain", 0, -1, 79)
-
-gen.add("wb_red", int_t, 0, "White balance red", -1, -1, 4095)
-gen.add("wb_green", int_t, 0, "White balance green", -1, -1, 4095)
-gen.add("wb_blue", int_t, 0, "White balance blue", -1, -1, 4095)
-
-exit(gen.generate(PACKAGE, "cam_cfg", "Cam"))
+""" table workspace in pixel coordinates (background images / top pose) """
+parameters = dict()
+parameters['x_min'] = 400
+parameters['x_max'] = 1020
+parameters['y_min'] = 295
+parameters['y_max'] = 670
