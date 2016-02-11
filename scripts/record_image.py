@@ -105,7 +105,7 @@ class ImageRecorder(BaxterRobot):
             ch = sys.stdin.read(1)
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
+        return ch.lower()
 
     def _camera_callback(self, data):
         """
@@ -145,6 +145,7 @@ def main():
     ir = ImageRecorder(limb=args.limb, outpath=data_dirname)
     rospy.on_shutdown(ir.clean_shutdown)
     ir.record()
+
 
 if __name__ == '__main__':
     main()
