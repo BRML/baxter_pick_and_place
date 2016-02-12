@@ -64,6 +64,7 @@ class Demonstrator(object):
                     n_tries -= 1
                     if self.robot.pick_and_place_object():
                         n_tries = -1
+                        n += 1
                 if not n_tries == -1:
                     print 'Failed to pick up object', n
                     return False
