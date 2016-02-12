@@ -26,6 +26,15 @@
 import numpy as np
 
 
+""" object list """
+object_list = [
+    'duplo_brick',
+    'extra_mints',
+    'glue_stick',
+    'golf_ball',
+    'robot'
+]
+
 """ top pose """
 top_pose = [
     0.45,  # x = (+) front, (-) back
