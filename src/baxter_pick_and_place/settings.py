@@ -31,9 +31,9 @@ top_pose = [
     0.45,  # x = (+) front, (-) back
     0.0,  # y = (+) left, (-) right
     0.15,  # z = (+) up, (-) down
-    -1.0*np.pi,  # roll = horizontal
-    0.0*np.pi,  # pitch = vertical
-    0.0*np.pi  # yaw = rotation
+    -1.0*np.pi,  # roll = rotation about x-axis
+    0.0*np.pi,  # pitch = rotation about y-axis
+    0.0*np.pi  # yaw = rotation about z-axis
 ]
 
 """ table workspace in pixel coordinates (background images / top pose) """
