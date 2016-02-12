@@ -34,15 +34,20 @@ from sensor_msgs.msg import Image
 
 import baxter_interface
 
+from baxter_pick_and_place.baxter_robot import BaxterRobot
 from baxter_pick_and_place.image import (
     cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
-    segment_area
+    segment_area,
+    segment_red_area,
+    mask_imgmsg_region
 )
-from baxter_pick_and_place.baxter_robot import BaxterRobot
-from baxter_pick_and_place.settings import parameters as table
-from baxter_pick_and_place.settings import top_pose
+from baxter_pick_and_place.settings import (
+    object_list,
+    parameters as table,
+    top_pose
+)
 
 
 class Robot(BaxterRobot):
@@ -157,20 +162,10 @@ class Robot(BaxterRobot):
         self.move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
+        self.display_image(imgmsg)
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
-        rroi, roi = segment_area(imgmsg=imgmsg, outpath=self._outpath,
-                                 th=210, c_low=110, c_high=175,
-                                 a_low=10000, a_high=100000)
-        x, y, w, h = roi
-        center = table['x_min']+x+w/2, table['y_min']+y+h/2
-        # center = (571, 488)
-        print ' Found bin at (%i, %i) pixels.' % (int(center[0]),
-                                                  int(center[1]))
-        print ' Computing baxter coordinates from pixel coordinates ...'
-        self._bin_pose = self._pixel2position(center)
-        print 'Detected bin at (%.2f, %.2f, %.2f) m.' % (self._bin_pose[0],
-                                                         self._bin_pose[1],
-                                                         self._bin_pose[2])
+        rroi, _ = self._segment_bin_roi(imgmsg)
+        self._bin_pose = self._rroi2pose(rroi=rroi, obj='bin')
 
     """ =======================================================================
         Pick and place routine
@@ -180,8 +175,6 @@ class Robot(BaxterRobot):
         command.
         :return: boolean flag on completion
         """
-        self.set_up()
-
         print ' rabbiting away ...'
         # Wait for object to be triggered---dummy
 
@@ -192,7 +185,8 @@ class Robot(BaxterRobot):
             print "  object '%i' was triggered after %.2fs" % (idx, t)
             return idx
 
-        object_id = _trigger_dummy(10.0)
+        _trigger_dummy(10.0)
+        obj = object_list[0]  # want to test duplo_brick
 
         # move limb to top-down-view pose
         # try up to 3 times to find a valid pose
@@ -207,43 +201,38 @@ class Robot(BaxterRobot):
                     n_tries = -1
             if not n_tries == -1:
                 return False
-        return self._try_object(object_id=object_id)
+        return self._try_object(obj=obj)
 
-    def _try_object(self, object_id):
+    def _try_object(self, obj):
         """ Try to select, pick up and place the target object.
-        :param object_id: the id of the desired object in the data base.
+        :param obj: the id of the desired object in the data base.
         :return: boolean flag on completion
         """
         # record top-down-view image
         imgmsg = self._record_image()
-        self.display_image(imgmsg)
-        # candidates = detect_object_candidates(imgmsg)
-        # ignore candidates already in bin
-        # candidate = candidates[0]
-        # center, dots = candidate
-        # pose = self._pixel2position(center)
-        # r, p, y = self._estimate_grasp_orientation(dots, object_id)
-        # pose[3] = r
-        # pose[4] = p
-        # pose[5] = y
-        pose = [0.54, -0.11, -0.26, 1.0*np.pi, 0.0, 0.0]
-        if not self._pick_and_place(pose, object_id=object_id):
+        # detect object
+        try:
+            pose = self._detect_object(imgmsg, obj=obj)
+        except ValueError as e:
+            rospy.logerr(e)
+            return False
+        if not self._pick_and_place(pose, obj=obj):
             n_tries = self._N_TRIES
             while n_tries > 0:
                 print '   trying', n_tries, 'more time(s)'
                 n_tries -= 1
                 ppose = self._perturbe_pose(pose)
-                if self._pick_and_place(ppose, object_id=object_id):
+                if self._pick_and_place(ppose, obj=obj):
                     n_tries = -1
             if not n_tries == -1:
-                print "  failed to grasp object '%i'" % object_id
+                print "  failed to grasp '%s'." % obj
                 return False
         return True
 
-    def _pick_and_place(self, pose, object_id):
+    def _pick_and_place(self, pose, obj):
         """ Try to approach, grasp, relocate and put down an object.
         :param pose: The pose of the selected object.
-        :param object_id: The id of the object in the data base.
+        :param obj: The id of the object in the data base.
         :return: Boolean flag on completion.
         """
         self._approach_pose(pose)
@@ -255,16 +244,93 @@ class Robot(BaxterRobot):
             self._approach_pose(bin_pose)
             self.move_to_pose(bin_pose)
             self.release_object()
+            time.sleep(0.5)
             print '   released object'
             self.move_to_pose(self._top_pose)
-            print "  object '%i' placed successfully" % object_id
+            print "  '%s' placed successfully" % obj
             return True
         print '  missed object'
         self.release_object()
         return False
 
     """ =======================================================================
-        Helper functions and kinematics
+        Object detection
+    ======================================================================= """
+    def _segment_bin_roi(self, imgmsg):
+        """ Compute the roteted rectangle encompassing the bin.
+        :param imgmsg: a ROS image message
+        :return: a rotated region (rroi, corners)
+        """
+        outpath = os.path.join(self._outpath, 'bin')
+        th = 210
+        c_low = 110
+        c_high = 175
+        a_low = 10000
+        a_high = 100000
+        try:
+            rroi, _ = segment_area(imgmsg=imgmsg, outpath=outpath, th=th,
+                                   c_low=c_low, c_high=c_high,
+                                   ff_connectivity=4,
+                                   a_low=a_low, a_high=a_high)
+        except ValueError as e:
+            rospy.logerr(e)
+            raise Exception("No bin found!")
+        return rroi
+
+    def _mask_bin_roi(self, imgmsg):
+        """ Mask the region of the bin to prevent detecting already picked-up
+        objects.
+        :param imgmsg: a ROS image message
+        :return: a ROS image message
+        """
+        _, corners = self._segment_bin_roi(imgmsg)
+        imgmsg = mask_imgmsg_region(imgmsg, corners=corners)
+        self.display_image(imgmsg)
+        return imgmsg
+
+    def _detect_object(self, imgmsg, obj):
+        """ Detect an object and compute the pose to grasp it.
+        :param imgmsg: a ROS image message
+        :param obj: a string identifying the object to detect
+        :return: the pose [x, y, z, a, b, c] to grasp the object
+        """
+        imgmsg = self._mask_bin_roi(imgmsg)
+
+        if obj is 'duplo_brick':
+            rroi, _ = self._segment_duplo_brick_roi(imgmsg, obj)
+        elif obj is 'extra_mints':
+            rroi = ((0, 0), (1, 1), 40)
+        elif obj is 'glue_stick':
+            rroi = ((0, 0), (1, 1), 40)
+        elif obj is 'golf_ball':
+            rroi = ((0, 0), (1, 1), 40)
+        elif obj is 'robot':
+            rroi = ((0, 0), (1, 1), 40)
+        else:
+            s = "I do not know '%s'!" % obj
+            rospy.logerr(s)
+            raise ValueError(s)
+        return self._rroi2pose(rroi=rroi, obj=obj)
+
+    def _segment_duplo_brick_roi(self, imgmsg, obj):
+        """ Compute the rotated rectangle encompassing the duplo brick.
+        :param imgmsg: a ROS image message
+        :param obj: a string identifying the object
+        :return a rotated region (rroi, corners)
+        """
+        outpath = os.path.join(self._outpath, obj)
+        th = 25
+        c_low = 100
+        c_high = 170
+        a_low = 50
+        a_high = 2100
+        rroi, _ = segment_red_area(imgmsg=imgmsg, outpath=outpath, th=th,
+                                   c_low=c_low, c_high=c_high,
+                                   a_low=a_low, a_high=a_high)
+        return rroi
+
+    """ =======================================================================
+        Helper functions
     ======================================================================= """
     def _record_image(self):
         """ Record an image from one of the robots' hand cameras.
@@ -289,7 +355,7 @@ class Robot(BaxterRobot):
         Adapted from
           http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
         :param pixel: A pixel coordinate
-        :return: A pose [x, y, z, 0, 0, 0]
+        :return: A pose [x, y, z, -PI, 0, 0]
         """
         w, h = self._camera.resolution
         px, py, _, _, _, _ = self._endpoint_pose()
@@ -301,6 +367,22 @@ class Robot(BaxterRobot):
             py + self._cam_pars['y_offset']
         z = - self._cam_pars['dist'] + self._cam_pars['z_offset']
         return [x, y, z, -1.0*np.pi, 0., 0.]
+
+    def _rroi2pose(self, rroi, obj):
+        """ Compute object pose from that object's rotated region.
+        :param rroi: rotated region ((cx, cy), (w, h), alpha)
+        :param obj: a string identifying the object
+        :return the pose [x, y, z, a, b, c] to grasp the object
+        """
+        center = table['x_min']+rroi[0][0], table['y_min']+rroi[0][1]
+        print " Found '%s' at (%i, %i) pixels." % (obj, int(center[0]),
+                                                   int(center[1]))
+        print ' Computing baxter coordinates from pixel coordinates ...'
+        pose = self._pixel2position(center)
+        pose[5] -= np.deg2rad(rroi[2])
+        print "Detected '%s' at (%.2f, %.2f, %.2f)m and %.2frad." % \
+              (obj, pose[0], pose[1], pose[2], pose[5])
+        return pose
 
     def _approach_pose(self, pose=None):
         """ Move robot limb to Cartesian pose, except for an offset in
@@ -323,9 +405,9 @@ class Robot(BaxterRobot):
         perturbation = [
             np.random.random()*0.02,
             np.random.random()*0.03,
-            np.random.random()*0.02,
-            np.random.random()*2.0/180.0,
-            np.random.random()*2.0/180.0,
+            0.0,
+            0.0,
+            0.0,
             np.random.random()*2.0/180.0
         ]
         return self._modify_pose(offset=perturbation, pose=pose)
