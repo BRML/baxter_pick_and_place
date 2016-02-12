@@ -201,10 +201,10 @@ def _pose_from_location(object_points, image_points, cam_params):
 =========================================================================== """
 
 
-def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
-                ff_connectivity=4):
-    """ Segment bin to put objects into on an image using algorithms of
-    increasing complexity.
+def segment_area(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
+                 ff_connectivity=4, a_low=100, a_high=200):
+    """ Segment connected components on an image based on area using
+    machine vision algorithms of increasing complexity.
     :param imgmsg: a ROS image message
     :param outpath: the path to where to write intermediate images to
     :param th: threshold for binary thresholding operation
@@ -212,16 +212,18 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
     :param c_high: upper Canny threshold
     :param ff_connectivity: neighborhood relation (4, 8) to use for flood fill
     operation
+    :param a_low: lower bound for contour area
+    :param a_high: upper bound for contour area
     :returns: a tuple (rroi, roi) containing the rotated roi and corners and
-    the upright roi enclosing the bin
+    the upright roi enclosing the connected component
     """
     img = imgmsg2img(imgmsg)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     equ = cv2.equalizeHist(gray)
 
     # try binary threshold
     _, thresh = cv2.threshold(equ, th, 255, cv2.THRESH_BINARY)
-    contour = _extract_contour(thresh, c_low, c_high)
+    contour = _extract_contour(thresh, c_low, c_high, a_low, a_high)
     if contour is not None:
         array = thresh
         title = 'threshold'
@@ -229,7 +231,8 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
         kernel = np.ones((2, 2), np.uint8)
         opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel,
                                    iterations=1)
-        contour = _extract_contour(opening, c_low, c_high)
+        contour = _extract_contour(opening, c_low, c_high,
+                                   a_low, a_high)
         if contour is not None:
             array = opening
             title = 'opening'
@@ -239,7 +242,8 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
                                        kernel, iterations=1)
             outline = cv2.morphologyEx(closing, cv2.MORPH_GRADIENT,
                                        kernel, iterations=2)
-            contour = _extract_contour(outline, c_low, c_high)
+            contour = _extract_contour(outline, c_low, c_high,
+                                       a_low, a_high)
             if contour is not None:
                 array = outline
                 title = 'outline'
@@ -252,7 +256,8 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
                 flags = ff_connectivity | cv2.FLOODFILL_FIXED_RANGE
                 cv2.floodFill(flooded, mask, seed_pt, (255, 255, 255),
                               (50,)*3, (255,)*3, flags)
-                contour = _extract_contour(flooded, c_low, c_high)
+                contour = _extract_contour(flooded, c_low, c_high,
+                                           a_low, a_high)
                 if contour is not None:
                     array = flooded
                     title = 'flooded'
@@ -289,17 +294,20 @@ def segment_bin(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
     return (rrect, box), (x, y, w, h)
 
 
-def _extract_contour(img, c_low=50, c_high=270):
+def _extract_contour(img, c_low=50, c_high=270, a_low=100, a_high=200):
     """ Apply Canny edge detection to an image and return maximal
     contour found.
     :param img: the image to work on
     :param c_low: lower Canny threshold
     :param c_high: upper Canny threshold
+    :param a_low: lower bound for contour area
+    :param a_high: upper bound for contour area
     :returns: the found contour, or None
     """
     canny = cv2.Canny(img, c_low, c_high, apertureSize=3)
     kernel = np.ones((3, 3), np.uint8)
-    canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel, iterations=1)
+    canny = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel,
+                             iterations=1)
 
     contours, _ = cv2.findContours(canny, cv2.RETR_LIST,
                                    cv2.CHAIN_APPROX_SIMPLE)
@@ -307,7 +315,7 @@ def _extract_contour(img, c_low=50, c_high=270):
     contour = None
     for c in contours:
         area = cv2.contourArea(c)
-        if 10000 < area < 100000:
+        if a_low < area < a_high:
             if area > max_area:
                 max_area = area
                 contour = c

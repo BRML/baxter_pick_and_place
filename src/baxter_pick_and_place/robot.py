@@ -38,7 +38,7 @@ from baxter_pick_and_place.image import (
     cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
-    segment_bin
+    segment_area
 )
 from baxter_pick_and_place.baxter_robot import BaxterRobot
 from baxter_pick_and_place.settings import parameters as table
@@ -152,15 +152,15 @@ class Robot(BaxterRobot):
                 self._cam_pars = pickle.load(f)
 
     def _detect_bin(self):
-        """ Detect the bin to put the objects into.
-        """
+        """ Detect the bin to put the objects into. """
         print '\nLooking for bin to put objects into ...'
         self.move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
-        rroi, roi = segment_bin(imgmsg=imgmsg, outpath=self._outpath,
-                                th=210, c_low=110, c_high=175)
+        rroi, roi = segment_area(imgmsg=imgmsg, outpath=self._outpath,
+                                 th=210, c_low=110, c_high=175,
+                                 a_low=10000, a_high=100000)
         x, y, w, h = roi
         center = table['x_min']+x+w/2, table['y_min']+y+h/2
         # center = (571, 488)
