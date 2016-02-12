@@ -124,13 +124,16 @@ class BaxterRobot(object):
         :param pose: desired Cartesian pose
         :return: boolean flag on completion
         """
-        rospy.loginfo('Move to x: %.2f, y: %.2f, z: %.2f, a: %.2f' %
-                      (pose[0], pose[1], pose[2], pose[3]))
+        rospy.loginfo('Move to x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
+                      (pose[0], pose[1], pose[2], pose[5]))
         try:
             cmd = self._inverse_kinematics(pose)
         except ValueError:
             return False
         self._limb.move_to_joint_positions(cmd)
+        pose = self._endpoint_pose()
+        rospy.loginfo('Arrd at x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
+                      (pose[0], pose[1], pose[2], pose[5]))
         return True
 
     def _modify_pose(self, offset, pose=None):
