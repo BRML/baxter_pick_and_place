@@ -205,7 +205,7 @@ class Robot(BaxterRobot):
 
     def _try_object(self, obj):
         """ Try to select, pick up and place the target object.
-        :param obj: the id of the desired object in the data base.
+        :param obj: a string identifying the object.
         :return: boolean flag on completion
         """
         # record top-down-view image
@@ -232,7 +232,7 @@ class Robot(BaxterRobot):
     def _pick_and_place(self, pose, obj):
         """ Try to approach, grasp, relocate and put down an object.
         :param pose: The pose of the selected object.
-        :param obj: The id of the object in the data base.
+        :param obj: a string identifying the object.
         :return: Boolean flag on completion.
         """
         self._approach_pose(pose)
@@ -242,7 +242,6 @@ class Robot(BaxterRobot):
             self.move_to_pose(self._top_pose)
             bin_pose = self._perturbe_pose(self._bin_pose)
             self._approach_pose(bin_pose)
-            self.move_to_pose(bin_pose)
             self.release_object()
             time.sleep(0.5)
             print '   released object'
