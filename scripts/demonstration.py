@@ -106,6 +106,7 @@ def main():
     demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
+    demonstrator.robot.set_up()
     ret = demonstrator.demonstrate(args.number)
     if ret:
         print "\nSuccessfully performed demonstration."

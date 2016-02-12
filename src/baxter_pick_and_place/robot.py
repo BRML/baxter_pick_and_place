@@ -82,13 +82,12 @@ class Robot(BaxterRobot):
     """ =======================================================================
         Set system up and prepare things
     ======================================================================= """
-    def _set_up(self):
+    def set_up(self):
         self._perform_setup(finger='short')
         print self._cam_pars['dist'], self._cam_pars['z_offset']
         self._detect_bin()
         self._approach_pose(self._bin_pose)
-        self._move_to_pose(self._bin_pose)
-
+        self.move_to_pose(self._bin_pose)
 
     def _perform_setup(self, finger='short'):
         """ Perform the robot limb calibration, i.e., measure the distance from
@@ -181,8 +180,7 @@ class Robot(BaxterRobot):
         command.
         :return: boolean flag on completion
         """
-        if self._cam_pars is None:
-            self._set_up()
+        self.set_up()
 
         print ' rabbiting away ...'
         # Wait for object to be triggered---dummy
