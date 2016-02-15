@@ -50,25 +50,38 @@ class Demonstrator(object):
         :param n_objects_to_pick: The number of objects to pick up.
         :return: True on completion.
         """
-        n = 0
-        print '\nWe are supposed to pick up %i object(s) ...' % n_objects_to_pick
-        while not rospy.is_shutdown() and n < n_objects_to_pick:
-            print "Picking up object %i." % n
-            # try up to 3 times to grasp an object
-            if self.robot.pick_and_place_object():
-                n += 1
-            else:
-                n_tries = self._N_TRIES
-                while n_tries > 0:
-                    print ' trying', n_tries, 'more time(s)'
-                    n_tries -= 1
-                    if self.robot.pick_and_place_object():
-                        n_tries = -1
-                        n += 1
-                if not n_tries == -1:
-                    print 'Failed to pick up object %i.' % n
-                    return False
-        return True
+        # n = 0
+        # print '\nWe are supposed to pick up %i object(s) ...' % n_objects_to_pick
+        # while not rospy.is_shutdown() and n < n_objects_to_pick:
+        #     print "Picking up object %i." % n
+        #     # try up to 3 times to grasp an object
+        #     if self.robot.pick_and_place_object():
+        #         n += 1
+        #     else:
+        #         n_tries = self._N_TRIES
+        #         while n_tries > 0:
+        #             print ' trying', n_tries, 'more time(s)'
+        #             n_tries -= 1
+        #             if self.robot.pick_and_place_object():
+        #                 n_tries = -1
+        #                 n += 1
+        #         if not n_tries == -1:
+        #             print 'Failed to pick up object %i.' % n
+        #             return False
+        # return True
+        import numpy as np
+        self.robot.move_to_pose(self.robot._top_pose)
+        self.robot.grasp_object()
+
+        xes = np.arange(start=0.2, stop=0.61, step=0.05)
+        yes = np.arange(start=-0.15, stop=0.31, step=0.05)
+        z = -0.235
+        for x in xes:
+            for y in yes:
+                pose = [x, y, z, -np.pi, 0.0, 0.0]
+                if self.robot.move_to_pose(pose):
+                    raw_input("Press Enter to continue...")
+            self.robot.move_to_pose(self.robot._top_pose)
 
 
 def main():
@@ -107,7 +120,7 @@ def main():
     demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
-    demonstrator.robot.set_up()
+    # demonstrator.robot.set_up()
     ret = demonstrator.demonstrate(args.number)
     if ret:
         print "\nSuccessfully performed demonstration."
