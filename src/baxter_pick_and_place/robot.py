@@ -391,7 +391,7 @@ class Robot(BaxterRobot):
         :return: boolean flag on completion
         """
         # TODO: set approach offset here:
-        offset = [0.0, 0.0, 0.05, 0.0, 0.0, 0.0]
+        offset = [0.0, 0.0, 0.1, 0.0, 0.0, 0.0]
         return self.move_to_pose(self._modify_pose(offset=offset, pose=pose))
 
     def _perturbe_pose(self, pose=None):
@@ -410,3 +410,34 @@ class Robot(BaxterRobot):
             np.random.random()*2.0/180.0
         ]
         return self._modify_pose(offset=perturbation, pose=pose)
+
+    def _vs_iterate(self, pixel_center):
+        size = (0, 0)
+        tolerance = 0.005  # m
+        world_error = self._vs_error(pixel_center, size)
+
+        if world_error > tolerance:
+            factor = self._cam_pars["mpp"]*self._cam_pars["dist"]
+            w, h = size
+            pixel_delta = [a-b for a, b in zip((w, h), pixel_center)]
+            dx = -pixel_delta[0]*factor
+            dy = -pixel_delta[1]*factor
+            pose = self._modify_pose(offset=[dx, dy, 0, 0, 0, 0])
+            self.move_to_pose(pose)
+            # pixel_center = self._vs_find_center()
+            # world_error = self._vs_error(pixel_center, size)
+
+        return pixel_center, world_error
+
+    def _vs_error(self, pixel_center, size):
+        """ Compute position error of blob for visual servoing.
+        :param pixel_center: blob center in pixel coordinates
+        :param size: image size
+        :return: error in world coordinates
+        """
+        w, h = size
+        pixel_delta = [a-b for a, b in zip((w, h), pixel_center)]
+        pixel_error = np.sqrt(np.sum(np.asarray(pixel_delta)**2))
+        factor = self._cam_pars["mpp"]*self._cam_pars["dist"]
+        world_error = pixel_error*factor
+        return world_error

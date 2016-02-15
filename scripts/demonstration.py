@@ -32,6 +32,7 @@ import rospkg
 import rospy
 
 from baxter_pick_and_place.robot import Robot
+from baxter_pick_and_place.image import segment_area
 
 
 class Demonstrator(object):
@@ -71,16 +72,19 @@ class Demonstrator(object):
         # return True
         import numpy as np
         self.robot.move_to_pose(self.robot._top_pose)
-        self.robot.grasp_object()
 
-        xes = np.arange(start=0.2, stop=0.61, step=0.05)
-        yes = np.arange(start=-0.15, stop=0.31, step=0.05)
+        x = 0.4
+        y = 0.0
         z = -0.235
-        for x in xes:
-            for y in yes:
-                pose = [x, y, z, -np.pi, 0.0, 0.0]
-                if self.robot.move_to_pose(pose):
-                    raw_input("Press Enter to continue...")
+        pose = [x, y, z, -np.pi, 0.0, 0.0]
+        while not rospy.is_shutdown():
+            if self.robot._approach_pose(pose):
+                imgmsg = self.robot._record_image()
+                self.robot.display_image(imgmsg)
+                segment_area(imgmsg, "/home/baxter/",
+                             245, 110, 170, 4,
+                             700, 10000)
+                raw_input("Press Enter to continue...")
             self.robot.move_to_pose(self.robot._top_pose)
 
 
