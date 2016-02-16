@@ -94,15 +94,17 @@ class Robot(BaxterRobot):
     """ =======================================================================
         Set system up and prepare things
     ======================================================================= """
-    def set_up(self):
+    def set_up(self, verbose=False):
         self.display_text('Performing setup')
         self._perform_setup(finger='short')
-        print self._cam_pars['dist'], self._cam_pars['z_offset']
+        print 'dist: %.3f, z_offset: %.3f' % (self._cam_pars['dist'],
+                                              self._cam_pars['z_offset'])
         self.display_text('Looking for bin', 'to put objects into')
         self._detect_bin()
-        self._approach_pose(self._bin_pose)
-        self.move_to_pose(self._bin_pose)
-        self._approach_pose(self._bin_pose)
+        if verbose:
+            self._approach_pose(self._bin_pose)
+            self.move_to_pose(self._bin_pose)
+            self._approach_pose(self._bin_pose)
 
     def _perform_setup(self, finger='short'):
         """ Perform the robot limb calibration, i.e., measure the distance from
@@ -173,7 +175,13 @@ class Robot(BaxterRobot):
         imgmsg = self._record_image()
         self.display_imgmsg(imgmsg)
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
-        rroi, _ = self._segment_bin_roi(imgmsg)
+        rroi, corners = self._segment_bin_roi(imgmsg)
+        img = imgmsg2img(imgmsg)
+        b = np.int0(corners)
+        cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
+        cv2.circle(img, (int(rroi[0][0]), int(rroi[0][1])), 4,
+                   (0, 255, 0), 2)
+        self.display_imgmsg(img2imgmsg(img))
         self._bin_pose = self._rroi2pose(rroi=rroi, obj='bin')
 
     """ =======================================================================
