@@ -118,22 +118,25 @@ class BaxterRobot(object):
         """ Open the gripper. """
         self._gripper.open(block=True)
 
-    def move_to_pose(self, pose):
+    def move_to_pose(self, pose, verbose=False):
         """ Move robot limb to Cartesian pose.
         :type pose: [float, float, float, float, float, float]
         :param pose: desired Cartesian pose
+        :param verbose: whether to print debugging information
         :return: boolean flag on completion
         """
-        rospy.loginfo('Move to x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
-                      (pose[0], pose[1], pose[2], pose[5]))
+        if verbose:
+            rospy.loginfo('Move to x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
+                          (pose[0], pose[1], pose[2], pose[5]))
         try:
             cmd = self._inverse_kinematics(pose)
         except ValueError:
             return False
         self._limb.move_to_joint_positions(cmd)
-        pose = self._endpoint_pose()
-        rospy.loginfo('Arrd at x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
-                      (pose[0], pose[1], pose[2], pose[5]))
+        if verbose:
+            pose = self._endpoint_pose()
+            rospy.loginfo('Arrd at x: %.3fm, y: %.3fm, z: %.3fm, c: %.3frad' %
+                          (pose[0], pose[1], pose[2], pose[5]))
         return True
 
     def _modify_pose(self, offset, pose=None):
