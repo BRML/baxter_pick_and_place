@@ -63,7 +63,7 @@ class ImageRecorder(BaxterRobot):
 
     def clean_shutdown(self):
         print "\nExiting demonstrator ..."
-        self.display_image(white_imgmsg())
+        self.display_imgmsg(white_imgmsg())
         self.move_to_pose(self._top_pose)
         self._limb.move_to_neutral()
         if not self._init_state:
@@ -113,7 +113,7 @@ class ImageRecorder(BaxterRobot):
         """
         data = cut_imgmsg(data, **table)
         self._image = imgmsg2img(data)
-        self.display_image(data)
+        self.display_imgmsg(data)
         cv2.imshow('%s workspace' % self._arm, self._image)
         cv2.waitKey(3)
 

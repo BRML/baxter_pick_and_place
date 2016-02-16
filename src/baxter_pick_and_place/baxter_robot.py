@@ -96,14 +96,14 @@ class BaxterRobot(object):
         """ Implement callback routine for the camera subscriber. """
         pass
 
-    def display_image(self, imgmsg):
+    def display_imgmsg(self, imgmsg):
         """ Display an image on the screen of the robot.
         :param imgmsg: a ROS image message
         """
         try:
             self._display_pub.publish(resize_imgmsg(imgmsg))
         except TypeError:
-            rospy.logerr('display_image - ' +
+            rospy.logerr('display_imgmsg - ' +
                          'Something is wrong with the ROS image message.')
 
     def grasp_object(self):

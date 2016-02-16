@@ -41,7 +41,7 @@ def resize_imgmsg(imgmsg):
     """
     img = imgmsg2img(imgmsg)
     img = cv2.resize(img, (1024, 600))
-    return _img2imgmsg(img)
+    return img2imgmsg(img)
 
 
 def white_imgmsg():
@@ -52,7 +52,7 @@ def white_imgmsg():
     img = np.ones((600, 1024, 1), dtype=np.uint8)
     img *= 255
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    return _img2imgmsg(img)
+    return img2imgmsg(img)
 
 
 def black_imgmsg():
@@ -62,7 +62,7 @@ def black_imgmsg():
     """
     img = np.zeros((600, 1024, 1), dtype=np.uint8)
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-    return _img2imgmsg(img)
+    return img2imgmsg(img)
 
 
 def cut_imgmsg(imgmsg, x_min, y_min, x_max, y_max):
@@ -76,7 +76,7 @@ def cut_imgmsg(imgmsg, x_min, y_min, x_max, y_max):
     """
     img = imgmsg2img(imgmsg)
     img = img[y_min:y_max, x_min:x_max]
-    return _img2imgmsg(img)
+    return img2imgmsg(img)
 
 
 def write_imgmsg(imgmsg, filename):
@@ -96,7 +96,7 @@ def write_img(img, filename):
     cv2.imwrite(filename + '.jpg', img)
 
 
-def _img2imgmsg(img):
+def img2imgmsg(img):
     """ Convert a numpy array holding an image to a ROS image message.
     :param img: a numpy array
     :return: a ROS image message
@@ -378,4 +378,4 @@ def mask_imgmsg_region(imgmsg, corners):
     img = imgmsg2img(imgmsg)
     corners = np.asarray(corners, dtype=np.int32)
     cv2.fillConvexPoly(img, points=corners, color=(0, 0, 0))
-    return _img2imgmsg(img)
+    return img2imgmsg(img)

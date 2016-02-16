@@ -23,12 +23,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import cv2
 import numpy as np
 import os
 import pickle
-import time
-
 import rospy
+import time
 
 from sensor_msgs.msg import Image
 
@@ -36,6 +36,8 @@ import baxter_interface
 
 from baxter_pick_and_place.baxter_robot import BaxterRobot
 from baxter_pick_and_place.image import (
+    imgmsg2img,
+    img2imgmsg,
     cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
@@ -71,7 +73,7 @@ class Robot(BaxterRobot):
         self._bin_pose = None
         self._N_TRIES = 2
 
-        self.display_image(white_imgmsg())
+        self.display_imgmsg(white_imgmsg())
         self._limb.set_joint_position_speed(0.5)
 
     def clean_shutdown(self):
@@ -79,7 +81,7 @@ class Robot(BaxterRobot):
         :return: True on completion
         """
         print "\nExiting demonstrator ..."
-        self.display_image(white_imgmsg())
+        self.display_imgmsg(white_imgmsg())
         self.move_to_pose(self._top_pose)
         self._limb.move_to_neutral()
         if not self._init_state:
@@ -164,7 +166,7 @@ class Robot(BaxterRobot):
         self.move_to_pose(self._top_pose)
         # record top-down-view image
         imgmsg = self._record_image()
-        self.display_image(imgmsg)
+        self.display_imgmsg(imgmsg)
         write_imgmsg(imgmsg, os.path.join(self._outpath, 'bin_top_view'))
         rroi, _ = self._segment_bin_roi(imgmsg)
         self._bin_pose = self._rroi2pose(rroi=rroi, obj='bin')
@@ -294,7 +296,7 @@ class Robot(BaxterRobot):
         """
         _, corners = self._segment_bin_roi(imgmsg)
         imgmsg = mask_imgmsg_region(imgmsg, corners=corners)
-        self.display_image(imgmsg)
+        self.display_imgmsg(imgmsg)
         return imgmsg
 
     def _detect_object(self, imgmsg, obj):
@@ -483,13 +485,11 @@ class Robot(BaxterRobot):
         """ Compute center of blob for visual servoing.
         :return: center of blob in pixel coordinates
         """
-        import cv2
-        from baxter_pick_and_place.image import imgmsg2img, _img2imgmsg
         imgmsg = self._record_image()
         img = imgmsg2img(imgmsg)
         h, w = img.shape[:2]
         cv2.circle(img, (w/2, h/2), 4, (255, 0, 0), 2)
-        self.display_image(_img2imgmsg(img))
+        self.display_imgmsg(img2imgmsg(img))
         outpath = os.path.join(self._outpath, 'vs')
         rroi, _ = segment_area(imgmsg, outpath, th=250,
                                c_low=110, c_high=170, ff_connectivity=4,
@@ -499,5 +499,5 @@ class Robot(BaxterRobot):
         cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
         cv2.circle(img, (int(rroi[0][0]), int(rroi[0][1])), 4,
                    (0, 255, 0), 2)
-        self.display_image(_img2imgmsg(img))
+        self.display_imgmsg(img2imgmsg(img))
         return rroi
