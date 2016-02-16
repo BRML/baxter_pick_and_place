@@ -45,9 +45,15 @@ top_pose = [
     0.0*np.pi  # yaw = rotation about z-axis
 ]
 
+""" setup pose """
+setup_pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
+
 """ table workspace in pixel coordinates (background images / top pose) """
 parameters = dict()
 parameters['x_min'] = 400
 parameters['x_max'] = 1020
 parameters['y_min'] = 295
 parameters['y_max'] = 670
+
+""" blob center tolerance in [m] for viusal servoing """
+vs_tolerance = 0.005

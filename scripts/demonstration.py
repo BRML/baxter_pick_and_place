@@ -27,12 +27,10 @@
 
 import argparse
 import os
-
 import rospkg
 import rospy
 
 from baxter_pick_and_place.robot import Robot
-from baxter_pick_and_place.image import segment_area
 
 
 class Demonstrator(object):
@@ -77,15 +75,10 @@ class Demonstrator(object):
         y = 0.0
         z = -0.235
         pose = [x, y, z, -np.pi, 0.0, 0.0]
-        while not rospy.is_shutdown():
-            if self.robot._approach_pose(pose):
-                imgmsg = self.robot._record_image()
-                self.robot.display_image(imgmsg)
-                segment_area(imgmsg, "/home/baxter/",
-                             245, 110, 170, 4,
-                             700, 10000)
-                raw_input("Press Enter to continue...")
-            self.robot.move_to_pose(self.robot._top_pose)
+
+        if self.robot._approach_pose(pose):
+            self.robot.visual_servoing()
+        self.robot.move_to_pose(self.robot._top_pose)
 
 
 def main():
@@ -125,6 +118,7 @@ def main():
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
     # demonstrator.robot.set_up()
+    demonstrator.robot._perform_setup()
     ret = demonstrator.demonstrate(args.number)
     if ret:
         print "\nSuccessfully performed demonstration."

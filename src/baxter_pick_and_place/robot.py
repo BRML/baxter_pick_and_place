@@ -46,7 +46,9 @@ from baxter_pick_and_place.image import (
 from baxter_pick_and_place.settings import (
     object_list,
     parameters as table,
-    top_pose
+    setup_pose,
+    top_pose,
+    vs_tolerance
 )
 
 
@@ -63,6 +65,7 @@ class Robot(BaxterRobot):
 
         self._imgmsg = None
         self._cam_pars = None
+        self._setup_pose = setup_pose
 
         self._top_pose = top_pose
         self._bin_pose = None
@@ -114,7 +117,6 @@ class Robot(BaxterRobot):
         sfile = os.path.join(spath, 'setup.pkl')
 
         if not os.path.exists(sfile):
-            pose = [0.60, 0.20, 0.0, -1.0*np.pi, 0.0*np.pi, 0.0*np.pi]
             n_calibrations = 10
             self._cam_pars = dict()
 
@@ -123,7 +125,7 @@ class Robot(BaxterRobot):
                                                          '_hand_range')
             print '\nPerforming camera setup ...'
             while len(dist) < n_calibrations:
-                p = self._perturbe_pose(pose)
+                p = self._perturbe_pose(self._setup_pose)
                 if self.move_to_pose(p):
                     d = sensor.state()
                     if d < 65000:
@@ -349,6 +351,14 @@ class Robot(BaxterRobot):
         """
         self._imgmsg = data
 
+    def _current_height(self):
+        """ Compute current height of wrist over table.
+        :return: current height over table in [m]
+        """
+        z_table = -(self._cam_pars['dist'] - self._setup_pose[2])
+        z_curr = self._endpoint_pose()[2]
+        return z_curr - z_table
+
     def _pixel2position(self, pixel):
         """ Compute Cartesian position in base coordinates from image pixels.
         Adapted from
@@ -359,12 +369,13 @@ class Robot(BaxterRobot):
         w, h = self._camera.resolution
         px, py, _, _, _, _ = self._endpoint_pose()
         # x is front/back, so aligned with image height
-        x = (pixel[1] - h/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
+        x = (pixel[1] - h/2)*self._cam_pars['mpp']*self._current_height() + \
             px + self._cam_pars['x_offset']
         # y is left/right, so aligned with image width
-        y = (pixel[0] - w/2)*self._cam_pars['mpp']*self._cam_pars['dist'] + \
+        y = (pixel[0] - w/2)*self._cam_pars['mpp']*self._current_height() + \
             py + self._cam_pars['y_offset']
-        z = - self._cam_pars['dist'] + self._cam_pars['z_offset']
+        z_table = -(self._cam_pars['dist'] - self._setup_pose[2])
+        z = z_table + self._cam_pars['z_offset']
         return [x, y, z, -1.0*np.pi, 0., 0.]
 
     def _rroi2pose(self, rroi, obj):
@@ -411,22 +422,35 @@ class Robot(BaxterRobot):
         ]
         return self._modify_pose(offset=perturbation, pose=pose)
 
-    def _vs_iterate(self, pixel_center):
-        size = (0, 0)
-        tolerance = 0.005  # m
-        world_error = self._vs_error(pixel_center, size)
+    def visual_servoing(self):
+        """ Perform visual servoing to position camera over object center.
+        """
+        pixel_center = self._vs_find_center()
+        world_error = 2*vs_tolerance
+        while world_error > vs_tolerance:
+            pixel_center, world_error = self._vs_iterate(pixel_center)
 
-        if world_error > tolerance:
-            factor = self._cam_pars["mpp"]*self._cam_pars["dist"]
-            w, h = size
-            pixel_delta = [a-b for a, b in zip((w, h), pixel_center)]
-            dx = -pixel_delta[0]*factor
-            dy = -pixel_delta[1]*factor
+    def _vs_iterate(self, pixel_center):
+        """ Perform one iteration of visual servoing.
+        :param pixel_center: center of blob in pixel coordinates
+        :return: blob center in pixel coordinates, deviation from image
+        center in world coordinates
+        """
+        kp = 0.7  # proportional control parameter
+
+        w = table['x_max'] - table['x_min']
+        h = table['y_max'] - table['y_min']
+        size = (w, h)
+        world_error = self._vs_error(pixel_center, size)
+        if world_error > vs_tolerance:
+            pixel_delta = [a-b for a, b in zip((w/2, h/2), pixel_center)]
+            factor = self._cam_pars["mpp"]*self._current_height()
+            dx = -pixel_delta[1]*factor * kp
+            dy = -pixel_delta[0]*factor * kp
             pose = self._modify_pose(offset=[dx, dy, 0, 0, 0, 0])
             self.move_to_pose(pose)
-            # pixel_center = self._vs_find_center()
-            # world_error = self._vs_error(pixel_center, size)
-
+            pixel_center = self._vs_find_center()
+            world_error = self._vs_error(pixel_center, size)
         return pixel_center, world_error
 
     def _vs_error(self, pixel_center, size):
@@ -436,8 +460,31 @@ class Robot(BaxterRobot):
         :return: error in world coordinates
         """
         w, h = size
-        pixel_delta = [a-b for a, b in zip((w, h), pixel_center)]
+        pixel_delta = [a-b for a, b in zip((w/2, h/2), pixel_center)]
         pixel_error = np.sqrt(np.sum(np.asarray(pixel_delta)**2))
-        factor = self._cam_pars["mpp"]*self._cam_pars["dist"]
+        factor = self._cam_pars["mpp"]*self._current_height()
         world_error = pixel_error*factor
         return world_error
+
+    def _vs_find_center(self):
+        """ Compute center of blob for visual servoing.
+        :return: center of blob in pixel coordinates
+        """
+        import cv2
+        from baxter_pick_and_place.image import imgmsg2img, _img2imgmsg
+        imgmsg = self._record_image()
+        img = imgmsg2img(imgmsg)
+        h, w = img.shape[:2]
+        cv2.circle(img, (w/2, h/2), 4, (255, 0, 0), 2)
+        self.display_image(_img2imgmsg(img))
+        outpath = os.path.join(self._outpath, 'vs')
+        rroi, _ = segment_area(imgmsg, outpath, th=250,
+                               c_low=110, c_high=170, ff_connectivity=4,
+                               a_low=700, a_high=10000)
+        rroi, corners = rroi
+        b = np.int0(corners)
+        cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
+        cv2.circle(img, (int(rroi[0][0]), int(rroi[0][1])), 4,
+                   (0, 255, 0), 2)
+        self.display_image(_img2imgmsg(img))
+        return rroi[0]

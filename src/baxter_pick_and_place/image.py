@@ -286,6 +286,7 @@ def segment_area(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
         plt.imshow(sample)
 
         plt.savefig(outpath + '_contours.jpg', bbox_inches='tight')
+        plt.close()
 
     return (rrect, box), (x, y, w, h)
 
