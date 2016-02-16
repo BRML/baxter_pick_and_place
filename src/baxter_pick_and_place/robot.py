@@ -189,12 +189,11 @@ class Robot(BaxterRobot):
         def _trigger_dummy(max_time):
             t = np.random.uniform(0.0, max_time)
             time.sleep(t)
-            idx = np.random.randint(0, 5)
+            idx = np.random.randint(0, len(object_list))
             print "  object '%i' was triggered after %.2fs" % (idx, t)
-            return idx
+            return object_list[idx]
 
-        _trigger_dummy(10.0)
-        obj = object_list[0]  # want to test duplo_brick
+        obj = _trigger_dummy(10.0)
 
         # move limb to top-down-view pose
         # try up to 3 times to find a valid pose
@@ -411,12 +410,12 @@ class Robot(BaxterRobot):
         :return the pose [x, y, z, a, b, c] to grasp the object
         """
         center = table['x_min']+rroi[0][0], table['y_min']+rroi[0][1]
-        print " Found '%s' at (%i, %i) pixels." % (obj, int(center[0]),
-                                                   int(center[1]))
-        print ' Computing baxter coordinates from pixel coordinates ...'
+        print "  Found '%s' at (%i, %i) pixels." % (obj, int(center[0]),
+                                                    int(center[1]))
+        print '  Computing baxter coordinates from pixel coordinates ...'
         pose = self._pixel2position(center)
         pose[5] -= np.deg2rad(rroi[2])
-        print "Detected '%s' at (%.2f, %.2f, %.2f)m and %.2frad." % \
+        print "  Detected '%s' at (%.2f, %.2f, %.2f)m and %.2frad." % \
               (obj, pose[0], pose[1], pose[2], pose[5])
         return pose
 

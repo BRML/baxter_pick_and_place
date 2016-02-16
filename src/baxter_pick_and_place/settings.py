@@ -29,10 +29,10 @@ import numpy as np
 """ object list """
 object_list = [
     'duplo_brick',
-    'extra_mints',
-    'glue_stick',
-    'golf_ball',
-    'robot'
+    # 'extra_mints',
+    # 'glue_stick',
+    # 'golf_ball',
+    # 'robot'
 ]
 
 """ top pose """
