@@ -74,6 +74,7 @@ class Robot(BaxterRobot):
         self._N_TRIES = 2
 
         self.display_imgmsg(white_imgmsg())
+        self.display_text('Now doing', 'pick and place')
         self._limb.set_joint_position_speed(0.5)
 
     def clean_shutdown(self):
@@ -93,11 +94,14 @@ class Robot(BaxterRobot):
         Set system up and prepare things
     ======================================================================= """
     def set_up(self):
+        self.display_text('Performing setup')
         self._perform_setup(finger='short')
         print self._cam_pars['dist'], self._cam_pars['z_offset']
+        self.display_text('Looking for bin', 'to put objects into')
         self._detect_bin()
         self._approach_pose(self._bin_pose)
         self.move_to_pose(self._bin_pose)
+        self._approach_pose(self._bin_pose)
 
     def _perform_setup(self, finger='short'):
         """ Perform the robot limb calibration, i.e., measure the distance from
@@ -212,6 +216,7 @@ class Robot(BaxterRobot):
         :param obj: a string identifying the object.
         :return: boolean flag on completion
         """
+        self.display_text('Looking for', obj)
         # record top-down-view image
         imgmsg = self._record_image()
         # detect object
@@ -257,6 +262,7 @@ class Robot(BaxterRobot):
             self.release_object()
             time.sleep(0.5)
             print '   released object'
+            self.display_imgmsg(white_imgmsg())
             self.move_to_pose(self._top_pose)
             print "  '%s' placed successfully" % obj
             return True
@@ -308,19 +314,29 @@ class Robot(BaxterRobot):
         imgmsg = self._mask_bin_roi(imgmsg)
 
         if obj is 'duplo_brick':
-            rroi, _ = self._segment_duplo_brick_roi(imgmsg, obj)
+            rroi, corners = self._segment_duplo_brick_roi(imgmsg, obj)
         elif obj is 'extra_mints':
             rroi = ((0, 0), (1, 1), 40)
+            corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
         elif obj is 'glue_stick':
             rroi = ((0, 0), (1, 1), 40)
+            corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
         elif obj is 'golf_ball':
             rroi = ((0, 0), (1, 1), 40)
+            corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
         elif obj is 'robot':
             rroi = ((0, 0), (1, 1), 40)
+            corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
         else:
             s = "I do not know '%s'!" % obj
             rospy.logerr(s)
             raise ValueError(s)
+        img = imgmsg2img(imgmsg)
+        b = np.int0(corners)
+        cv2.drawContours(img, [b], 0, (0, 255, 0), 2)
+        cv2.circle(img, (int(rroi[0][0]), int(rroi[0][1])), 4,
+                   (0, 255, 0), 2)
+        self.display_imgmsg(img2imgmsg(img))
         return self._rroi2pose(rroi=rroi, obj=obj)
 
     def _segment_duplo_brick_roi(self, imgmsg, obj):

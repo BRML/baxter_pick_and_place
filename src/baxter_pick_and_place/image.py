@@ -123,6 +123,37 @@ def imgmsg2img(imgmsg):
     return img
 
 
+def string2imgmsg(s1, s2=None):
+    """ Convert up to two strings into a ROS image message.
+    :param s1: the first line of text
+    :param s2: the (optional) second line of text
+    :return: a ROS image message
+    """
+    white = (255, 255, 255)
+    canvas = imgmsg2img(black_imgmsg())
+    h, w = canvas.shape[:2]
+    font_face = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 3.0
+    thickness = 7
+
+    (w1, h1), _ = cv2.getTextSize(text=s1,
+                                  fontFace=font_face, fontScale=font_scale,
+                                  thickness=thickness)
+    org = ((w-w1)/2, (h/3)+(h1/2))
+    cv2.putText(canvas, text=s1, org=org,
+                fontFace=font_face, fontScale=font_scale,
+                color=white, thickness=thickness)
+    if s2:
+        (w1, h1), _ = cv2.getTextSize(text=s2,
+                                      fontFace=font_face, fontScale=font_scale,
+                                      thickness=thickness)
+        org = ((w-w1)/2, (2*h/3) + (h1/2))
+        cv2.putText(canvas, text=s2, org=org,
+                    fontFace=font_face, fontScale=font_scale,
+                    color=white, thickness=thickness)
+    return img2imgmsg(canvas)
+
+
 """ ===========================================================================
     Object detection and pose estimation
 =========================================================================== """

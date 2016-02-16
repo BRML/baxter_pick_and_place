@@ -40,7 +40,7 @@ from std_srvs.srv import Empty
 import baxter_interface
 from baxter_interface import CHECK_VERSION
 
-from baxter_pick_and_place.image import resize_imgmsg
+from baxter_pick_and_place.image import resize_imgmsg, string2imgmsg
 
 
 class BaxterRobot(object):
@@ -105,6 +105,13 @@ class BaxterRobot(object):
         except TypeError:
             rospy.logerr('display_imgmsg - ' +
                          'Something is wrong with the ROS image message.')
+
+    def display_text(self, s1, s2=None):
+        """ Display up to two lines of text on the screen of the robot.
+        :param s1: the first line of text
+        :param s2: the (optional second line of text
+        """
+        self.display_imgmsg(string2imgmsg(s1, s2))
 
     def grasp_object(self):
         """ Close the gripper and validate that it grasped something.
