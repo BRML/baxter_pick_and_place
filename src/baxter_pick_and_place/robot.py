@@ -184,14 +184,13 @@ class Robot(BaxterRobot):
         command.
         :return: boolean flag on completion
         """
-        print ' rabbiting away ...'
         # Wait for object to be triggered---dummy
 
         def _trigger_dummy(max_time):
             t = np.random.uniform(0.0, max_time)
             time.sleep(t)
             idx = np.random.randint(0, len(object_list))
-            print "  object '%i' was triggered after %.2fs" % (idx, t)
+            print " object '%i' was triggered after %.2fs" % (idx, t)
             return object_list[idx]
 
         obj = _trigger_dummy(10.0)
@@ -201,11 +200,11 @@ class Robot(BaxterRobot):
         if not self.move_to_pose(self._top_pose):
             n_tries = self._N_TRIES
             while n_tries > 0:
-                print '  trying', n_tries, 'more time(s)'
+                print ' trying', n_tries, 'more time(s)'
                 n_tries -= 1
                 ppose = self._perturbe_pose(self._top_pose)
                 if self.move_to_pose(ppose):
-                    print '  perturbation worked'
+                    print ' perturbation worked'
                     n_tries = -1
             if not n_tries == -1:
                 return False
@@ -235,13 +234,13 @@ class Robot(BaxterRobot):
         if not self._pick_and_place(pose, obj=obj):
             n_tries = self._N_TRIES
             while n_tries > 0:
-                print '   trying', n_tries, 'more time(s)'
+                print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
                 ppose = self._perturbe_pose(pose)
                 if self._pick_and_place(ppose, obj=obj):
                     n_tries = -1
             if not n_tries == -1:
-                print "  failed to grasp '%s'." % obj
+                print " failed to grasp '%s'." % obj
                 return False
         return True
 
@@ -254,17 +253,17 @@ class Robot(BaxterRobot):
         self._approach_pose(pose)
         self.move_to_pose(pose)
         if self.grasp_object():
-            print '   grasped object'
+            print '  grasped object'
             self._approach_pose(pose)
             self.move_to_pose(self._top_pose)
             bin_pose = self._perturbe_pose(self._bin_pose)
             self._approach_pose(bin_pose)
             self.release_object()
             time.sleep(0.5)
-            print '   released object'
+            print '  released object'
             self.display_imgmsg(white_imgmsg())
             self.move_to_pose(self._top_pose)
-            print "  '%s' placed successfully" % obj
+            print " '%s' placed successfully" % obj
             return True
         print '  missed object'
         self.release_object()
