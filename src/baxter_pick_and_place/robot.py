@@ -218,6 +218,13 @@ class Robot(BaxterRobot):
         except ValueError as e:
             rospy.logerr(e)
             return False
+        # modify pose to help visual servoing and perform visual servoing
+        pose[0] -= 0.07
+        pose[5] = 0.0*np.pi
+        self._approach_pose(pose)
+        rroi = self.visual_servoing()
+        pose = self._rroi2pose(rroi, obj=obj)
+        # pick up object
         if not self._pick_and_place(pose, obj=obj):
             n_tries = self._N_TRIES
             while n_tries > 0:
@@ -241,6 +248,7 @@ class Robot(BaxterRobot):
         self.move_to_pose(pose)
         if self.grasp_object():
             print '   grasped object'
+            self._approach_pose(pose)
             self.move_to_pose(self._top_pose)
             bin_pose = self._perturbe_pose(self._bin_pose)
             self._approach_pose(bin_pose)
@@ -424,34 +432,39 @@ class Robot(BaxterRobot):
 
     def visual_servoing(self):
         """ Perform visual servoing to position camera over object center.
+        return: rotated roi [(cx, cy), (w, h), alpha] of blob
         """
-        pixel_center = self._vs_find_center()
+        rroi = self._vs_find_center()
         world_error = 2*vs_tolerance
         while world_error > vs_tolerance:
-            pixel_center, world_error = self._vs_iterate(pixel_center)
+            rroi, world_error = self._vs_iterate(rroi)
+        return rroi
 
-    def _vs_iterate(self, pixel_center):
+    def _vs_iterate(self, rroi):
         """ Perform one iteration of visual servoing.
-        :param pixel_center: center of blob in pixel coordinates
-        :return: blob center in pixel coordinates, deviation from image
-        center in world coordinates
+        :param rroi: rotated roi [(cx, cy), (w, h), alpha] of blob
+        :return: rotated roi [(cx, cy), (w, h), alpha] of blob, deviation
+        from image center in world coordinates
         """
         kp = 0.7  # proportional control parameter
 
         w = table['x_max'] - table['x_min']
         h = table['y_max'] - table['y_min']
-        size = (w, h)
-        world_error = self._vs_error(pixel_center, size)
+        world_error = self._vs_error(pixel_center=rroi[0], size=(w, h))
         if world_error > vs_tolerance:
-            pixel_delta = [a-b for a, b in zip((w/2, h/2), pixel_center)]
+            pixel_delta = [a-b for a, b in zip((w/2, h/2), rroi[0])]
             factor = self._cam_pars["mpp"]*self._current_height()
             dx = -pixel_delta[1]*factor * kp
             dy = -pixel_delta[0]*factor * kp
             pose = self._modify_pose(offset=[dx, dy, 0, 0, 0, 0])
             self.move_to_pose(pose)
-            pixel_center = self._vs_find_center()
-            world_error = self._vs_error(pixel_center, size)
-        return pixel_center, world_error
+            try:
+                rroi = self._vs_find_center()
+                world_error = self._vs_error(pixel_center=rroi[0],
+                                             size=(w, h))
+            except ValueError as e:
+                rospy.logerr(e)
+        return rroi, world_error
 
     def _vs_error(self, pixel_center, size):
         """ Compute position error of blob for visual servoing.
@@ -487,4 +500,4 @@ class Robot(BaxterRobot):
         cv2.circle(img, (int(rroi[0][0]), int(rroi[0][1])), 4,
                    (0, 255, 0), 2)
         self.display_image(_img2imgmsg(img))
-        return rroi[0]
+        return rroi
