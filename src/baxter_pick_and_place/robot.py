@@ -43,6 +43,7 @@ from baxter_pick_and_place.image import (
     write_imgmsg,
     segment_area,
     segment_red_area,
+    segment_blue_area,
     mask_imgmsg_region
 )
 from baxter_pick_and_place.settings import (
@@ -324,8 +325,7 @@ class Robot(BaxterRobot):
             rroi = ((0, 0), (1, 1), 40)
             corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
         elif obj is 'robot':
-            rroi = ((0, 0), (1, 1), 40)
-            corners = [[0, 0], [0, 1], [1, 0], [1, 1]]
+            rroi, corners = self._segment_robot_roi(imgmsg, obj)
         else:
             s = "I do not know '%s'!" % obj
             rospy.logerr(s)
@@ -353,6 +353,23 @@ class Robot(BaxterRobot):
         rroi, _ = segment_red_area(imgmsg=imgmsg, outpath=outpath, th=th,
                                    c_low=c_low, c_high=c_high,
                                    a_low=a_low, a_high=a_high)
+        return rroi
+
+    def _segment_robot_roi(self, imgmsg, obj):
+        """ Compute the rotated rectangle encompassing the robot.
+        :param imgmsg: a ROS image message
+        :param obj: a string identifying the object
+        :return a rotated region (rroi, corners)
+        """
+        outpath = os.path.join(self._outpath, obj)
+        th = 26
+        c_low = 100
+        c_high = 170
+        a_low = 400
+        a_high = 1900
+        rroi, _ = segment_blue_area(imgmsg=imgmsg, outpath=outpath, th=th,
+                                    c_low=c_low, c_high=c_high,
+                                    a_low=a_low, a_high=a_high)
         return rroi
 
     """ =======================================================================

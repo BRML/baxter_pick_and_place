@@ -368,6 +368,58 @@ def segment_red_area(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
         plt.subplot(133)
         plt.imshow(sample)
         plt.savefig(outpath + '_roi.jpg', bbox_inches='tight')
+        plt.close()
+
+    return (rrect, box), (x, y, w, h)
+
+
+def segment_blue_area(imgmsg, outpath=None, th=200, c_low=50, c_high=270,
+                     a_low=100, a_high=200):
+    """ Segment connected components on an image based on red color and area.
+    :param imgmsg: a ROS image message
+    :param outpath: the path to where to write intermediate images to
+    :param th: threshold for binary thresholding operation
+    :param c_low: lower Canny threshold
+    :param c_high: upper Canny threshold
+    :param a_low: lower bound for contour area
+    :param a_high: upper bound for contour area
+    :returns: a tuple (rroi, roi) containing the rotated roi and corners and
+    the upright roi enclosing the connected component
+    """
+    img = imgmsg2img(imgmsg)
+
+    # look only at blue channel
+    blue = cv2.split(img)[0]
+    _, thresh = cv2.threshold(blue, th, 255, cv2.THRESH_BINARY)
+    contour = _extract_contour(thresh, c_low, c_high, a_low, a_high)
+    if contour is None:
+        raise ValueError('No contour found!')
+
+    # rotated roi
+    rrect = cv2.minAreaRect(contour)
+    box = cv2.cv.BoxPoints(rrect)
+    # upright roi
+    x, y, w, h = cv2.boundingRect(contour)
+
+    if outpath:
+        plt.figure(figsize=(11, 20))
+        plt.subplot(131)
+        plt.imshow(blue, cmap='gray')
+        plt.subplot(132)
+        plt.imshow(thresh, cmap='gray')
+        sample = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        # rotated roi
+        b = np.int0(box)
+        cv2.drawContours(sample, [b], 0, (0, 255, 0), 2)
+        cv2.circle(sample, (int(rrect[0][0]), int(rrect[0][1])), 4,
+                   (0, 255, 0), 2)
+        # upright roi
+        cv2.rectangle(sample, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        cv2.circle(sample, (x+w/2, y+h/2), 3, (255, 0, 0), 2)
+        plt.subplot(133)
+        plt.imshow(sample)
+        plt.savefig(outpath + '_roi.jpg', bbox_inches='tight')
+        plt.close()
 
     return (rrect, box), (x, y, w, h)
 

@@ -32,7 +32,7 @@ object_list = [
     # 'extra_mints',
     # 'glue_stick',
     # 'golf_ball',
-    # 'robot'
+    'robot'
 ]
 
 """ top pose """
