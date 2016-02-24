@@ -45,7 +45,7 @@ class CannyServer(BaseCameraServer):
         - in another baxter console, do
             `rosrun rqt_gui rqt_gui -s reconfigure`.
         """
-        BaseCameraServer.__init__(self)
+        super(CannyServer, self).__init__()
         self._c_low = 50
         self._c_high = 190
 
