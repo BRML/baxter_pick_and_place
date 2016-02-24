@@ -63,7 +63,7 @@ class Robot(BaxterRobot):
          :param limb: The limb to use for the demonstration.
          :param outpath: The path to write output files into.
         """
-        BaxterRobot.__init__(self, limb=limb)
+        super(Robot, self).__init__(limb=limb)
         self._outpath = outpath
 
         self._imgmsg = None
