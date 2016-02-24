@@ -44,8 +44,10 @@ from baxter_pick_and_place.image import (
     write_img
 )
 from baxter_pick_and_place.rand import rand_x_digit_num
-from baxter_pick_and_place.settings import parameters as table
-from baxter_pick_and_place.settings import top_pose
+from baxter_pick_and_place.settings import (
+    parameters as table,
+    top_pose
+)
 
 
 class ImageRecorder(BaxterRobot):
@@ -54,7 +56,7 @@ class ImageRecorder(BaxterRobot):
         :param limb: the limb to record images with
         :param outpath: the path to write the images to
         """
-        BaxterRobot.__init__(self, limb=limb)
+        super(ImageRecorder, self).__init__(limb=limb)
         self._outpath = outpath
 
         self._image = None
@@ -119,10 +121,11 @@ class ImageRecorder(BaxterRobot):
 
 
 def main():
-    """Image recorder software
+    """ Image recorder software for the baxter research robot.
 
-    Records an image each time the key 'r' (for 'record') is pressed.
-    Upon pressing the key 's' (for 'stop'), the program exits.
+    Records an image from the specified limb camera each time the key 'r'
+    (for 'record') is pressed. Upon pressing the key 's' (for 'stop'), the
+    program exits.
     """
     arg_fmt = argparse.RawDescriptionHelpFormatter
     parser = argparse.ArgumentParser(formatter_class=arg_fmt,
@@ -132,10 +135,16 @@ def main():
         '-l', '--limb', required=True, choices=['left', 'right'],
         help='limb to record images with'
     )
+    parser.add_argument(
+        '-d', '--dirname', dest='dirname',
+        required=False, type=str, default='data',
+        help=("Where to store the images, relative to the ROS package. " +
+              "Defaults to 'data'.")
+    )
     args = parser.parse_args(rospy.myargv()[1:])
 
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
-    data_dirname = os.path.join(ns, 'data', 'sdd')
+    data_dirname = os.path.join(ns, args.dirname)
     if not os.path.exists(data_dirname):
         os.makedirs(data_dirname)
 
