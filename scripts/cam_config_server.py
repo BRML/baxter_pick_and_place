@@ -44,7 +44,7 @@ class CameraServer(BaseCameraServer):
         - in another baxter console, do
             `rosrun rqt_gui rqt_gui -s reconfigure`.
         """
-        BaseCameraServer.__init__(self)
+        super(CameraServer, self).__init__()
         self._exposure = -1
         self._gain = 0
         self._wb_red = -1
@@ -59,23 +59,23 @@ class CameraServer(BaseCameraServer):
         s = ""
         if self._exposure != config['exposure']:
             s += 'exp: %i -> %i' % (self._exposure, config['exposure'])
-            self._cam.exposure = config['exposure']
+            self._camera.exposure = config['exposure']
             self._exposure = config['exposure']
         if self._gain != config['gain']:
             s += 'gain: %i -> %i' % (self._gain, config['gain'])
-            self._cam.gain = config['gain']
+            self._camera.gain = config['gain']
             self._gain = config['gain']
         if self._wb_red != config['wb_red']:
             s += 'red: %i -> %i' % (self._wb_red, config['wb_red'])
-            self._cam.white_balance_red = config['wb_red']
+            self._camera.white_balance_red = config['wb_red']
             self._wb_red = config['wb_red']
         if self._wb_green != config['wb_green']:
             s += 'green: %i -> %i' % (self._wb_green, config['wb_green'])
-            self._cam.white_balance_green = config['wb_green']
+            self._camera.white_balance_green = config['wb_green']
             self._wb_green = config['wb_green']
         if self._wb_blue != config['wb_blue']:
             s += 'blue: %i -> %i' % (self._wb_blue, config['wb_blue'])
-            self._cam.white_balance_blue = config['wb_blue']
+            self._camera.white_balance_blue = config['wb_blue']
             self._wb_blue = config['wb_blue']
         if len(s) > 0:
             rospy.loginfo(s)
