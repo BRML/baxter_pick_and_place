@@ -26,7 +26,7 @@ $ cd ~/ros_ws
 $ . baxter.sh
 $ cd ~/ros_ws/src
 $ git clone https://github.com/BRML/baxter-pick-and-place ./baxter_pick_and_place
-$ cd ~\ros_ws
+$ cd ~/ros_ws
 $ catkin_make
 $ catkin_make install
 ```
@@ -42,23 +42,32 @@ $ rosrun baxter_pick_and_place demonstration.py -n N
 bin.
 
 
-## Train new classifiers
-To train new classifiers, the `scripts/opencv_i_*.ipynb` notebooks can be 
-used, where `i` is the step in the training pipeline.
-The scripts should be very much self-explanatory:
+## Train object detection algorithm
 
-#### `i` = 0
-Prepare negative (background) samples.
+### Record (training/validation/test) set images
+To run the image recorder, do
+```bash
+$ cd ~/ros_ws
+$ . baxter.sh
+$ rosrun baxter_pick_and_place record_image.py --limb L --dirname D
+```
+where `L=<left, right>` is the limb to record images from and `D` is the
+directory to save the recorded images into, relative to the ROS package path
+(here defaults to `~/ros_ws/src/baxter_pick_and_place/data`).
 
-#### `i` = 1
-Mark-up positive (object) samples, i.e., label the positive samples.
+Once the program has started, the baxter robot moves the selected limb into a
+pose hovering over the table. Follow the explanations in the console, i.e.,
+press `r` to record an image (stored under a 12-digit random name in
+`dirname`), or press `s` to stop image recording and exit the program.
 
-#### `i` = 2
-Use the marked-up positive samples from step 1 to create an augmented data set.
- 
-#### `i` = 3
-Train a classifier using the augmented data set from step 2.
+### Prepare (training/validation/test) set images
+To prepare the data for training the object detection algorithm, run the
+`scripts/vae_0_dat.ipynb` ipython notebook.
+The script splits the recorded images into training, validation and test sets,
+and extracts image patches from them that are used for training the object
+detection algorithm.
 
-#### `i` = 4
-For a quick reference, test the trained classifier from step 3 on the not 
-augmented data.
+### Train object detection algorithm
+To train the variational auto-encoder that we use as a cheap and quick-to-
+train alternative to a more complex convolutional neural network, run the
+`scripts/vae_1_train.ipynb` ipython notebook.
