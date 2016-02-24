@@ -232,27 +232,40 @@ class Robot(BaxterRobot):
         except ValueError as e:
             rospy.logerr(e)
             return False
-        # modify pose to help visual servoing and perform visual servoing
-        pose[0] -= 0.07
-        pose[5] = 0.0*np.pi
-        self._approach_pose(pose)
-        rroi = self.visual_servoing()
-        pose = self._rroi2pose(rroi, obj=obj)
-        # pick up object
-        if not self._pick_and_place(pose, obj=obj):
+
+        # try up to 3 times to grasp the object
+        if not self._visual_servoing_and_grasp(pose, obj=obj):
             n_tries = self._N_TRIES
             while n_tries > 0:
                 print '  trying', n_tries, 'more time(s)'
                 n_tries -= 1
-                ppose = self._perturbe_pose(pose)
-                if self._pick_and_place(ppose, obj=obj):
+                vspose = self._endpoint_pose()
+                if self._visual_servoing_and_grasp(vspose, obj=obj):
                     n_tries = -1
             if not n_tries == -1:
                 print " failed to grasp '%s'." % obj
                 return False
         return True
 
-    def _pick_and_place(self, pose, obj):
+    def _visual_servoing_and_grasp(self, pose, obj):
+        """ Perform visual servoing from the given pose to move the gripper
+        over the object, then try to grasp the object and put it in the bin
+        if successful, or hover over the object if the grasp failed.
+        :param pose: The pose of the selected object.
+        :param obj: a string identifying the object.
+        :return: Boolean flag on completion.
+        """
+        # modify pose to help visual servoing
+        pose[0] -= 0.07
+        pose[5] = 0.0*np.pi
+        self._approach_pose(pose)
+        # perform visual servoing
+        rroi = self.visual_servoing()
+        vspose = self._rroi2pose(rroi, obj=obj)
+        # pick up object
+        return self._pick_and_put(vspose, obj=obj)
+
+    def _pick_and_put(self, pose, obj):
         """ Try to approach, grasp, relocate and put down an object.
         :param pose: The pose of the selected object.
         :param obj: a string identifying the object.
@@ -273,9 +286,10 @@ class Robot(BaxterRobot):
             self.move_to_pose(self._top_pose)
             print " '%s' placed successfully" % obj
             return True
-        print '  missed object'
-        self.release_object()
-        return False
+        else:
+            print '  missed object'
+            self.release_object()
+            return False
 
     """ =======================================================================
         Object detection
