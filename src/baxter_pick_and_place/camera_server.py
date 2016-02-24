@@ -42,7 +42,7 @@ class BaseCameraServer(BaxterRobot):
             SettingUpDynamicReconfigureForANode%28python%29.
         """
         self._arm = 'left'
-        BaxterRobot.__init__(self, limb=self._arm)
+        super(BaseCameraServer, self).__init__(limb=self._arm)
 
         self._cam_sub = None
         self._top_pose = top_pose
