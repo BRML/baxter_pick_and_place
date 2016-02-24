@@ -41,6 +41,24 @@ $ rosrun baxter_pick_and_place demonstration.py -n N
 `N` is the number of objects the robot is supposed to pick up and place in a 
 bin.
 
+### Select camera parameters
+To help with the selection of the camera parameters for the baxter robot, a
+reconfigurable script exists. To run it, do
+```bash
+$ cd ~/ros_ws
+$ . baxter.sh
+$ rosrun baxter_pick_and_place cam_config_server.py
+```
+This will have the baxter robot move its left limb into a pose hovering over
+the table and display the left camera image.
+
+To fire up the parameter reconfigurator, do (in another shell)
+```bash
+$ cd ~/ros_ws
+$ . baxter.sh
+$ rosrun rqt_gui rqt_gui -s reconfigure
+```
+and select the `camera*` server in the window that is opening.
 
 ## Train object detection algorithm
 
