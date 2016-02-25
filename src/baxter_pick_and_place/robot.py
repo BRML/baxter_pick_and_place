@@ -41,10 +41,12 @@ from baxter_pick_and_place.image import (
     cut_imgmsg,
     white_imgmsg,
     write_imgmsg,
-    segment_area,
-    segment_red_area,
-    segment_blue_area,
     mask_imgmsg_region
+)
+from baxter_pick_and_place.machine_vision import (
+    segment_area,
+    segment_blue_area,
+    segment_red_area
 )
 from baxter_pick_and_place.settings import (
     object_list,
