@@ -25,13 +25,12 @@
 
 import cv2
 import rospy
-
 from sensor_msgs.msg import Image
 
 from baxter_pick_and_place.baxter_robot import BaxterRobot
-from baxter_pick_and_place.image import cut_imgmsg, imgmsg2img
 from baxter_pick_and_place.settings import parameters as table
 from baxter_pick_and_place.settings import top_pose
+from visual.image import cut_imgmsg, imgmsg2img
 
 
 class BaseCameraServer(BaxterRobot):

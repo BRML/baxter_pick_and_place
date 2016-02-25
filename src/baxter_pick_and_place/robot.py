@@ -23,19 +23,25 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import cv2
 import numpy as np
 import os
 import pickle
-import rospy
 import time
 
+import baxter_interface
+import cv2
+import rospy
 from sensor_msgs.msg import Image
 
-import baxter_interface
-
 from baxter_pick_and_place.baxter_robot import BaxterRobot
-from baxter_pick_and_place.image import (
+from baxter_pick_and_place.settings import (
+    object_list,
+    parameters as table,
+    setup_pose,
+    top_pose,
+    vs_tolerance
+)
+from visual.image import (
     imgmsg2img,
     img2imgmsg,
     cut_imgmsg,
@@ -43,17 +49,10 @@ from baxter_pick_and_place.image import (
     write_imgmsg,
     mask_imgmsg_region
 )
-from baxter_pick_and_place.machine_vision import (
+from visual.machine_vision import (
     segment_area,
     segment_blue_area,
     segment_red_area
-)
-from baxter_pick_and_place.settings import (
-    object_list,
-    parameters as table,
-    setup_pose,
-    top_pose,
-    vs_tolerance
 )
 
 

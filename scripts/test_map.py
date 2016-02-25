@@ -26,14 +26,15 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import argparse
-import cv2
 import os
 import rospkg
+
+import cv2
 import rospy
 
-from baxter_pick_and_place.image import imgmsg2img
 from baxter_pick_and_place.robot import Robot
 from baxter_pick_and_place.settings import parameters as table
+from visual.image import imgmsg2img
 
 
 def put_label(img, text, org, font_face, font_scale, fgc, bgc):

@@ -23,11 +23,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 
-from baxter_pick_and_place.image import imgmsg2img
+import cv2
+import matplotlib.pyplot as plt
+
+from visual.image import imgmsg2img
 
 
 def segment_area(imgmsg, outpath=None, th=200, c_low=50, c_high=270,

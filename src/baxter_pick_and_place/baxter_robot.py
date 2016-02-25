@@ -23,24 +23,26 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import rospy
 from tf import transformations
 
-from sensor_msgs.msg import Image
-from geometry_msgs.msg import (
-    Pose,
-    PoseStamped
-)
+import baxter_interface
+import rospy
 from baxter_core_msgs.srv import (
     SolvePositionIK,
     SolvePositionIKRequest
 )
+from baxter_interface import CHECK_VERSION
+from geometry_msgs.msg import (
+    Pose,
+    PoseStamped
+)
+from sensor_msgs.msg import Image
 from std_srvs.srv import Empty
 
-import baxter_interface
-from baxter_interface import CHECK_VERSION
-
-from baxter_pick_and_place.image import resize_imgmsg, string2imgmsg
+from visual.image import (
+    resize_imgmsg,
+    string2imgmsg
+)
 
 
 class BaxterRobot(object):
