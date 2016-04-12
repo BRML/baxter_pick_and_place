@@ -1,4 +1,4 @@
-# baxter-pick-and-place
+# baxter_pick_and_place
 Pick &amp; place demonstration with the baxter research robot in collaboration 
 with DFKI Saarbruecken.
 
@@ -25,7 +25,7 @@ The following steps are required to install the package:
 $ cd ~/ros_ws
 $ . baxter.sh
 $ cd ~/ros_ws/src
-$ git clone https://github.com/BRML/baxter-pick-and-place ./baxter_pick_and_place
+$ git clone https://github.com/BRML/baxter_pick_and_place
 $ cd ~/ros_ws
 $ catkin_make
 $ catkin_make install
