@@ -58,13 +58,14 @@ from visual.machine_vision import (
 
 class Robot(BaxterRobot):
 
-    def __init__(self, limb, outpath):
+    def __init__(self, limb, outpath, sim=False):
         """
          A baxter research robot instance with some additional functionality.
          :param limb: The limb to use for the demonstration.
          :param outpath: The path to write output files into.
+         :param sim: Whether in simulation or reality.
         """
-        super(Robot, self).__init__(limb=limb)
+        super(Robot, self).__init__(limb=limb, sim=sim)
         self._outpath = outpath
 
         self._imgmsg = None

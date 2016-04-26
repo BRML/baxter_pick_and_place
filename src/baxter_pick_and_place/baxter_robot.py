@@ -47,25 +47,28 @@ from visual.image import (
 
 class BaxterRobot(object):
 
-    def __init__(self, limb):
+    def __init__(self, limb, sim=False):
         """
          A baxter research robot instance with some additional functionality.
          :param limb: The limb to use for the demonstration.
+         :param sim: Whether in simulation or reality.
         """
         self._arm = limb
+        self._sim = sim
 
         self._limb = baxter_interface.Limb(self._arm)
         self._gripper = baxter_interface.Gripper(self._arm)
         # camera handling is one fragile thing ...
-        reset_srv = rospy.ServiceProxy('cameras/reset', Empty)
-        rospy.wait_for_service('cameras/reset', timeout=10)
-        reset_srv()
+        if not sim:
+            reset_srv = rospy.ServiceProxy('cameras/reset', Empty)
+            rospy.wait_for_service('cameras/reset', timeout=10)
+            reset_srv()
         try:
-            baxter_interface.CameraController('head_camera').close()
+            baxter_interface.CameraController('head_camera', sim).close()
         except AttributeError:
             pass
         self._camera = baxter_interface.CameraController(self._arm +
-                                                         '_hand_camera')
+                                                         '_hand_camera', sim)
 
         self._display_pub = rospy.Publisher('/robot/xdisplay', Image,
                                             queue_size=10, latch=True)

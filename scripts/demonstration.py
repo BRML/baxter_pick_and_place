@@ -31,6 +31,7 @@ import rospkg
 import rospy
 
 from baxter_pick_and_place.robot import Robot
+from simulation import sim_or_real
 
 
 class Demonstrator(object):
@@ -41,7 +42,8 @@ class Demonstrator(object):
         :param limb: limb to pick objects up with
         :param outpath: path to write (debugging) images to
         """
-        self.robot = Robot(limb, outpath)
+        sim = sim_or_real()
+        self.robot = Robot(limb=limb, outpath=outpath, sim=sim)
         self._N_TRIES = 2
 
     def demonstrate(self, n_objects_to_pick):
