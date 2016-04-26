@@ -27,6 +27,14 @@
 import rospy
 import roswtf
 
+from gazebo_msgs.srv import (
+    SpawnModel,
+    DeleteModel
+)
+from geometry_msgs.msg import (
+    Pose,
+    Point
+)
 from std_msgs.msg import Empty
 
 
@@ -46,3 +54,70 @@ def sim_or_real():
     else:
         rospy.loginfo("We are running on the real baxter.")
     return sim
+
+
+def load_gazebo_model(urdf_path):
+    """ Load a robot's model XML from a URDF file and serialize it.
+    :param urdf_path: The path to the URDF file describing the model.
+    :return: The model XML as a string.
+    """
+    model_xml = ''
+    rospy.loginfo("Loading model XML from file.")
+    with open(urdf_path) as urdf_file:
+        model_xml = urdf_file.read().replace('\n', '')
+    return model_xml
+
+
+def spawn_gazebo_model(model_xml, model_name, robot_namespace,
+                       model_pose=Pose(position=Point(x=0.0, y=0.0, z=0.0)),
+                       model_reference_frame="world"):
+    """ Spawn a Gazebo model from its XML string.
+    :param model_xml: A string describing the model.
+    :param model_name: The name of the model to be spawn.
+    :param robot_namespace: Spawn robot and all ROS interfaces under this
+        namespace.
+    :param model_pose: The initial pose of the robot.
+    :param model_reference_frame: 'model_pose' is defined relative to the
+        frame of this model/body.
+    :return: (bool success, string status_message)
+    """
+    service_spawn = '/gazebo/spawn_urdf_model'
+
+    rospy.loginfo("Waiting for service {0}".format(service_spawn))
+    rospy.wait_for_service(service_spawn)
+    resp_urdf = tuple()
+    rospy.loginfo("Calling service {0}".format(service_spawn))
+    try:
+        spawn_urdf = rospy.ServiceProxy(service_spawn, SpawnModel)
+        resp_urdf = spawn_urdf(model_name=model_name,
+                               model_xml=model_xml,
+                               robot_namespace=robot_namespace,
+                               initial_pose=model_pose,
+                               reference_frame=model_reference_frame)
+    except rospy.ServiceException as e:
+        rospy.logerr("Spawn URDF service call failed:", e)
+    return resp_urdf
+
+
+def delete_gazebo_models(models):
+    """ Delete Gazebo models.
+    Call this on ROS exit. We do not wait for the Gazebo Delete Model
+    service, since Gazebo schould already be running. If the service is not
+    available since Gazebo has been killed, it is fine to error out.
+    :param models: A list of models to delete.
+    :return: list((bool success, string status_message))
+    """
+    service_delete = '/gazebo/delete_model'
+
+    if not isinstance(models, list):
+        models = list(models)
+    resp_deletes = list()
+    rospy.loginfo("Calling service {0}".format(service_delete))
+    try:
+        delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
+        for model in models:
+            rospy.loginfo("Deleting {0} model".format(model))
+            resp_deletes.append(delete_model(model))
+    except rospy.ServiceException as e:
+        rospy.logerr("Delete model service call failed:", e)
+    return resp_deletes
