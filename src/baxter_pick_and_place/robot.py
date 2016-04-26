@@ -30,7 +30,13 @@ import time
 
 import baxter_interface
 import cv2
+import rospkg
 import rospy
+
+from geometry_msgs.msg import (
+    Pose,
+    Point
+)
 from sensor_msgs.msg import Image
 
 from baxter_pick_and_place.baxter_robot import BaxterRobot
@@ -40,6 +46,12 @@ from baxter_pick_and_place.settings import (
     setup_pose,
     top_pose,
     vs_tolerance
+)
+from simulation import (
+    load_gazebo_model,
+    spawn_gazebo_model,
+    delete_gazebo_models,
+    sim_or_real
 )
 from visual.image import (
     imgmsg2img,
@@ -76,6 +88,9 @@ class Robot(BaxterRobot):
         self._bin_pose = None
         self._N_TRIES = 2
 
+        if self._sim:
+            self._models = list()
+
         self.display_imgmsg(white_imgmsg())
         self.display_text('Now doing', 'pick and place')
         self._limb.set_joint_position_speed(0.5)
@@ -91,12 +106,16 @@ class Robot(BaxterRobot):
         if not self._init_state:
             print "Disabling robot..."
             self._rs.disable()
+        if self._sim:
+            delete_gazebo_models(self._models)
         return True
 
     """ =======================================================================
         Set system up and prepare things
     ======================================================================= """
     def set_up(self, verbose=False):
+        if self._sim:
+            self._prepare_environment()
         self.display_text('Performing setup')
         self._perform_setup(finger='short')
         print 'dist: %.3f, z_offset: %.3f' % (self._cam_pars['dist'],
@@ -107,6 +126,35 @@ class Robot(BaxterRobot):
             self._approach_pose(self._bin_pose)
             self.move_to_pose(self._bin_pose)
             self._approach_pose(self._bin_pose)
+
+    def _prepare_environment(self):
+        ns = rospkg.RosPack().get_path('baxter_pick_and_place')
+        ns = os.path.join(ns, 'models')
+
+        # place table
+        print "\nLoading work table ..."
+        table_urdf = os.path.join(ns, 'table', 'model.urdf')
+        table_xml = load_gazebo_model(table_urdf)
+        table_pose = Pose(position=Point(x=0.7, y=0.0, z=0.0))
+        spawn_gazebo_model(model_xml=table_xml, model_name='table',
+                           robot_namespace='/objects', model_pose=table_pose,
+                           model_reference_frame='world')
+        self._models.append('table')
+
+        # put box on table
+
+        # place objects on table
+        models = ['duplo_brick']
+        for model in models:
+            print "\nLoading %s model ..." % model
+            model_urdf = os.path.join(ns, model, 'model.urdf')
+            model_xml = load_gazebo_model(model_urdf)
+            model_pose = Pose(position=Point(x=1.0, y=0.0, z=0.75))
+            spawn_gazebo_model(model_xml=model_xml, model_name=model,
+                               robot_namespace='/objects',
+                               model_pose=model_pose,
+                               model_reference_frame='world')
+            self._models.append(model)
 
     def _perform_setup(self, finger='short'):
         """ Perform the robot limb calibration, i.e., measure the distance from

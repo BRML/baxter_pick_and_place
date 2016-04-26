@@ -30,18 +30,8 @@ import os
 import rospkg
 import rospy
 
-from geometry_msgs.msg import (
-    Pose,
-    Point
-)
-
 from baxter_pick_and_place.robot import Robot
-from simulation import (
-    load_gazebo_model,
-    spawn_gazebo_model,
-    delete_gazebo_models,
-    sim_or_real
-)
+from simulation import sim_or_real
 
 
 class Demonstrator(object):
@@ -115,40 +105,17 @@ def main():
     print 'Initializing node ...'
     rospy.init_node('baxter_pick_and_place_demonstrator')
 
-    def _on_shutdown():
-        delete_gazebo_models(['table', 'duplo_brick'])
-    # demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
-    # rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-    rospy.on_shutdown(_on_shutdown)
+    demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
+    rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
-    print "\nLoading work table ..."
-    table_urdf = os.path.join(ns, 'models', 'table', 'model.urdf')
-    table_xml = load_gazebo_model(table_urdf)
-    table_pose = Pose(position=Point(x=0.7, y=0.0, z=0.0))
-    spawn_gazebo_model(model_xml=table_xml, model_name='table',
-                       robot_namespace='/objects', model_pose=table_pose,
-                       model_reference_frame='world')
-
-    models = ['duplo_brick']
-    for model in models:
-        print "\nLoading %s model ..." % model
-        model_urdf = os.path.join(ns, 'models', model, 'model.urdf')
-        model_xml = load_gazebo_model(model_urdf)
-        model_pose = Pose(position=Point(x=1.0, y=0.0, z=0.75))
-        spawn_gazebo_model(model_xml=model_xml, model_name=model,
-                           robot_namespace='/objects',
-                           model_pose=model_pose,
-                           model_reference_frame='world')
-
-    # demonstrator.robot.set_up()
-    # ret = demonstrator.demonstrate(args.number)
-    # if ret:
-    #     print "\nSuccessfully performed demonstration."
-    # else:
-    #     print "\nFailed demonstration."
+    demonstrator.robot.set_up()
+    ret = demonstrator.demonstrate(args.number)
+    if ret:
+        print "\nSuccessfully performed demonstration."
+    else:
+        print "\nFailed demonstration."
 
     print "\nDone with experiment. Press 'Ctrl-C' to exit."
-    # delete_gazebo_models(['table'] + models)
     rospy.spin()
 
 if __name__ == '__main__':
