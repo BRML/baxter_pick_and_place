@@ -33,10 +33,6 @@ import cv2
 import rospkg
 import rospy
 
-from geometry_msgs.msg import (
-    Pose,
-    Point
-)
 from sensor_msgs.msg import Image
 
 from baxter_pick_and_place.baxter_robot import BaxterRobot
@@ -51,7 +47,7 @@ from simulation import (
     load_gazebo_model,
     spawn_gazebo_model,
     delete_gazebo_models,
-    sim_or_real
+    pose_msg
 )
 from visual.image import (
     imgmsg2img,
@@ -138,7 +134,7 @@ class Robot(BaxterRobot):
         print "\nLoading work table ..."
         table_urdf = os.path.join(ns, 'table', 'model.urdf')
         table_xml = load_gazebo_model(table_urdf)
-        table_pose = Pose(position=Point(x=0.7, y=0.0, z=0.0))
+        table_pose = pose_msg(x=0.7)
         spawn_gazebo_model(model_xml=table_xml, model_name='table',
                            robot_namespace='/objects', model_pose=table_pose,
                            model_reference_frame='world')
@@ -148,7 +144,7 @@ class Robot(BaxterRobot):
         print "\nLoading box model ..."
         box_urdf = os.path.join(ns, 'box', 'model.urdf')
         box_xml = load_gazebo_model(box_urdf)
-        box_pose = Pose(position=Point(x=0.45, y=0.0, z=0.715))
+        box_pose = pose_msg(x=0.5, y=-0.1, z=0.715, yaw=np.pi/2)
         spawn_gazebo_model(model_xml=box_xml, model_name='box',
                            robot_namespace='/objects', model_pose=box_pose,
                            model_reference_frame='world')
@@ -160,7 +156,7 @@ class Robot(BaxterRobot):
             print "\nLoading %s model ..." % model
             model_urdf = os.path.join(ns, model, 'model.urdf')
             model_xml = load_gazebo_model(model_urdf)
-            model_pose = Pose(position=Point(x=1.0, y=0.0, z=0.75))
+            model_pose = pose_msg(x=1.0, y=0.0, z=0.75)
             spawn_gazebo_model(model_xml=model_xml, model_name=model,
                                robot_namespace='/objects',
                                model_pose=model_pose,

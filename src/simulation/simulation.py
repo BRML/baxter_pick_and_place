@@ -26,6 +26,7 @@
 
 import rospy
 import roswtf
+from tf.transformations import quaternion_from_euler
 
 from gazebo_msgs.srv import (
     SpawnModel,
@@ -33,7 +34,8 @@ from gazebo_msgs.srv import (
 )
 from geometry_msgs.msg import (
     Pose,
-    Point
+    Point,
+    Quaternion
 )
 from std_msgs.msg import Empty
 
@@ -121,3 +123,19 @@ def delete_gazebo_models(models):
     except rospy.ServiceException as e:
         rospy.logerr("Delete model service call failed:", e)
     return resp_deletes
+
+
+def pose_msg(x=0.0, y=0.0, z=0.0, roll=0.0, pitch=0.0, yaw=0.0):
+    """ Define a ROS Pose message from given position and orientation.
+    :param x: Position along x-axis in [m].
+    :param y: Position along y-axis in [m].
+    :param z: Position along z-axis in [m].
+    :param roll: Rotation around x-axis in [rad].
+    :param pitch: Rotation around y-axis in [rad].
+    :param yaw: Rotation around z-axis in [rad].
+    :return: A ROS Pose message.
+    """
+
+    q = quaternion_from_euler(roll, pitch, yaw)
+    return Pose(position=Point(x=x, y=y, z=z),
+                orientation=Quaternion(x=q[0], y=q[1], z=q[2], w=q[3]))
