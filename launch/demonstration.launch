@@ -25,4 +25,8 @@
     <include file="$(find baxter_pick_and_place)/launch/baxter.launch">
         <arg name="io_gui" value="$(arg io_gui)"/>
     </include>
+
+    <node name="hand_camera" pkg="image_view" type="image_view">
+        <remap from="image" to="/cameras/left_hand_camera/image"/>
+    </node>
 </launch>
