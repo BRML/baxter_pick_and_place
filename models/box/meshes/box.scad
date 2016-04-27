@@ -24,10 +24,10 @@
 //POSSIBILITY OF SUCH DAMAGE.
 
 
-width = 225;  // mm
-length = 316;  // mm
-height = 77;  // mm
-thickness = 3;  // mm
+width = 0.225;  // [m]
+length = 0.316;  // [m]
+height = 0.077;  // [m]
+thickness = 0.003;  // [m]
 
 translate([-width/2, -length/2, 0])
 difference() {

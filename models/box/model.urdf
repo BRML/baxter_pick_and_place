@@ -26,8 +26,8 @@
         </inertial>
     </link>
 
-    <gazebo reference=box>
-        <material>Gazebo/Brown</material>
+    <gazebo reference="box">
+        <material>Gazebo/Wood</material>
         <mu1>1000</mu1>
         <mu2>1000</mu2>
     </gazebo>
