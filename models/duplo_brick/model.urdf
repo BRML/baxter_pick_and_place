@@ -3,71 +3,18 @@
 <robot name="duplo_brick">
     <link name="brick">
         <visual>
-            <origin xyz="0.0345 0.016 0.0095"/>
             <geometry>
-                <!--<mesh filename="package://baxter_pick_and_place/models/duplo_brick/meshes/duplo_brick.dae"/>-->
-                <box size="0.069 0.032 0.019"/>
-            </geometry>
-        </visual>
-
-        <visual>
-            <origin xyz="0.009 0.009 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.026 0.009 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.043 0.009 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.060 0.009 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.009 0.026 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.026 0.026 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.043 0.026 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
-            </geometry>
-        </visual>
-        <visual>
-            <origin xyz="0.060 0.026 0.019"/>
-            <geometry>
-                <cylinder length="0.005" radius="0.005"/>
+                <mesh filename="package://baxter_pick_and_place/models/duplo_brick/meshes/model.stl"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0.0345 0.016 0.012"/>
             <geometry>
                 <box size="0.069 0.032 0.024"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0.0345 0.016 0.012"/>
             <mass value="0.5"/>
             <inertia ixx="0.5" ixy="0.0" ixz="0.0"
                      iyy="0.5" iyz="0.0"
