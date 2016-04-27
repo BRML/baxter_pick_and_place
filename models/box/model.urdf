@@ -3,14 +3,12 @@
 <robot name="box">
     <link name="box">
         <visual>
-            <origin xyz="0.1125 0.158 0.0385"/>
             <geometry>
                 <mesh filename="package://baxter_pick_and_place/models/box/meshes/box.stl"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0.1125 0.158 0.0385"/>
             <geometry>
                 <mesh filename="package://baxter_pick_and_place/models/box/meshes/box.stl"/>
                 <!--<box size="0.225 0.316 0.077"/>-->
@@ -18,7 +16,6 @@
         </collision>
 
         <inertial>
-            <origin xyz="0.1125 0.158 0.0385"/>
             <mass value="0.5"/>
             <inertia ixx="0.5" ixy="0.0" ixz="0.0"
                      iyy="0.5" iyz="0.0"
