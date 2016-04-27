@@ -130,6 +130,12 @@ class Robot(BaxterRobot):
         ns = rospkg.RosPack().get_path('baxter_pick_and_place')
         ns = os.path.join(ns, 'models')
 
+        # move inactive limb out of the way
+        other_arm = 'right' if self._arm == 'left' else 'left'
+        print "Move inactive %s limb out of the way ..." % other_arm
+        other_limb = baxter_interface.Limb(other_arm)
+        other_limb.move_to_neutral()
+
         # place table
         print "\nLoading work table ..."
         table_urdf = os.path.join(ns, 'table', 'model.urdf')
