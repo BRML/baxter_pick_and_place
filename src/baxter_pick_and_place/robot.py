@@ -162,7 +162,7 @@ class Robot(BaxterRobot):
             print "\nLoading %s model ..." % model
             model_urdf = os.path.join(ns, model, 'model.urdf')
             model_xml = load_gazebo_model(model_urdf)
-            model_pose = pose_msg(x=1.0, y=0.0, z=0.75)
+            model_pose = pose_msg(x=0.5, y=0.15, z=0.715)
             spawn_gazebo_model(model_xml=model_xml, model_name=model,
                                robot_namespace='/objects',
                                model_pose=model_pose,
