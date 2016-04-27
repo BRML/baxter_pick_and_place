@@ -121,7 +121,10 @@ class Robot(BaxterRobot):
         print 'dist: %.3f, z_offset: %.3f' % (self._cam_pars['dist'],
                                               self._cam_pars['z_offset'])
         self.display_text('Looking for bin', 'to put objects into')
-        self._detect_bin()
+        try:
+            self._detect_bin()
+        except Exception as e:
+            rospy.logerr(e)
         if verbose:
             self._approach_pose(self._bin_pose)
             self.move_to_pose(self._bin_pose)
@@ -142,6 +145,14 @@ class Robot(BaxterRobot):
         self._models.append('table')
 
         # put box on table
+        print "\nLoading box model ..."
+        box_urdf = os.path.join(ns, 'box', 'model.urdf')
+        box_xml = load_gazebo_model(box_urdf)
+        box_pose = Pose(position=Point(x=1.0, y=0.0, z=0.75))
+        spawn_gazebo_model(model_xml=box_xml, model_name='box',
+                           robot_namespace='/objects', model_pose=box_pose,
+                           model_reference_frame='world')
+        self._models.append('box')
 
         # place objects on table
         models = ['duplo_brick']
