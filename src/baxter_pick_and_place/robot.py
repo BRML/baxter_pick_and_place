@@ -155,7 +155,7 @@ class Robot(BaxterRobot):
         self._models.append('box')
 
         # place objects on table
-        models = ['duplo_brick']
+        models = ['duplo_brick', 'robot']
         for model in models:
             print "\nLoading %s model ..." % model
             model_urdf = os.path.join(ns, model, 'model.urdf')
