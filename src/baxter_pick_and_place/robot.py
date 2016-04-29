@@ -132,12 +132,11 @@ class Robot(BaxterRobot):
 
         # move inactive limb out of the way
         other_arm = 'right' if self._arm == 'left' else 'left'
-        print "Move inactive %s limb out of the way ..." % other_arm
+        print "\nMove inactive %s limb out of the way ..." % other_arm
         other_limb = baxter_interface.Limb(other_arm)
         other_limb.move_to_neutral()
 
         # place table
-        print "\nLoading work table ..."
         table_urdf = os.path.join(ns, 'table', 'model.urdf')
         table_xml = load_gazebo_model(table_urdf)
         table_pose = pose_msg(x=0.7)
@@ -147,7 +146,6 @@ class Robot(BaxterRobot):
         self._models.append('table')
 
         # put box on table
-        print "\nLoading box model ..."
         box_urdf = os.path.join(ns, 'box', 'model.urdf')
         box_xml = load_gazebo_model(box_urdf)
         box_pose = pose_msg(x=0.5, y=-0.1, z=0.715, yaw=np.pi/2)
