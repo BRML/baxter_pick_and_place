@@ -159,12 +159,23 @@ class Robot(BaxterRobot):
         for model in models:
             model_urdf = os.path.join(ns, model, 'model.urdf')
             model_xml = load_gazebo_model(model_urdf)
-            model_pose = pose_msg(x=0.5, y=0.15, z=0.715)
+            model_pose = pose_msg(*self._sample_object_pose())
+            print model_pose
             spawn_gazebo_model(model_xml=model_xml, model_name=model,
                                robot_namespace='/objects',
                                model_pose=model_pose,
                                model_reference_frame='world')
             self._models.append(model)
+
+    @staticmethod
+    def _sample_object_pose():
+        x = (0.7 - 0.3)*np.random.random_sample() + 0.3
+        y = (0.4 - 0.05)*np.random.random_sample() + 0.05
+        z = 0.75
+        roll = 2*np.pi*np.random.random_sample() - np.pi
+        pitch = 2*np.pi*np.random.random_sample() - np.pi
+        yaw = 2*np.pi*np.random.random_sample() - np.pi
+        return x, y, z, roll, pitch, yaw
 
     def _perform_setup(self, finger='long'):
         """ Perform the robot limb calibration, i.e., measure the distance from
