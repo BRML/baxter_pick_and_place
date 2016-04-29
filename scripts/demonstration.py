@@ -111,11 +111,12 @@ def main():
     demonstrator.robot.set_up()
     ret = demonstrator.demonstrate(args.number)
     if ret:
-        print "\nSuccessfully performed demonstration."
+        print ''
+        rospy.loginfo('Successfully performed demonstration.')
     else:
-        print "\nFailed demonstration."
-
-    print "\nDone with experiment. Press 'Ctrl-C' to exit."
+        print ''
+        rospy.loginfo('Failed demonstration.')
+    rospy.loginfo("Done with experiment. Press 'Ctrl-C' to exit.")
     rospy.spin()
 
 if __name__ == '__main__':
