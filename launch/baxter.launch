@@ -15,7 +15,7 @@
     <arg name="load_robot_description" default="true"/>
     <param if="$(arg load_robot_description)" name="robot_description"
            command="$(find xacro)/xacro.py
-                    --inorder $(find baxter_description)/urdf/baxter.urdf.xacro
+                    --inorder $(find baxter_pick_and_place)/models/baxter/baxter.urdf.xacro
                     gazebo:=true"/>
 
     <!-- Load the software version into the ROS Parameter Server -->
