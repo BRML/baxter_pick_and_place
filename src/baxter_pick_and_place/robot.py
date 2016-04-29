@@ -166,7 +166,7 @@ class Robot(BaxterRobot):
                                model_reference_frame='world')
             self._models.append(model)
 
-    def _perform_setup(self, finger='short'):
+    def _perform_setup(self, finger='long'):
         """ Perform the robot limb calibration, i.e., measure the distance from
         the distance sensor to the table and set some other parameters, if no
         setup file exists. If a setup file exists, load it.
