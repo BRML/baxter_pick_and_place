@@ -52,6 +52,7 @@ def sim_or_real():
     if sim:
         rospy.loginfo("We are running in simulation mode.")
         # Wait for the 'All Clear' from simulator startup
+        rospy.loginfo("Waiting for Gazebo to be fully started ...")
         rospy.wait_for_message("/robot/sim/started", Empty)
     else:
         rospy.loginfo("We are running on the real baxter.")
