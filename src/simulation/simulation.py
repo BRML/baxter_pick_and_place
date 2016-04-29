@@ -64,7 +64,7 @@ def load_gazebo_model(urdf_path):
     :return: The model XML as a string.
     """
     model_xml = ''
-    rospy.loginfo("Loading model XML from file.")
+    rospy.logdebug("Loading model XML from file.")
     with open(urdf_path) as urdf_file:
         model_xml = urdf_file.read().replace('\n', '')
     return model_xml
@@ -85,12 +85,13 @@ def spawn_gazebo_model(model_xml, model_name, robot_namespace,
     """
     service_spawn = '/gazebo/spawn_urdf_model'
 
-    rospy.loginfo("Waiting for service {0}".format(service_spawn))
+    rospy.logdebug("Waiting for service {0}".format(service_spawn))
     rospy.wait_for_service(service_spawn)
     resp_urdf = tuple()
-    rospy.loginfo("Calling service {0}".format(service_spawn))
+    rospy.logdebug("Calling service {0}".format(service_spawn))
     try:
         spawn_urdf = rospy.ServiceProxy(service_spawn, SpawnModel)
+        rospy.loginfo("Spawning {0} model".format(model_name))
         resp_urdf = spawn_urdf(model_name=model_name,
                                model_xml=model_xml,
                                robot_namespace=robot_namespace,
@@ -114,7 +115,7 @@ def delete_gazebo_models(models):
     if not isinstance(models, list):
         models = list(models)
     resp_deletes = list()
-    rospy.loginfo("Calling service {0}".format(service_delete))
+    rospy.logdebug("Calling service {0}".format(service_delete))
     try:
         delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
         for model in models:
