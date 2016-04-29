@@ -157,7 +157,6 @@ class Robot(BaxterRobot):
         # place objects on table
         models = ['duplo_brick', 'robot']
         for model in models:
-            print "\nLoading %s model ..." % model
             model_urdf = os.path.join(ns, model, 'model.urdf')
             model_xml = load_gazebo_model(model_urdf)
             model_pose = pose_msg(x=0.5, y=0.15, z=0.715)
