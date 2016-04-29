@@ -117,10 +117,7 @@ class Robot(BaxterRobot):
         print 'dist: %.3f, z_offset: %.3f' % (self._cam_pars['dist'],
                                               self._cam_pars['z_offset'])
         self.display_text('Looking for bin', 'to put objects into')
-        try:
-            self._detect_bin()
-        except Exception as e:
-            rospy.logerr(e)
+        self._detect_bin()
         if verbose:
             self._approach_pose(self._bin_pose)
             self.move_to_pose(self._bin_pose)
@@ -238,9 +235,12 @@ class Robot(BaxterRobot):
                 self._cam_pars = pickle.load(f)
 
     def _detect_bin(self):
-        """ Detect the bin to put the objects into. """
+        """ Detect the bin to put the objects into.
+        Raise an exception if inverse kinematics fail or bin is not found.
+        """
         print '\nLooking for bin to put objects into ...'
-        self.move_to_pose(self._top_pose)
+        cmd = self._inverse_kinematics(self._top_pose)
+        self._limb.move_to_joint_positions(cmd)
         # record top-down-view image
         imgmsg = self._record_image()
         self.display_imgmsg(imgmsg)
