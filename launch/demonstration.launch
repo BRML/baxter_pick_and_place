@@ -1,39 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <launch>
-    <!-- Load world -->
-    <arg name="paused" default="false"/>
-    <arg name="use_sim_time" default="true"/>
-    <arg name="gui" default="true"/>
-    <arg name="headless" default="false"/>
-    <arg name="debug" default="false"/>
+    <arg name="gazebo" default="false"/>
 
-    <!-- We resume the logic in empty_world.launch, changing the name of the
-         world to be launched -->
-    <include file="$(find gazebo_ros)/launch/empty_world.launch">
-        <!--<arg name="world_name" value="$(find baxter_gazebo)/worlds/baxter.world"/>-->
-        <arg name="debug" value="$(arg debug)" />
-        <arg name="gui" value="$(arg gui)" />
-        <arg name="paused" value="$(arg paused)"/>
-        <arg name="use_sim_time" value="$(arg use_sim_time)"/>
-        <arg name="headless" value="$(arg headless)"/>
-    </include>
-
-    <!-- Load baxter model -->
-    <arg name="io_gui" default="false"/>
-
-    <include file="$(find baxter_pick_and_place)/launch/baxter.launch">
-        <arg name="io_gui" value="$(arg io_gui)"/>
-    </include>
-
-    <!-- Start demonstration -->
     <arg name="arm" default="left"/>
     <arg name="number" default="0"/>
 
+    <!-- Fire up simulator and load Baxter model -->
+    <include file="$(find baxter_pick_and_place)/launch/simulation.launch"/>
+
+    <!-- View the hand camera used for finding objects -->
     <node name="hand_camera" pkg="image_view" type="image_view">
         <remap from="image" to="/cameras/$(arg arm)_hand_camera/image"/>
     </node>
 
+    <!-- Run demonstration -->
     <node name="demonstration"
           pkg="baxter_pick_and_place" type="demonstration.py"
           required="true" respawn="false" output="screen" cwd="node"
