@@ -26,7 +26,16 @@
         <arg name="io_gui" value="$(arg io_gui)"/>
     </include>
 
+    <!-- Start demonstration -->
+    <arg name="arm" default="left"/>
+    <arg name="number" default="0"/>
+
     <node name="hand_camera" pkg="image_view" type="image_view">
-        <remap from="image" to="/cameras/left_hand_camera/image"/>
+        <remap from="image" to="/cameras/$(arg arm)_hand_camera/image"/>
     </node>
+
+    <node name="demonstration"
+          pkg="baxter_pick_and_place" type="demonstration.py"
+          required="true" respawn="false" output="screen" cwd="node"
+          args="--limb $(arg arm) --number $(arg number)"/>
 </launch>
