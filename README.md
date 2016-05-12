@@ -1,6 +1,12 @@
-# baxter-pick-and-place
+# The Baxter pick-and-place demonstration
 Pick &amp; place demonstration with the baxter research robot in collaboration 
 with DFKI Saarbruecken.
+The framework heavily builds upon the 
+[Baxter SDK](https://github.com/RethinkRobotics) and depends on customized 
+versions of [baxter_interface](https://github.com/lude-ma/baxter_interface.git) 
+and [baxter_common](https://github.com/lude-ma/baxter_common.git) from Rethink 
+Robotics.
+
 
 ## Description of demonstration
 An eye tracker is used to select and trigger an object lying on a table in 
@@ -9,83 +15,177 @@ object and returns 5 object labels and their respective probabilities of being
 the object being asked for. 
 
 The baxter robot looks for objects on the table, selects the most probable 
-object, uses a Haar cascade classifier to detect it on the table, picks it up 
-and places it in a bin it detected previously.
+object and estimates its pose on the table using machine learning techniques, 
+picks it up and places it in a bin it detected previously.
+
+
+## Description of software
+In this [ROS](http://www.ros.org/) package the previously described pick-and-
+place demonstration with the
+[Baxter research robot](http://www.rethinkrobotics.com/research-education/) 
+is implemented.
+
+The demonstration can be run both on the real robot as well as in the 
+[Gazebo](http://gazebosim.org/)-powered 
+[Baxter simulator](http://sdk.rethinkrobotics.com/wiki/Baxter_Simulator).
+
 
 ## How to install and use
-The baxter pick and place demonstration is implemented as a ROS package.
+The Baxter pick and place demonstration is implemented as a ROS package.
+It requires a development workstation with 
+[Ubuntu 14.04](http://releases.ubuntu.com/14.04/) and 
+[ROS Indigo](http://wiki.ros.org/indigo) installed.
 
-### Install the package
-The following steps are required to install the package:
+> Note: If you have Ubuntu, ROS and and the Baxter SDK dependencies already 
+> installed, you only need to perform steps 3, 5 and 6 to clone, install and 
+> setup the Baxter data acquisition framework!
 
-1. If not already done, set up your baxter workstation as explained in the 
-[baxter SDK wiki](http://sdk.rethinkrobotics.com/wiki/Workstation_Setup).
-1. Clone, build and install the ROS package:
+### Step 1: Install Ubuntu
+Follow the standard Ubuntu Installation Instructions for 14.04 (Desktop).
+
+### Step 2: Install ROS Indigo
+Configure your Ubuntu repositories to allow "restricted," "universe," and 
+"multiverse."
+
+#### Setup your sources.list
 ```bash
-$ cd ~/ros_ws
-$ . baxter.sh
-$ cd ~/ros_ws/src
-$ git clone https://github.com/BRML/baxter-pick-and-place ./baxter_pick_and_place
-$ cd ~/ros_ws
+$ sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu trusty main" > /etc/apt/sources.list.d/ros-latest.list'
+```
+
+#### Setup your keys
+```bash
+$ wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+```
+
+#### Verify latest debians, install ROS Indigo Desktop Full and rosinstall
+```bash
+$ sudo apt-get update
+$ sudo apt-get install ros-indigo-desktop-full
+$ sudo rosdep init
+$ rosdep update
+$ sudo apt-get install python-rosinstall
+```
+
+### Step 3: Create ROS workspace
+```bash
+$ mkdir -p ~/ros_baxter_pnp_ws/src
+$ source /opt/ros/indigo/setup.bash
+$ cd ~/ros_baxter_pnp_ws
 $ catkin_make
 $ catkin_make install
 ```
 
-### Run the demonstration
-To run the demonstration, do
+### Step 4: Install Baxter SDK dependencies
 ```bash
-$ cd ~/ros_ws
+$ sudo apt-get update
+$ sudo apt-get install git-core python-argparse python-wstool python-vcstools python-rosdep ros-indigo-control-msgs ros-indigo-joystick-drivers
+```
+
+### Step 5: Install this package and its dependencies
+Using the [wstool](http://wiki.ros.org/wstool) workspace tool, you will 
+checkout all required Github repositories into your ROS workspace source 
+directory.
+```bash
+$ cd ~/ros_baxter_pnp_ws/src
+$ wstool init .
+$ wstool merge https://gist.githubusercontent.com/lude-ma/5044f009df032508b91d4c3c06265ed4/raw/f1d8646b29518ba3562922c163b675170c6af4c8/baxter_pnp.rosinstall
+$ wstool update
+$ source /opt/ros/indigo/setup.bash
+$ cd ~/ros_baxter_pnp_ws
+$ catkin_make
+$ catkin_make install
+```
+
+### Step 6: Configure Baxter communication/ROS workspace
+The [baxter.sh](http://sdk.rethinkrobotics.com/wiki/Baxter.sh) script is a 
+convenient script which allows for intuitive modification of the core ROS 
+environment components. 
+This user edited script will allow for the quickest and easiest ROS setup.
+Further information and a detailed description is available on the 
+[baxter.sh](http://sdk.rethinkrobotics.com/wiki/Baxter.sh) page.
+
+#### Download the baxter.sh script
+```bash
+$ cd ~/ros_baxter_pnp_ws
+$ wget https://github.com/RethinkRobotics/baxter/raw/master/baxter.sh
+$ chmod u+x baxter.sh
+```
+
+#### Customize the baxter.sh script
+Using your favorite editor, edit the baxter.sh shell script making the 
+necessary modifications to describe your development workstation.
+
+- Edit the `baxter_hostname` field to match the hostname of your Baxter 
+robot.
+- Edit **either** the `your_ip` **or** the `your_hostname` field to 
+match the IP or hostname of your development workstation.
+Only one of those fields can be active at a time.
+The other variable should be commented out!
+
+#### Initialize your SDK environment
+```bash
+$ cd ~/ros_baxter_pnp_ws
+$ . baxter.sh
+```
+
+#### Verify environment
+To verify that all your changes are applied correctly, perform
+```bash
+$ env | grep ROS
+```
+The important fields at this point are
+
+- **ROS_MASTER_URI** (this should now contain your robot's hostname)
+- **ROS_IP** or **ROS_HOSTNAME** (this should now contain your development
+workstation's ip address or hostname. The unused field should **not** be 
+available!)
+
+
+## Run the demonstration
+To run the demonstration, initialize your SDK environment and `rosrun` the 
+demonstration.
+That is, do
+```bash
+$ cd ~/ros_baxter_pnp_ws
 $ . baxter.sh
 $ rosrun baxter_pick_and_place demonstration.py -n N
 ```
-`N` is the number of objects the robot is supposed to pick up and place in a 
-bin.
+where `N` is the number of objects the robot is supposed to pick up and place 
+in a bin.
 
-### Select camera parameters
-To help with the selection of the camera parameters for the baxter robot, a
-reconfigurable script exists. To run it, do
+Use the `-h` command line option to learn more about the demonstration and its
+required and optional parameters.
+
+
+## Run the demonstration in simulation mode
+To start up the simulation environment (Gazebo) and run the demonstration, 
+initialize your SDK environment in simulation mode, `roslaunch` the simulator
+and `rosrun` the demonstration.
+That is, in a terminal do
 ```bash
-$ cd ~/ros_ws
-$ . baxter.sh
-$ rosrun baxter_pick_and_place cam_config_server.py
+$ cd ~/ros_baxter_pnp_ws
+$ . baxter.sh sim
+$ roslaunch baxter_pick_and_place simulation.launch
 ```
-This will have the baxter robot move its left limb into a pose hovering over
-the table and display the left camera image.
-
-To fire up the parameter reconfigurator, do (in another shell)
+In another terminal do
 ```bash
-$ cd ~/ros_ws
-$ . baxter.sh
-$ rosrun rqt_gui rqt_gui -s reconfigure
+$ cd ~/ros_baxter_pnp_ws
+$ . baxter.sh sim
+$ rosrun baxter_pick_and_place demonstration.py -n N
 ```
-and select the `camera*` server in the window that is opening.
+where `N` describes the number of objects to pick up as it does for the 
+demonstration with the real Baxter robot.
 
-## Train object detection algorithm
+Note: The `roslaunch` files have parameters to modify their behavior. Please
+have a look at the files for more information.
 
-### Record (training/validation/test) set images
-To run the image recorder, do
+
+### Demonstration convenience launch file
+There also is a launch file that collect the two separate steps above into
+one file.
+To start up the simulation environment and run the demonstration, do
 ```bash
-$ cd ~/ros_ws
-$ . baxter.sh
-$ rosrun baxter_pick_and_place record_image.py --limb L --dirname D
+$ cd ~/ros_baxter_pnp_ws
+$ . baxter.sh sim
+$ roslaunch baxter_pick_and_place demonstration.launch number:=N
 ```
-where `L=<left, right>` is the limb to record images from and `D` is the
-directory to save the recorded images into, relative to the ROS package path
-(here defaults to `~/ros_ws/src/baxter_pick_and_place/data`).
-
-Once the program has started, the baxter robot moves the selected limb into a
-pose hovering over the table. Follow the explanations in the console, i.e.,
-press `r` to record an image (stored under a 12-digit random name in
-`dirname`), or press `s` to stop image recording and exit the program.
-
-### Prepare (training/validation/test) set images
-To prepare the data for training the object detection algorithm, run the
-`scripts/vae_0_dat.ipynb` ipython notebook.
-The script splits the recorded images into training, validation and test sets,
-and extracts image patches from them that are used for training the object
-detection algorithm.
-
-### Train object detection algorithm
-To train the variational auto-encoder that we use as a cheap and quick-to-
-train alternative to a more complex convolutional neural network, run the
-`scripts/vae_1_train.ipynb` ipython notebook.
