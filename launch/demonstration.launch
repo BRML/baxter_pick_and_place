@@ -7,7 +7,8 @@
     <arg name="number" default="0"/>
 
     <!-- Fire up simulator and load Baxter model -->
-    <include file="$(find baxter_pick_and_place)/launch/simulation.launch"/>
+    <include if="$(arg gazebo)"
+             file="$(find baxter_pick_and_place)/launch/simulation.launch"/>
 
     <!-- View the hand camera used for finding objects -->
     <node name="hand_camera" pkg="image_view" type="image_view">
