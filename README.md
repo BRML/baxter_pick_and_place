@@ -75,10 +75,11 @@ $ catkin_make
 $ catkin_make install
 ```
 
-### Step 4: Install Baxter SDK dependencies
+### Step 4: Install Baxter SDK- and Baxter simulator dependencies
 ```bash
 $ sudo apt-get update
 $ sudo apt-get install git-core python-argparse python-wstool python-vcstools python-rosdep ros-indigo-control-msgs ros-indigo-joystick-drivers
+$ sudo apt-get install gazebo2 ros-indigo-qt-build ros-indigo-driver-common ros-indigo-gazebo-ros-control ros-indigo-gazebo-ros-pkgs ros-indigo-ros-control ros-indigo-control-toolbox ros-indigo-realtime-tools ros-indigo-ros-controllers ros-indigo-xacro python-wstool ros-indigo-tf-conversions ros-indigo-kdl-parser
 ```
 
 ### Step 5: Install this package and its dependencies
