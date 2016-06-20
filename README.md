@@ -88,7 +88,7 @@ directory.
 ```bash
 $ cd ~/ros_baxter_pnp_ws/src
 $ wstool init .
-$ wstool merge https://gist.githubusercontent.com/lude-ma/5044f009df032508b91d4c3c06265ed4/raw/f1d8646b29518ba3562922c163b675170c6af4c8/baxter_pnp.rosinstall
+$ wstool merge https://raw.githubusercontent.com/lude-ma/baxter_rosinstall/master/baxter_pnp.rosinstall
 $ wstool update
 $ source /opt/ros/indigo/setup.bash
 $ cd ~/ros_baxter_pnp_ws
