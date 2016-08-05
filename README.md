@@ -3,8 +3,8 @@ Pick &amp; place demonstration with the baxter research robot in collaboration
 with DFKI Saarbruecken.
 The framework heavily builds upon the 
 [Baxter SDK](https://github.com/RethinkRobotics) and depends on customized 
-versions of [baxter_interface](https://github.com/lude-ma/baxter_interface.git) 
-and [baxter_common](https://github.com/lude-ma/baxter_common.git) from Rethink 
+versions of [baxter_interface](https://github.com/BRML/baxter_interface.git)
+and [baxter_common](https://github.com/BRML/baxter_common.git) from Rethink
 Robotics.
 
 
@@ -89,7 +89,7 @@ directory.
 ```bash
 $ cd ~/ros_baxter_pnp_ws/src
 $ wstool init .
-$ wstool merge https://raw.githubusercontent.com/lude-ma/baxter_rosinstall/master/baxter_pnp.rosinstall
+$ wstool merge https://raw.githubusercontent.com/BRML/baxter_rosinstall/master/baxter_pnp.rosinstall
 $ wstool update
 $ source /opt/ros/indigo/setup.bash
 $ cd ~/ros_baxter_pnp_ws
