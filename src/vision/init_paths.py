@@ -39,9 +39,21 @@ def set_up_faster_rcnn():
     """Set up python paths for faster R-CNN."""
     # Add Caffe to PYTHONPATH
     caffe_path = os.path.join(develop_dir,
-                              'py_faster_rcnn', 'caffe-fast-rcnn', 'python')
+                              'py-faster-rcnn', 'caffe-fast-rcnn', 'python')
     add_path(caffe_path)
 
     # Add lib to PYTHONPATH
-    lib_path = os.path.join(develop_dir, 'py_faster_rcnn', 'lib')
+    lib_path = os.path.join(develop_dir, 'py-faster-rcnn', 'lib')
+    add_path(lib_path)
+
+
+def set_up_mnc():
+    """Set up python paths for MNC."""
+    # Add Caffe to PYTHONPATH
+    caffe_path = os.path.join(develop_dir,
+                              'mnc', 'caffe-mnc', 'python')
+    add_path(caffe_path)
+
+    # Add lib to PYTHONPATH
+    lib_path = os.path.join(develop_dir, 'mnc', 'lib')
     add_path(lib_path)

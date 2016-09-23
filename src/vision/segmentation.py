@@ -32,11 +32,12 @@ import time
 
 import cv2
 
-from init_paths import set_up_faster_rcnn
-set_up_faster_rcnn()
+from src.vision.init_paths import set_up_mnc
+set_up_mnc()
 import caffe
-from fast_rcnn.config import cfg
-from fast_rcnn.test import im_detect
+from mnc_config import cfg
+from transform.bbox_transform import clip_boxes
+from utils.blob import prep_im_for_blob, im_list_to_blob
 
 
 # Use RPN for proposals
@@ -48,7 +49,7 @@ black = (0, 0, 0)
 white = (255, 255, 255)
 
 # Set up logging
-_logger = logging.getLogger('frcnn')
+_logger = logging.getLogger('mnc')
 _logger.setLevel(logging.INFO)
 _default_loghandler = logging.StreamHandler()
 _default_loghandler.setLevel(logging.INFO)
@@ -86,9 +87,9 @@ def textbox(image, text, org, font_face, font_scale, thickness, color, color_box
                 thickness=thickness, color=color)
 
 
-class ObjectDetector(object):
+class ObjectSegmentation(object):
     def __init__(self, root_dir, classes):
-        """Instantiates a 'faster R-CNN' object detector object.
+        """Instantiates a 'faster R-CNN' object detector and segmentation object.
 
         :param root_dir: Where the baxter_pick_and_place ROS package resides.
         :param classes: The list of objects in the set of objects. Needs to be
@@ -97,15 +98,62 @@ class ObjectDetector(object):
         self._classes = classes
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
-                                      'faster_rcnn_test.pt')
+                                      'mnc_5stage_test.pt')
         self._caffemodel = os.path.join(root_dir, 'data', 'VGG16',
-                                        'VGG16_faster_rcnn_final.caffemodel')
+                                        'mnc_model.caffemodel.h5')
         if not os.path.isfile(self._prototxt):
             raise RuntimeError("No network architecture specification found "
                                "at %s!" % self._prototxt)
         if not os.path.isfile(self._caffemodel):
             raise RuntimeError("No network parameter dump found at %s!" %
                                self._caffemodel)
+
+    def _prepare_mnc_args(self, im, net):
+        # Prepare image data blob
+        blobs = {'data': None}
+        processed_ims = []
+        im, im_scale_factors = \
+            prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TEST.SCALES[0], cfg.TRAIN.MAX_SIZE)
+        processed_ims.append(im)
+        blobs['data'] = im_list_to_blob(processed_ims)
+        # Prepare image info blob
+        im_scales = [np.array(im_scale_factors)]
+        assert len(im_scales) == 1, 'Only single-image batch implemented'
+        im_blob = blobs['data']
+        blobs['im_info'] = np.array(
+            [[im_blob.shape[2], im_blob.shape[3], im_scales[0]]],
+            dtype=np.float32)
+        # Reshape network inputs and do forward
+        net.blobs['data'].reshape(*blobs['data'].shape)
+        net.blobs['im_info'].reshape(*blobs['im_info'].shape)
+        forward_kwargs = {
+            'data': blobs['data'].astype(np.float32, copy=False),
+            'im_info': blobs['im_info'].astype(np.float32, copy=False)
+        }
+        return forward_kwargs, im_scales
+
+    def _im_detect(self, net, image):
+        forward_kwargs, im_scales = self._prepare_mnc_args(image, net)
+        blobs_out = net.forward(**forward_kwargs)
+        # output we need to collect:
+        # 1. output from phase1'
+        rois_phase1 = net.blobs['rois'].data.copy()
+        masks_phase1 = net.blobs['mask_proposal'].data[...]
+        scores_phase1 = net.blobs['seg_cls_prob'].data[...]
+        # 2. output from phase2
+        rois_phase2 = net.blobs['rois_ext'].data[...]
+        masks_phase2 = net.blobs['mask_proposal_ext'].data[...]
+        scores_phase2 = net.blobs['seg_cls_prob_ext'].data[...]
+        # Boxes are in resized space, we un-scale them back
+        rois_phase1 = rois_phase1[:, 1:5] / im_scales[0]
+        rois_phase2 = rois_phase2[:, 1:5] / im_scales[0]
+        rois_phase1, _ = clip_boxes(rois_phase1, image.shape)
+        rois_phase2, _ = clip_boxes(rois_phase2, image.shape)
+        # concatenate two stages to get final network output
+        masks = np.concatenate((masks_phase1, masks_phase2), axis=0)
+        boxes = np.concatenate((rois_phase1, rois_phase2), axis=0)
+        scores = np.concatenate((scores_phase1, scores_phase2), axis=0)
+        return scores, boxes, masks
 
     def init_model(self, warmup=False):
         """Load the pre-trained Caffe model onto GPU0.
@@ -123,7 +171,7 @@ class ObjectDetector(object):
         if warmup:
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for _ in xrange(2):
-                _, _ = im_detect(self._net, dummy)
+                _, _, _ = self._im_detect(self._net, dummy)
 
     def detect(self, image):
         """Feed forward the given image through the previously loaded network.
@@ -141,11 +189,11 @@ class ObjectDetector(object):
             raise ValueError("Image must be a three channel color image "
                              "with shape (h, w, 3)!")
         start = time.time()
-        scores, boxes = im_detect(self._net, image)
+        scores, boxes, masks = self._im_detect(self._net, image)
         _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
-        return scores, boxes
+        return scores, boxes, masks
 
     def detect_object(self, image, object_id, threshold=0.5):
         """Feed forward the given image through the previously loaded network.
@@ -163,7 +211,7 @@ class ObjectDetector(object):
         if object_id not in self._classes:
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
-        scores, boxes = self.detect(image=image)
+        scores, boxes, masks = self.detect(image=image)
 
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
@@ -222,7 +270,7 @@ if __name__ == '__main__':
                'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant',
                'sheep', 'sofa', 'train', 'tvmonitor')
-    od = ObjectDetector(root_dir=path, classes=classes)
+    od = ObjectSegmentation(root_dir=path, classes=classes)
     od.init_model(warmup=False)
 
     for img_file in [os.path.join(path, 'data', '%s.jpg' % i)
