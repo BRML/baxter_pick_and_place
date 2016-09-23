@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright (c) 2016, BRML
 # All rights reserved.
 #
@@ -30,7 +32,8 @@ import time
 
 import cv2
 
-import init_paths
+from init_paths import set_up_faster_rcnn
+set_up_faster_rcnn()
 import caffe
 from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
@@ -38,7 +41,6 @@ from fast_rcnn.test import im_detect
 
 # Use RPN for proposals
 cfg.TEST.HAS_RPN = True
-NMS_THRESH = 0.3
 
 # Set colors for visualisation of detections
 red = (0, 0, 255)  # BGR
@@ -60,10 +62,10 @@ def remove_default_loghandler():
     _logger.removeHandler(_default_loghandler)
 
 
-def textbox(img, text, org, font_face, font_scale, thickness, color, color_box):
+def textbox(image, text, org, font_face, font_scale, thickness, color, color_box):
     """Draw a filled box with text placed on top of it.
 
-    :param img: The image to draw on.
+    :param image: The image to draw on.
     :param text: The text to put there.
     :param org: The origin of the text (bottom left corner) (x, y).
     :param font_face: The font to use.
@@ -77,17 +79,21 @@ def textbox(img, text, org, font_face, font_scale, thickness, color, color_box):
                                 fontFace=font_face, fontScale=font_scale,
                                 thickness=thickness)
     ox, oy = [int(o) for o in org]
-    cv2.rectangle(img, pt1=(ox - 2, oy + 2), pt2=(ox + 2 + w, oy - 2 - h),
+    cv2.rectangle(image, pt1=(ox - 2, oy + 2), pt2=(ox + 2 + w, oy - 2 - h),
                   color=color_box, thickness=cv2.cv.CV_FILLED)
-    cv2.putText(img, text=text, org=(ox, oy),
+    cv2.putText(image, text=text, org=(ox, oy),
                 fontFace=font_face, fontScale=font_scale,
                 thickness=thickness, color=color)
 
 
 class ObjectDetector(object):
     def __init__(self, root_dir, classes):
-        # root_dir: where the baxter_pick_and_place ROS package resides
-        # classes: list of objects in set of objects
+        """Instantiates a 'faster R-CNN' object detector object.
+
+        :param root_dir: Where the baxter_pick_and_place ROS package resides.
+        :param classes: The list of objects in the set of objects. Needs to be
+            [background, object 1, object 2, ..., object N].
+        """
         self._classes = classes
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
@@ -102,42 +108,68 @@ class ObjectDetector(object):
                                self._caffemodel)
 
     def init_model(self, warmup=False):
+        """Load the pre-trained Caffe model onto GPU0.
 
-        # Tell Caffe to use the GPU
+        :param warmup: Whether to warm up the model on some dummy images.
+        :return:
+        """
         caffe.set_mode_gpu()
         gpu_id = 0
         caffe.set_device(gpu_id)
         cfg.GPU_ID = gpu_id
-        # Load the network
+
         self._net = caffe.Net(self._prototxt, self._caffemodel, caffe.TEST)
         _logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
-            img = 128 * np.ones((300, 500, 3), dtype=np.uint8)
-            for i in xrange(2):
-                _, _ = im_detect(self._net, img)
+            dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
+            for _ in xrange(2):
+                _, _ = im_detect(self._net, dummy)
 
-    def detect(self, img):
-        # img: numpy array of shape (h, w, 3)
+    def detect(self, image):
+        """Feed forward the given image through the previously loaded network.
+        Return scores and bounding boxes for all abject proposals and classes.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :return: A tuple of two numpy arrays, the n_proposals x n_classes
+            scores and the corresponding n_proposals x 4*n_classes bounding
+            boxes, where each bounding box is defined as <xul, yul, xlr, ylr>.
+        """
+        if self._net is None:
+            raise RuntimeError("No loaded network found! "
+                               "Did you run init_model()?")
+        if len(image.shape) != 3 and image.shape[2] != 3:
+            raise ValueError("Image must be a three channel color image "
+                             "with shape (h, w, 3)!")
         start = time.time()
-        scores, boxes = im_detect(self._net, img)
+        scores, boxes = im_detect(self._net, image)
         _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
         return scores, boxes
 
-    def detect_object(self, img, object_id, threshold=0.5):
-        # img: numpy array of shape (h, w, 3)
-        # object_id: object identifier string contained in list of objects
-        # threshold: threshold on the score
+    def detect_object(self, image, object_id, threshold=0.5):
+        """Feed forward the given image through the previously loaded network.
+        Return the bounding box with the highest score for the requested
+        object class.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :param object_id: One object identifier string contained in the list
+            of objects.
+        :param threshold: The threshold (0, 1) on the score for a detection
+            to be considered as valid.
+        :return: The best score and bounding box if the best score > threshold,
+            The best score and None otherwise.
+        """
         if object_id not in self._classes:
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
-        scores, boxes = self.detect(img=img)
+        scores, boxes = self.detect(image=image)
 
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
         cls_boxes = boxes[:, 4*cls_idx:4*(cls_idx + 1)]
+
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
         best_box = cls_boxes[best_idx]
@@ -152,17 +184,31 @@ class ObjectDetector(object):
         return best_score, None
 
     @staticmethod
-    def draw_detection(img, object_id, scores, boxes):
+    def draw_detection(image, object_ids, scores, boxes):
+        """Draw all given bounding boxes onto the given image and label them
+        with their object identifier and score.
+        Note: Modifies the passed image!
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :param object_ids: One object identifier string contained in the list
+            of objects.
+        :param scores: Detection scores (n x 1 numpy array).
+        :param boxes: Detected bounding boxes (n x 4 numpy array).
+        :return:
+        """
         if boxes is None:
             return None
         if len(boxes.shape) == 1:
             scores = scores[np.newaxis]
             boxes = boxes[np.newaxis, :]
-        for score, box in zip(scores, boxes):
-            cv2.rectangle(img, pt1=(box[0], box[1]), pt2=(box[2], box[3]),
+        if isinstance(object_ids, str):
+            object_ids = [object_ids]*len(scores)
+        if len(scores) != len(boxes):
+            raise ValueError("Require scores and corresponding bounding boxes!")
+        for oid, s, b in zip(object_ids, scores, boxes):
+            cv2.rectangle(image, pt1=(b[0], b[1]), pt2=(b[2], b[3]),
                           color=red, thickness=2)
-            textbox(img, text='%s %.3f' % (object_id, score),
-                    org=(box[0] + 3, box[3] - 3),
+            textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
                     font_face=cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale=0.5, thickness=2, color=black, color_box=white)
 
