@@ -35,12 +35,13 @@ def add_path(path):
 develop_dir = os.path.expanduser('~/software')
 
 
-"""Set up paths for Fast R-CNN."""
+def set_up_faster_rcnn():
+    """Set up python paths for faster R-CNN."""
+    # Add Caffe to PYTHONPATH
+    caffe_path = os.path.join(develop_dir,
+                              'py_faster_rcnn', 'caffe-fast-rcnn', 'python')
+    add_path(caffe_path)
 
-# Add caffe to PYTHONPATH
-caffe_path = os.path.join(develop_dir, 'py_faster_rcnn', 'caffe-fast-rcnn', 'python')
-add_path(caffe_path)
-
-# Add lib to PYTHONPATH
-lib_path = os.path.join(develop_dir, 'py_faster_rcnn', 'lib')
-add_path(lib_path)
+    # Add lib to PYTHONPATH
+    lib_path = os.path.join(develop_dir, 'py_faster_rcnn', 'lib')
+    add_path(lib_path)
