@@ -40,9 +40,24 @@ from fast_rcnn.test import im_detect
 cfg.TEST.HAS_RPN = True
 NMS_THRESH = 0.3
 
+# Set colors for visualisation of detections
 red = (0, 0, 255)  # BGR
 black = (0, 0, 0)
 white = (255, 255, 255)
+
+# Set up logging
+_logger = logging.getLogger('frcnn')
+_logger.setLevel(logging.INFO)
+_default_loghandler = logging.StreamHandler()
+_default_loghandler.setLevel(logging.INFO)
+_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
+_logger.addHandler(_default_loghandler)
+
+
+def remove_default_loghandler():
+    """Call this to mute this library or to prevent duplicate messages
+    when adding another log handler to the logger named 'frcnn'."""
+    _logger.removeHandler(_default_loghandler)
 
 
 def textbox(img, text, org, font_face, font_scale, thickness, color, color_box):
@@ -95,7 +110,7 @@ class ObjectDetector(object):
         cfg.GPU_ID = gpu_id
         # Load the network
         self._net = caffe.Net(self._prototxt, self._caffemodel, caffe.TEST)
-        logging.info('Loaded network %s.' % self._caffemodel)
+        _logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
             img = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for i in xrange(2):
@@ -105,7 +120,7 @@ class ObjectDetector(object):
         # img: numpy array of shape (h, w, 3)
         start = time.time()
         scores, boxes = im_detect(self._net, img)
-        logging.info('Detection took {:.3f}s for {:d} object proposals'.format(
+        _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
         return scores, boxes
@@ -118,6 +133,7 @@ class ObjectDetector(object):
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
         scores, boxes = self.detect(img=img)
+
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
@@ -125,7 +141,7 @@ class ObjectDetector(object):
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
         best_box = cls_boxes[best_idx]
-        logging.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -153,8 +169,7 @@ class ObjectDetector(object):
 
 if __name__ == '__main__':
     path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
-    logging.basicConfig(filename=os.path.join(path, 'afirsttest.log'), level=logging.INFO)
-    logging.info('started')
+    _logger.info('started')
     classes = ('__background__',
                'aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
@@ -174,5 +189,4 @@ if __name__ == '__main__':
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
-    logging.info('ended')
-
+    _logger.info('ended')

@@ -109,15 +109,49 @@ def main():
     rospy.on_shutdown(demonstrator.robot.clean_shutdown)
 
     demonstrator.robot.set_up()
-    ret = demonstrator.demonstrate(args.number)
-    if ret:
-        print ''
-        rospy.loginfo('Successfully performed demonstration.')
-    else:
-        print ''
-        rospy.loginfo('Failed demonstration.')
-    rospy.loginfo("Done with experiment. Press 'Ctrl-C' to exit.")
-    rospy.spin()
+
+    from visual.image import imgmsg2img
+    from visual.detection import ObjectDetector
+    import cv2
+    import logging
+
+    # forward faster RCNN object detection logger to ROS
+    import rosgraph.roslogging as _rl
+    logging.getLogger('frcnn').addHandler(_rl.RosStreamHandler())
+    import rospy.impl.rosout as _ro
+    logging.getLogger('frcnn').addHandler(_ro.RosOutHandler())
+
+    classes = ('__background__',
+               'aeroplane', 'bicycle', 'bird', 'boat',
+               'bottle', 'bus', 'car', 'cat', 'chair',
+               'cow', 'diningtable', 'dog', 'horse',
+               'motorbike', 'person', 'pottedplant',
+               'sheep', 'sofa', 'train', 'tvmonitor')
+    od = ObjectDetector(root_dir=ns, classes=classes)
+    od.init_model(warmup=False)
+    while not rospy.is_shutdown():
+        imgmsg = demonstrator.robot._record_image()
+        img = imgmsg2img(imgmsg)
+        if img is not None:
+            print img.shape
+            cv2.imshow('raw', img)
+            score, box = od.detect_object(img, 'person', 0.8)
+            if box is not None:
+                od.draw_detection(img, 'person', score, box)
+                cv2.imshow('image', img)
+        cv2.waitKey(1)
+    cv2.destroyAllWindows()
+
+
+    # ret = demonstrator.demonstrate(args.number)
+    # if ret:
+    #     print ''
+    #     rospy.loginfo('Successfully performed demonstration.')
+    # else:
+    #     print ''
+    #     rospy.loginfo('Failed demonstration.')
+    # rospy.loginfo("Done with experiment. Press 'Ctrl-C' to exit.")
+    # rospy.spin()
 
 if __name__ == '__main__':
     main()
