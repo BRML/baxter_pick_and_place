@@ -26,16 +26,30 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
+# http://wiki.ros.org/ROS/Tutorials/WritingServiceClient(python)
+
+
 import rospy
 
 from src.instruction import KeyboardInput
+from baxter_pick_and_place.srv import (
+    Instruction,
+    InstructionResponse
+)
+
+
+def _instruction_wrapper():
+    instr = KeyboardInput().instruct()
+    rospy.logdebug("Sending instruction {}".format(instr))
+    return InstructionResponse(instr)
 
 
 def main():
     print 'Initializing node ...'
     rospy.init_node('demo_instruction_module')
-    ki = KeyboardInput()
-    rospy.on_shutdown(None)
-    while not rospy.is_shutdown():
-        # http://wiki.ros.org/ROS/Tutorials/WritingServiceClient(python)
-        pass
+    _ = rospy.Service('demo_instruction', Instruction, _instruction_wrapper)
+    rospy.loginfo("Ready to send instruction.")
+    rospy.spin()
+
+if __name__ == '__main__':
+    main()

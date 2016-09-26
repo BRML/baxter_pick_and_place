@@ -26,4 +26,14 @@
 
 class KeyboardInput(object):
     def __init__(self):
+        # print out some integer - object id and integer - target id mapping table
+        # take object a and put it on table
+        # take object b and give it to me
+        # take it from me (my hand) and put it on the table
+        # exit
+        pass
+
+    def instruct(self):
+        # request two ints from the user, returning them in a string
+        # separated by a space
         pass
