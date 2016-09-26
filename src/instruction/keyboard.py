@@ -34,6 +34,6 @@ class KeyboardInput(object):
         pass
 
     def instruct(self):
-        # request two ints from the user, returning them in a string
+        # request two ints from the user, returning the corresponding ids in a string
         # separated by a space
         pass
