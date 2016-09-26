@@ -26,6 +26,19 @@
 
 class KeyboardInput(object):
     def __init__(self):
+        object_ids = {
+            1: 'hand',
+            2: 'remote',
+            3: 'cellphone',
+            4: 'mouse',
+            5: 'bottle',
+            6: 'cup',
+            7: 'ball'
+        }
+        target_ids = {
+            1: 'hand',
+            2: 'table'
+        }
         # print out some integer - object id and integer - target id mapping table
         # take object a and put it on table
         # take object b and give it to me
