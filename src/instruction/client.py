@@ -1,4 +1,4 @@
-# Copyright (c) 2016, BRML
+# Copyright (c) 2015--2016, BRML
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -24,16 +24,16 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 
-class KeyboardInput(object):
-    def __init__(self):
-        # print out some integer - object id and integer - target id mapping table
-        # take object a and put it on table
-        # take object b and give it to me
-        # take it from me (my hand) and put it on the table
-        # exit
-        pass
+import rospy
 
-    def instruct(self):
-        # request two ints from the user, returning them in a string
-        # separated by a space
-        pass
+from baxter_pick_and_place.srv import Instruction
+
+
+def wait_for_instruction():
+    rospy.wait_for_service('demo_instruction')
+    try:
+        service = rospy.ServiceProxy('demo_instruction', Instruction)
+        instr = service()
+        return instr.instr
+    except rospy.ServiceException as e:
+        rospy.loggerr("service call failed: {}".format(e))

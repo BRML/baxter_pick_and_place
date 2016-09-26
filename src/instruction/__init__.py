@@ -4,4 +4,7 @@
 demonstration.
 """
 
+from client import wait_for_instruction
+
 from keyboard import KeyboardInput
+
