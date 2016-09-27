@@ -30,24 +30,24 @@
 
 
 import rospy
+from std_srvs.srv import (
+    Trigger,
+    TriggerResponse
+)
 
 from src.instruction import KeyboardInput
-from baxter_pick_and_place.srv import (
-    Instruction,
-    InstructionResponse
-)
 
 
 def _instruction_wrapper():
     instr = KeyboardInput().instruct()
     rospy.logdebug("Sending instruction {}".format(instr))
-    return InstructionResponse(instr)
+    return TriggerResponse(True, instr)
 
 
 def main():
     print 'Initializing node ...'
     rospy.init_node('demo_instruction_module')
-    _ = rospy.Service('demo_instruction', Instruction, _instruction_wrapper)
+    _ = rospy.Service('demo_instruction', Trigger, _instruction_wrapper)
     rospy.loginfo("Ready to send instruction.")
     rospy.spin()
 
