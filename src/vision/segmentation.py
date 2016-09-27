@@ -286,7 +286,7 @@ if __name__ == '__main__':
         if img is not None:
             score, box, mask = od.detect_object(img, 'dog', 0.8)
             if box is not None:
-                od.draw_detection(img, 'dog', score, box)
+                od.draw_detection(img, 'dog', score, box, mask)
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
