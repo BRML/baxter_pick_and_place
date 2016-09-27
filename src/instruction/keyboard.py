@@ -26,7 +26,7 @@
 
 class KeyboardInput(object):
     def __init__(self):
-        object_ids = {
+        self._object_ids = {
             1: 'hand',
             2: 'remote',
             3: 'cellphone',
@@ -35,10 +35,21 @@ class KeyboardInput(object):
             6: 'cup',
             7: 'ball'
         }
-        target_ids = {
+        self._target_ids = {
             1: 'hand',
             2: 'table'
         }
+        s = '\nDemonstration instruction:\n'
+        s += 'Take object A (from my hand) and put it on the table (in my hand).\n'
+        s += 'Select one object identifier out of\n'
+        for k, v in sorted(self._object_ids.items()):
+            s += '\t{}\t{}\n'.format(k, v)
+        s += 'Select one target identifier out of\n'
+        for k, v in sorted(self._target_ids.items()):
+            s += '\t{}\t{}\n'.format(k, v)
+        s += "To exit the demonstration, input '0'."
+        print s
+
         # print out some integer - object id and integer - target id mapping table
         # take object a and put it on table
         # take object b and give it to me
@@ -49,4 +60,37 @@ class KeyboardInput(object):
     def instruct(self):
         # request two ints from the user, returning the corresponding ids in a string
         # separated by a space
-        pass
+        def get_int_in_dict(s, d):
+            valid = False
+            while not valid:
+                id = input(s)
+                if not isinstance(id, int):
+                    print "Identifier must be an integer. Try again."
+                    continue
+                if id == 0:
+                    return 'exit'
+                try:
+                    return d[id]
+                except KeyError:
+                    print "Not a valid identifier. Try again."
+                    continue
+
+        oid = get_int_in_dict("Input integer object id: ", self._object_ids)
+        if oid == 'exit':
+            return oid
+        tid = get_int_in_dict("Input integer target id: ", self._target_ids)
+        if tid == 'exit':
+            return tid
+        return '{} {}'.format(oid, tid)
+
+
+if __name__ == '__main__':
+    ki = KeyboardInput()
+    instr = ki.instruct()
+    print instr
+    while instr != 'exit':
+        object_id, target_id = instr.split(' ')
+        print 'I take {} and {}.'.format('the {}'.format(object_id) if object_id != 'hand' else 'it',
+                                         'give it to you' if target_id == 'hand' else 'put it on the table')
+        instr = ki.instruct()
+        print instr

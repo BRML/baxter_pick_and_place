@@ -34,6 +34,6 @@ def wait_for_instruction():
     try:
         service = rospy.ServiceProxy('demo_instruction', Instruction)
         instr = service()
-        return instr.instr
+        return instr.message
     except rospy.ServiceException as e:
         rospy.loggerr("service call failed: {}".format(e))
