@@ -50,13 +50,6 @@ class KeyboardInput(object):
         s += "To exit the demonstration, input '0'."
         print s
 
-        # print out some integer - object id and integer - target id mapping table
-        # take object a and put it on table
-        # take object b and give it to me
-        # take it from me (my hand) and put it on the table
-        # exit
-        pass
-
     def instruct(self):
         # request two ints from the user, returning the corresponding ids in a string
         # separated by a space
@@ -82,15 +75,3 @@ class KeyboardInput(object):
         if tid == 'exit':
             return tid
         return '{} {}'.format(oid, tid)
-
-
-if __name__ == '__main__':
-    ki = KeyboardInput()
-    instr = ki.instruct()
-    print instr
-    while instr != 'exit':
-        object_id, target_id = instr.split(' ')
-        print 'I take {} and {}.'.format('the {}'.format(object_id) if object_id != 'hand' else 'it',
-                                         'give it to you' if target_id == 'hand' else 'put it on the table')
-        instr = ki.instruct()
-        print instr
