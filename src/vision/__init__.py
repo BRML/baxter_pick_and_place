@@ -6,3 +6,8 @@ from detection import (
     ObjectDetection,
     remove_default_loghandler as rcnn_remove_default_loghandler
 )
+
+from segmentation import (
+    ObjectSegmentation,
+    remove_default_loghandler as mnc_remove_default_loghandler
+)

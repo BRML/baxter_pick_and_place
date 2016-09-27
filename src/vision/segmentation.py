@@ -37,7 +37,7 @@ from visualization_utils import (
     textbox
 )
 
-from src.vision.init_paths import set_up_mnc
+from init_paths import set_up_mnc
 set_up_mnc()
 # suppress caffe logging up to 0 debug, 1 info 2 warning 3 error
 os.environ['GLOG_minloglevel'] = '2'
