@@ -25,133 +25,91 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import argparse
-import os
+
 import rospkg
 import rospy
 
-from baxter_pick_and_place.robot import Robot
+from demo import PickAndPlace, settings
+from hardware import Baxter, Kinect
 from simulation import sim_or_real
+from vision import ObjectDetection, ObjectSegmentation
 
 
-class Demonstrator(object):
+class Demonstration(object):
+    def __init__(self, ros_ws, object_set):
+        """Demonstration class setting up all the components of the
+        demonstration framework and performing the demonstration task.
 
-    def __init__(self, limb, outpath):
+        :param ros_ws: The path to the baxter_pick_and_place ROS package.
+        :param object_set: The list of object identifiers comprising the set
+            of objects, prepended by a background class.
         """
-        Picks up objects pointed out and places them in a bin.
-        :param limb: limb to pick objects up with
-        :param outpath: path to write (debugging) images to
-        """
-        sim = sim_or_real()
-        self.robot = Robot(limb=limb, outpath=outpath, sim=sim)
-        self._N_TRIES = 2
+        self._sim = sim_or_real()
+        self._robot = Baxter(sim=self._sim)
+        self._camera = Kinect()
+        self._detection = ObjectDetection(root_dir=ros_ws, object_ids=object_set)
+        self._segmentation = ObjectSegmentation(root_dir=ros_ws, object_ids=object_set)
+        self._demo = PickAndPlace(robot=self._robot,
+                                  camera=self._camera,
+                                  detection=self._detection,
+                                  segmentation=self._segmentation)
+        #  register visual servoing module (requires robot, detection, segmentation instances, ...)
 
-    def demonstrate(self, n_objects_to_pick):
-        """ Pick up a given number of objects and place them in a bin.
-        :param n_objects_to_pick: The number of objects to pick up.
-        :return: True on completion.
-        """
-        n = 0
-        print '\nWe are supposed to pick up %i object(s) ...' % n_objects_to_pick
-        while not rospy.is_shutdown() and n < n_objects_to_pick:
-            print "Picking up object %i." % n
-            # try up to 3 times to grasp an object
-            if self.robot.pick_and_place_object():
-                n += 1
-            else:
-                n_tries = self._N_TRIES
-                while n_tries > 0:
-                    print ' trying', n_tries, 'more time(s)'
-                    n_tries -= 1
-                    if self.robot.pick_and_place_object():
-                        n_tries = -1
-                        n += 1
-                if not n_tries == -1:
-                    print 'Failed to pick up object %i.' % n
-                    return False
-        return True
+    def shutdown_routine(self):
+        self._robot.clean_up()
 
+    def set_up(self):
+        self._robot.set_up()
+        if self._sim:
+            pass
+            # set up Gazebo environment
+        # perform / load calibration (Baxter-Kinect)
+        # self._detection.init_model(warmup=True)
+        # self._segmentation.init_model(warmup=True)
 
-def main():
-    """ Pick and place demonstration with the baxter research robot.
+    def demonstrate(self):
+        """Perform the demonstration."""
+        self._demo.perform()
 
-    Picks up objects that have been pointed out by a human operator by means
-    of an eye tracker and places them in a bin.
-
-    The implementation of this demonstration is in parts inspired by an example
-    found at
-      http://sdk.rethinkrobotics.com/wiki/Worked_Example_Visual_Servoing.
-    """
-    arg_fmt = argparse.RawDescriptionHelpFormatter
-    parser = argparse.ArgumentParser(formatter_class=arg_fmt,
-                                     description=main.__doc__)
-    required = parser.add_argument_group('required arguments')
-    required.add_argument(
-        '-l', '--limb', required=True, choices=['left', 'right'],
-        help='The limb to pick objects up with.'
-    )
-    parser.add_argument(
-        '-n', '--number', dest='number',
-        required=False, type=int, default=0,
-        help='The number of objects to pick up.'
-    )
-    args = parser.parse_args(rospy.myargv()[1:])
-
-    ns = rospkg.RosPack().get_path('baxter_pick_and_place')
-    data_dirname = os.path.join(ns, 'data')
-    if not os.path.exists(data_dirname):
-        os.makedirs(data_dirname)
-
-    print 'Initializing node ...'
-    rospy.init_node('baxter_pick_and_place_demonstrator')
-
-    demonstrator = Demonstrator(limb=args.limb, outpath=data_dirname)
-    rospy.on_shutdown(demonstrator.robot.clean_shutdown)
-
-    demonstrator.robot.set_up()
-
-    from visual.image import imgmsg2img
-    from visual.detection import ObjectDetector
-    import cv2
-    import logging
-
-    # forward faster RCNN object detection logger to ROS
-    import rosgraph.roslogging as _rl
-    logging.getLogger('frcnn').addHandler(_rl.RosStreamHandler())
-    import rospy.impl.rosout as _ro
-    logging.getLogger('frcnn').addHandler(_ro.RosOutHandler())
-
-    classes = ('__background__',
-               'aeroplane', 'bicycle', 'bird', 'boat',
-               'bottle', 'bus', 'car', 'cat', 'chair',
-               'cow', 'diningtable', 'dog', 'horse',
-               'motorbike', 'person', 'pottedplant',
-               'sheep', 'sofa', 'train', 'tvmonitor')
-    od = ObjectDetector(root_dir=ns, classes=classes)
-    od.init_model(warmup=False)
-    while not rospy.is_shutdown():
-        imgmsg = demonstrator.robot._record_image()
-        img = imgmsg2img(imgmsg)
-        if img is not None:
-            print img.shape
-            cv2.imshow('raw', img)
-            score, box = od.detect_object(img, 'person', 0.8)
-            if box is not None:
-                od.draw_detection(img, 'person', score, box)
-                cv2.imshow('image', img)
-        cv2.waitKey(1)
-    cv2.destroyAllWindows()
-
-
-    # ret = demonstrator.demonstrate(args.number)
-    # if ret:
-    #     print ''
-    #     rospy.loginfo('Successfully performed demonstration.')
-    # else:
-    #     print ''
-    #     rospy.loginfo('Failed demonstration.')
-    # rospy.loginfo("Done with experiment. Press 'Ctrl-C' to exit.")
-    # rospy.spin()
 
 if __name__ == '__main__':
-    main()
+    print 'Initializing node ...'
+    rospy.init_node('demo_module')
+    ns = rospkg.RosPack().get_path('baxter_pick_and_place')
+
+    demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)
+    rospy.on_shutdown(demo.shutdown_routine)
+    demo.set_up()
+    demo.demonstrate()
+
+
+# def main():
+#     from visual.image import imgmsg2img
+#     from vision.detection import ObjectDetector
+#     import cv2
+#     import logging
+#
+#     # forward faster RCNN object detection logger to ROS
+#     import rosgraph.roslogging as _rl
+#     logging.getLogger('frcnn').addHandler(_rl.RosStreamHandler())
+#     import rospy.impl.rosout as _ro
+#     logging.getLogger('frcnn').addHandler(_ro.RosOutHandler())
+
+#     od = ObjectDetector(root_dir=ns, classes=settings.object_ids)
+#     od.init_model(warmup=False)
+#     while not rospy.is_shutdown():
+#         imgmsg = demonstrator.robot._record_image()
+#         img = imgmsg2img(imgmsg)
+#         if img is not None:
+#             print img.shape
+#             cv2.imshow('raw', img)
+#             score, box = od.detect_object(img, 'person', 0.8)
+#             if box is not None:
+#                 od.draw_detection(img, 'person', score, box)
+#                 cv2.imshow('image', img)
+#         cv2.waitKey(1)
+#     cv2.destroyAllWindows()
+#
+#
+# if __name__ == '__main__':
+#     main()
