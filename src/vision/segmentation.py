@@ -32,21 +32,20 @@ import time
 
 import cv2
 
+from visualization_utils import (
+    red, yellow, black, white,
+    textbox
+)
+
 from src.vision.init_paths import set_up_mnc
 set_up_mnc()
-import caffe
+# suppress caffe logging up to 0 debug, 1 info 2 warning 3 error
+os.environ['GLOG_minloglevel'] = '2'
+import caffe as caffe_mnc
 from mnc_config import cfg
 from transform.bbox_transform import clip_boxes
 from utils.blob import prep_im_for_blob, im_list_to_blob
 
-
-# Use RPN for proposals
-cfg.TEST.HAS_RPN = True
-
-# Set colors for visualisation of detections
-red = (0, 0, 255)  # BGR
-black = (0, 0, 0)
-white = (255, 255, 255)
 
 # Set up logging
 _logger = logging.getLogger('mnc')
@@ -59,43 +58,20 @@ _logger.addHandler(_default_loghandler)
 
 def remove_default_loghandler():
     """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'frcnn'."""
+    when adding another log handler to the logger named 'mnc'."""
     _logger.removeHandler(_default_loghandler)
 
 
-def textbox(image, text, org, font_face, font_scale, thickness, color, color_box):
-    """Draw a filled box with text placed on top of it.
-
-    :param image: The image to draw on.
-    :param text: The text to put there.
-    :param org: The origin of the text (bottom left corner) (x, y).
-    :param font_face: The font to use.
-    :param font_scale: The scale for the font.
-    :param thickness: The thickness of the font.
-    :param color: The color of the font (BGR).
-    :param color_box: The color of the box (BGR).
-    :return:
-    """
-    (w, h), _ = cv2.getTextSize(text=text,
-                                fontFace=font_face, fontScale=font_scale,
-                                thickness=thickness)
-    ox, oy = [int(o) for o in org]
-    cv2.rectangle(image, pt1=(ox - 2, oy + 2), pt2=(ox + 2 + w, oy - 2 - h),
-                  color=color_box, thickness=cv2.cv.CV_FILLED)
-    cv2.putText(image, text=text, org=(ox, oy),
-                fontFace=font_face, fontScale=font_scale,
-                thickness=thickness, color=color)
-
-
 class ObjectSegmentation(object):
-    def __init__(self, root_dir, classes):
+    def __init__(self, root_dir, object_ids):
         """Instantiates a 'faster R-CNN' object detector and segmentation object.
 
         :param root_dir: Where the baxter_pick_and_place ROS package resides.
-        :param classes: The list of objects in the set of objects. Needs to be
+        :param object_ids: The list of object identifiers in the set of
+            objects. Needs to be
             [background, object 1, object 2, ..., object N].
         """
-        self._classes = classes
+        self._classes = object_ids
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
                                       'mnc_5stage_test.pt')
@@ -108,13 +84,20 @@ class ObjectSegmentation(object):
             raise RuntimeError("No network parameter dump found at %s!" %
                                self._caffemodel)
 
-    def _prepare_mnc_args(self, im, net):
+    def _prepare_mnc_args(self, image):
+        """Taken from
+        https://github.com/daijifeng001/MNC/blob/master/tools/demo.py.
+        I have no idea what this does.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :return: Whatever, I have no idea.
+        """
         # Prepare image data blob
         blobs = {'data': None}
         processed_ims = []
-        im, im_scale_factors = \
-            prep_im_for_blob(im, cfg.PIXEL_MEANS, cfg.TEST.SCALES[0], cfg.TRAIN.MAX_SIZE)
-        processed_ims.append(im)
+        image, im_scale_factors = \
+            prep_im_for_blob(image, cfg.PIXEL_MEANS, cfg.TEST.SCALES[0], cfg.TRAIN.MAX_SIZE)
+        processed_ims.append(image)
         blobs['data'] = im_list_to_blob(processed_ims)
         # Prepare image info blob
         im_scales = [np.array(im_scale_factors)]
@@ -124,26 +107,36 @@ class ObjectSegmentation(object):
             [[im_blob.shape[2], im_blob.shape[3], im_scales[0]]],
             dtype=np.float32)
         # Reshape network inputs and do forward
-        net.blobs['data'].reshape(*blobs['data'].shape)
-        net.blobs['im_info'].reshape(*blobs['im_info'].shape)
+        self._net.blobs['data'].reshape(*blobs['data'].shape)
+        self._net.blobs['im_info'].reshape(*blobs['im_info'].shape)
         forward_kwargs = {
             'data': blobs['data'].astype(np.float32, copy=False),
             'im_info': blobs['im_info'].astype(np.float32, copy=False)
         }
         return forward_kwargs, im_scales
 
-    def _im_detect(self, net, image):
-        forward_kwargs, im_scales = self._prepare_mnc_args(image, net)
-        blobs_out = net.forward(**forward_kwargs)
+    def _im_detect(self, image):
+        """Taken from
+        https://github.com/daijifeng001/MNC/blob/master/tools/demo.py.
+        Somehow combines different stages of the network. No idea how it works.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :return: A tuple of three numpy arrays, the n_proposals x n_classes
+            scores, the corresponding n_proposals x 4 bounding boxes, where
+            each bounding box is defined as <xul, yul, xlr, ylr> and the
+            n_proposals x 1 x 21 x 21 segmentation masks.
+        """
+        forward_kwargs, im_scales = self._prepare_mnc_args(image)
+        blobs_out = self._net.forward(**forward_kwargs)
         # output we need to collect:
         # 1. output from phase1'
-        rois_phase1 = net.blobs['rois'].data.copy()
-        masks_phase1 = net.blobs['mask_proposal'].data[...]
-        scores_phase1 = net.blobs['seg_cls_prob'].data[...]
+        rois_phase1 = self._net.blobs['rois'].data.copy()
+        masks_phase1 = self._net.blobs['mask_proposal'].data[...]
+        scores_phase1 = self._net.blobs['seg_cls_prob'].data[...]
         # 2. output from phase2
-        rois_phase2 = net.blobs['rois_ext'].data[...]
-        masks_phase2 = net.blobs['mask_proposal_ext'].data[...]
-        scores_phase2 = net.blobs['seg_cls_prob_ext'].data[...]
+        rois_phase2 = self._net.blobs['rois_ext'].data[...]
+        masks_phase2 = self._net.blobs['mask_proposal_ext'].data[...]
+        scores_phase2 = self._net.blobs['seg_cls_prob_ext'].data[...]
         # Boxes are in resized space, we un-scale them back
         rois_phase1 = rois_phase1[:, 1:5] / im_scales[0]
         rois_phase2 = rois_phase2[:, 1:5] / im_scales[0]
@@ -161,26 +154,28 @@ class ObjectSegmentation(object):
         :param warmup: Whether to warm up the model on some dummy images.
         :return:
         """
-        caffe.set_mode_gpu()
+        caffe_mnc.set_mode_gpu()
         gpu_id = 0
-        caffe.set_device(gpu_id)
+        caffe_mnc.set_device(gpu_id)
         cfg.GPU_ID = gpu_id
 
-        self._net = caffe.Net(self._prototxt, self._caffemodel, caffe.TEST)
+        self._net = caffe_mnc.Net(self._prototxt, self._caffemodel, caffe_mnc.TEST)
         _logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for _ in xrange(2):
-                _, _, _ = self._im_detect(self._net, dummy)
+                _, _, _ = self._im_detect(dummy)
 
     def detect(self, image):
         """Feed forward the given image through the previously loaded network.
-        Return scores and bounding boxes for all abject proposals and classes.
+        Return scores, bounding boxes and segmentation masks for all abject
+        proposals and classes.
 
         :param image: An image (numpy array) of shape (height, width, 3).
-        :return: A tuple of two numpy arrays, the n_proposals x n_classes
-            scores and the corresponding n_proposals x 4*n_classes bounding
-            boxes, where each bounding box is defined as <xul, yul, xlr, ylr>.
+        :return: A tuple of three numpy arrays, the n_proposals x n_classes
+            scores, the corresponding n_proposals x 4 bounding boxes, where
+            each bounding box is defined as <xul, yul, xlr, ylr> and the
+            n_proposals x 1 x 21 x 21 segmentation masks.
         """
         if self._net is None:
             raise RuntimeError("No loaded network found! "
@@ -189,7 +184,7 @@ class ObjectSegmentation(object):
             raise ValueError("Image must be a three channel color image "
                              "with shape (h, w, 3)!")
         start = time.time()
-        scores, boxes, masks = self._im_detect(self._net, image)
+        scores, boxes, masks = self._im_detect(image)
         _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
@@ -197,22 +192,28 @@ class ObjectSegmentation(object):
 
     def detect_object(self, image, object_id, threshold=0.5):
         """Feed forward the given image through the previously loaded network.
-        Return the bounding box with the highest score for the requested
-        object class.
+        Return the bounding box and segmentation with the highest score for
+        the requested object class.
 
         :param image: An image (numpy array) of shape (height, width, 3).
         :param object_id: One object identifier string contained in the list
             of objects.
         :param threshold: The threshold (0, 1) on the score for a detection
             to be considered as valid.
-        :return: The best score and bounding box if the best score > threshold,
-            The best score and None otherwise.
+        :return: The best score (numpy scalar), bounding box (numpy 1 x 4
+            array) and segmentation mask (height x width x 1 numpy array) if
+            the best score > threshold, the best score, None and None
+            otherwise.
         """
         if object_id not in self._classes:
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
         scores, boxes, masks = self.detect(image=image)
+        print scores.shape, score.dtype
+        print boxes.shape, box.dtype
+        print masks.shape, mask.dtype
 
+        # TODO adapt from here
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
@@ -221,6 +222,7 @@ class ObjectSegmentation(object):
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
         best_box = cls_boxes[best_idx]
+        best_mask = None
         _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
@@ -228,11 +230,11 @@ class ObjectSegmentation(object):
             threshold)
         )
         if best_score > threshold:
-            return best_score, best_box
-        return best_score, None
+            return best_score, best_box, best_mask
+        return best_score, None, None
 
     @staticmethod
-    def draw_detection(image, object_ids, scores, boxes):
+    def draw_detection(image, object_ids, scores, boxes, masks):
         """Draw all given bounding boxes onto the given image and label them
         with their object identifier and score.
         Note: Modifies the passed image!
@@ -242,6 +244,7 @@ class ObjectSegmentation(object):
             of objects.
         :param scores: Detection scores (n x 1 numpy array).
         :param boxes: Detected bounding boxes (n x 4 numpy array).
+        :param masks: Segmented region (n x height x width x 1 numpy array).
         :return:
         """
         if boxes is None:
@@ -249,11 +252,14 @@ class ObjectSegmentation(object):
         if len(boxes.shape) == 1:
             scores = scores[np.newaxis]
             boxes = boxes[np.newaxis, :]
+            masks = masks[np.newaxis, :]
         if isinstance(object_ids, str):
             object_ids = [object_ids]*len(scores)
-        if len(scores) != len(boxes):
-            raise ValueError("Require scores and corresponding bounding boxes!")
-        for oid, s, b in zip(object_ids, scores, boxes):
+        if len(scores) != len(boxes) != len(masks):
+            raise ValueError("Require scores and corresponding bounding "
+                             "boxes and segmentation masks!")
+        for oid, s, b, m in zip(object_ids, scores, boxes, masks):
+            image[m] = yellow
             cv2.rectangle(image, pt1=(b[0], b[1]), pt2=(b[2], b[3]),
                           color=red, thickness=2)
             textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
@@ -270,14 +276,15 @@ if __name__ == '__main__':
                'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant',
                'sheep', 'sofa', 'train', 'tvmonitor')
-    od = ObjectSegmentation(root_dir=path, classes=classes)
+    od = ObjectSegmentation(root_dir=path, object_ids=classes)
     od.init_model(warmup=False)
 
     for img_file in [os.path.join(path, 'data', '%s.jpg' % i)
-                     for i in ['004545', '000456', '000542', '001150', '001763']]:
+                     for i in ['2008_000533', '2008_000910', '2008_001602',
+                               '2008_001717', '2008_008093']]:
         img = cv2.imread(img_file)
         if img is not None:
-            score, box = od.detect_object(img, 'dog', 0.8)
+            score, box, mask = od.detect_object(img, 'dog', 0.8)
             if box is not None:
                 od.draw_detection(img, 'dog', score, box)
                 cv2.imshow('image', img)
