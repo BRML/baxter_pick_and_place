@@ -30,7 +30,10 @@ class MotionPlanner(object):
         A motion planner should have at least
           - a field telling the controller which type of control it plans for
             (<'position', 'velocity', 'torque'>) and
-          - a method implementing the planning algorithm as a generator.
+          - a method implementing the planning algorithm as a generator. Each
+            iteration should yield a dictionary of <joint name, Cartesian
+            coordinate> keys to <joint angle, joint velocity, joint torque,
+            coordinate> values.
         """
         self.controller_type = ''
 
