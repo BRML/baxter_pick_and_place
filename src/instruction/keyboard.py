@@ -26,6 +26,10 @@
 
 class KeyboardInput(object):
     def __init__(self):
+        """Request keyboard input from the user to instruct the demonstration
+        task.
+        Prints the instructions for the user to the console.
+        """
         self._object_ids = {
             1: 'hand',
             2: 'remote',
@@ -51,19 +55,29 @@ class KeyboardInput(object):
         print s
 
     def instruct(self):
-        # request two ints from the user, returning the corresponding ids in a string
-        # separated by a space
+        """Request two appropriate integer values keyboard input from the user.
+        Return the corresponding object identifier and target identifier as a
+        string, separating the two by a space. If exit is requested, return
+        'exit' instead.
+        """
         def get_int_in_dict(s, d):
+            """Get an integer from keyboard input that is a key in a given dict.
+
+            :param s: Instruction text for input() command.
+            :param d: The dictionary.
+            :return: The value in the dict corresponding to the input or
+                'exit'.
+            """
             valid = False
             while not valid:
-                id = input(s)
-                if not isinstance(id, int):
+                identifier = input(s)
+                if not isinstance(identifier, int):
                     print "Identifier must be an integer. Try again."
                     continue
-                if id == 0:
+                if identifier == 0:
                     return 'exit'
                 try:
-                    return d[id]
+                    return d[identifier]
                 except KeyError:
                     print "Not a valid identifier. Try again."
                     continue

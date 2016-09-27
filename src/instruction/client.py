@@ -26,14 +26,15 @@
 
 import rospy
 
-from baxter_pick_and_place.srv import Instruction
+from std_srvs.srv import Trigger
 
 
 def wait_for_instruction():
+    """ROS client triggering the 'demo_instruction' ROS service."""
     rospy.wait_for_service('demo_instruction')
     try:
-        service = rospy.ServiceProxy('demo_instruction', Instruction)
+        service = rospy.ServiceProxy('demo_instruction', Trigger)
         instr = service()
         return instr.message
     except rospy.ServiceException as e:
-        rospy.loggerr("service call failed: {}".format(e))
+        rospy.logerr("service call failed: {}".format(e))
