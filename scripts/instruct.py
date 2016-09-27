@@ -35,16 +35,25 @@ from std_srvs.srv import (
     TriggerResponse
 )
 
-from src.instruction import KeyboardInput
+from instruction import KeyboardInput
 
 
-def _instruction_wrapper():
+def _instruction_wrapper(trigger):
+    """ROS wrapper for the instruction module.
+
+    return: A TriggerResponse containing fields response.success and
+    response.message.
+    """
     instr = KeyboardInput().instruct()
     rospy.logdebug("Sending instruction {}".format(instr))
     return TriggerResponse(True, instr)
 
 
 def main():
+    """A ROS node starting a ROS server waiting to get triggered. Once it
+    is triggered, it requests input from the user and writes the instruction
+    to the topic that triggered it.
+    """
     print 'Initializing node ...'
     rospy.init_node('demo_instruction_module')
     _ = rospy.Service('demo_instruction', Trigger, _instruction_wrapper)
