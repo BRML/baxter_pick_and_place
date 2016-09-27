@@ -60,37 +60,63 @@ def remove_default_loghandler():
 
 
 class Baxter(object):
-    def __init__(self):
+    def __init__(self, sim=False):
+        """Hardware abstraction of the Baxter robot using the BaxterSDK
+        interface.
+
+        :param sim: Whether in Gazebo (True) or on real Baxter (False).
+        """
         self._arms = ['left', 'right']
         self._limbs = {a: baxter_interface.Limb(a)
                        for a in self._arms}
         self._grippers = {a: baxter_interface.Gripper(a)
                           for a in self._arms}
+        # Cameras on the Baxter robot are tricky. Due to limited bandwidth
+        # only two cameras can be operating at a time.
+        # http://sdk.rethinkrobotics.com/wiki/Camera_Control_Tool
+        # Default behavior on Baxter startup is for both of the hand cameras
+        # to be in operation at a resolution of 320x200 at a frame rate of
+        # 25 fps. We get their CameraControllers using the Baxter SDK ...
+        self._cameras = {a: baxter_interface.CameraController('%s_hand_camera' % a, sim=sim)
+                         for a in self._arms}
+        # ... and set their resolution to 1280x800 @ 14 fps.
+        for arm in self._arms:
+            self._cameras[arm].resolution = (1280, 800)
+            self._cameras[arm].fps = 14.0
+        # We don't need the CameraControllers any more. Our own module will
+        # do the remaining camera handling for us.
         self._cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a))
                          for a in self._arms}
         self._rs = None
         self._init_state = None
 
     def set_up(self):
+        """Enable the robot, move both limbs to neutral configuration and
+        calibrate both grippers.
+
+        :return:
+        """
         _logger.info("Getting robot state")
         self._rs = baxter_interface.RobotEnable(baxter_interface.CHECK_VERSION)
         self._init_state = self._rs.state().enabled
         _logger.info("Enabling robot")
         self._rs.enable()
 
+        _logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
-            _logger.info("Moving limbs to neutral configuration")
             self._limbs[arm].move_to_neutral()
-            _logger.info("Calibrating grippers")
             self._grippers[arm].calibrate()
-            # self._camera.resolution = (1280, 800)
-            # self._camera.fps = 14.0
 
     def clean_up(self):
+        """Open both grippers, move both limbs to neutral configuration and
+        disable the robot.
+
+        :return:
+        """
         _logger.info("Initiating safe shut-down")
+        _logger.info("Moving limbs to neutral configuration")
         for arm in self._arms:
             self._grippers[arm].open()
-            _logger.info("Moving limbs to neutral configuration")
             self._limbs[arm].move_to_neutral()
         if not self._init_state:
             _logger.info("Disabling robot")
@@ -132,7 +158,7 @@ class Baxter(object):
         pose_msg.header.stamp = rospy.Time.now()
         return pose_msg
 
-    def _inverse_kinematics(self, arm, pose=None):
+    def inverse_kinematics(self, arm, pose=None):
         """Solve inverse kinematics for one limb at given pose.
 
         :param arm: The arm <'left', 'right'> to control.
@@ -163,8 +189,7 @@ class Baxter(object):
             return dict(zip(ik_response.joints[0].name,
                             ik_response.joints[0].position))
         else:
-            s = "inverse kinematics - No valid joint configuration found"
-            _logger.error('{} for {} arm at {}'.format(s, arm, pose))
+            s = "inverse kinematics - No valid joint configuration found!"
             raise ValueError(s)
 
     def control(self, arm, trajectory):
@@ -178,13 +203,15 @@ class Baxter(object):
             raise TypeError("'trajectory' must be a MotionPlanner instance!")
         if trajectory.controller_type == 'position':
             for q in trajectory:
-                self._limbs[arm].set_joint_positions(q)
+                self._limbs[arm].move_to_joint_positions(q)
         elif trajectory.controller_type == 'velocity':
-            for v in trajectory:
-                self._limbs[arm].set_joint_velocities(v)
+            raise NotImplementedError("Need to implement velocity control!")
+            # for v in trajectory:
+            #     self._limbs[arm].set_joint_velocities(v)
         elif trajectory.controller_type == 'torque':
-            for t in trajectory:
-                self._limbs[arm].set_joint_torques(t)
+            raise NotImplementedError("Need to implement torque control!")
+            # for t in trajectory:
+            #     self._limbs[arm].set_joint_torques(t)
         else:
             raise KeyError("No such control mode: '{}'!".format(trajectory.controller_type))
 
