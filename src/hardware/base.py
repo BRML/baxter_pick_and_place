@@ -26,6 +26,11 @@
 
 import numpy as np
 
+import cv_bridge
+
+import rospy
+from sensor_msgs.msg import Image
+
 
 class Camera(object):
     def __init__(self, topic):
@@ -47,11 +52,35 @@ class Camera(object):
                                         0.0, 0.0, 1.0, 0.0]).reshape((4, 4))
 
     def collect_image(self):
-        # rospy.waitForMessage(self._topic)
-        pass
+        """Get the most recent image message from the ROS topic and convert it
+        into a numpy array.
+
+        :return: A numpy array holding the image.
+        """
+        # http://docs.ros.org/api/rospy/html/rospy.client-module.html#wait_for_message
+        # imgmsg = rospy.wait_for_message(topic=self._topic, topic_type=Image,
+        #                                 timeout=0.5)
+        # img = imgmsg2img(imgmsg=imgmsg)
+        # print img.shape
+        # return img
+        return np.zeros((1280, 800, 3))
 
     def projection_pixel_to_camera(self, pixel):
         raise NotImplementedError()
 
     def projection_camera_to_pixel(self, position):
         raise NotImplementedError()
+
+
+def imgmsg_to_img(imgmsg):
+    """ Convert a ROS image message to a numpy array holding the image.
+    :param imgmsg: a ROS image message
+    :return: a numpy array containing an RGB image
+    """
+    try:
+        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
+    except cv_bridge.CvBridgeError as e:
+        raise e
+    except AttributeError as e:
+        raise e
+    return img
