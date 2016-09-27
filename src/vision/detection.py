@@ -32,20 +32,22 @@ import time
 
 import cv2
 
+from visualization_utils import (
+    red, black, white,
+    textbox
+)
+
 from init_paths import set_up_faster_rcnn
 set_up_faster_rcnn()
-import caffe
+# suppress caffe logging up to 0 debug, 1 info 2 warning 3 error
+os.environ['GLOG_minloglevel'] = '2'
+import caffe as caffe_frcnn
 from fast_rcnn.config import cfg
 from fast_rcnn.test import im_detect
 
 
 # Use RPN for proposals
 cfg.TEST.HAS_RPN = True
-
-# Set colors for visualisation of detections
-red = (0, 0, 255)  # BGR
-black = (0, 0, 0)
-white = (255, 255, 255)
 
 # Set up logging
 _logger = logging.getLogger('frcnn')
@@ -62,39 +64,16 @@ def remove_default_loghandler():
     _logger.removeHandler(_default_loghandler)
 
 
-def textbox(image, text, org, font_face, font_scale, thickness, color, color_box):
-    """Draw a filled box with text placed on top of it.
-
-    :param image: The image to draw on.
-    :param text: The text to put there.
-    :param org: The origin of the text (bottom left corner) (x, y).
-    :param font_face: The font to use.
-    :param font_scale: The scale for the font.
-    :param thickness: The thickness of the font.
-    :param color: The color of the font (BGR).
-    :param color_box: The color of the box (BGR).
-    :return:
-    """
-    (w, h), _ = cv2.getTextSize(text=text,
-                                fontFace=font_face, fontScale=font_scale,
-                                thickness=thickness)
-    ox, oy = [int(o) for o in org]
-    cv2.rectangle(image, pt1=(ox - 2, oy + 2), pt2=(ox + 2 + w, oy - 2 - h),
-                  color=color_box, thickness=cv2.cv.CV_FILLED)
-    cv2.putText(image, text=text, org=(ox, oy),
-                fontFace=font_face, fontScale=font_scale,
-                thickness=thickness, color=color)
-
-
 class ObjectDetection(object):
-    def __init__(self, root_dir, classes):
+    def __init__(self, root_dir, object_ids):
         """Instantiates a 'faster R-CNN' object detector object.
 
         :param root_dir: Where the baxter_pick_and_place ROS package resides.
-        :param classes: The list of objects in the set of objects. Needs to be
+        :param object_ids: The list of object identifiers in the set of
+            objects. Needs to be
             [background, object 1, object 2, ..., object N].
         """
-        self._classes = classes
+        self._classes = object_ids
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
                                       'faster_rcnn_test.pt')
@@ -113,12 +92,12 @@ class ObjectDetection(object):
         :param warmup: Whether to warm up the model on some dummy images.
         :return:
         """
-        caffe.set_mode_gpu()
+        caffe_frcnn.set_mode_gpu()
         gpu_id = 0
-        caffe.set_device(gpu_id)
+        caffe_frcnn.set_device(gpu_id)
         cfg.GPU_ID = gpu_id
 
-        self._net = caffe.Net(self._prototxt, self._caffemodel, caffe.TEST)
+        self._net = caffe_frcnn.Net(self._prototxt, self._caffemodel, caffe_frcnn.TEST)
         _logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
@@ -222,8 +201,8 @@ if __name__ == '__main__':
                'cow', 'diningtable', 'dog', 'horse',
                'motorbike', 'person', 'pottedplant',
                'sheep', 'sofa', 'train', 'tvmonitor')
-    od = ObjectDetection(root_dir=path, classes=classes)
-    od.init_model(warmup=False)
+    od = ObjectDetection(root_dir=path, object_ids=classes)
+    od.init_model(warmup=True)
 
     for img_file in [os.path.join(path, 'data', '%s.jpg' % i)
                      for i in ['004545', '000456', '000542', '001150', '001763']]:
