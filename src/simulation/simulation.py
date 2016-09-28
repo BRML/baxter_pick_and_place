@@ -116,7 +116,7 @@ def delete_gazebo_models(models):
     rospy.logdebug("Calling service {0}".format(service_delete))
     try:
         delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
-        for model in models:
+        for model in reversed(models):
             rospy.loginfo("Deleting {0} model".format(model))
             resp_deletes.append(delete_model(model))
     except rospy.ServiceException as e:
