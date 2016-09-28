@@ -23,7 +23,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import cv2
 
 
@@ -57,3 +56,31 @@ def textbox(image, text, org, font_face, font_scale, thickness, color, color_box
                 fontFace=font_face, fontScale=font_scale,
                 thickness=thickness, color=color)
 
+
+def draw_detection(image, detections):
+    """Draw all given detections onto the given image and label them with
+    their object identifier and score.
+    Note: Modifies the passed image!
+
+    :param image: An image (numpy array) of shape (height, width, 3).
+    :param detections: A (list of) dictionary(ies) of detection containing
+            'id': The object identifier.
+            'score: The score of the detection (scalar).
+            'box': The bounding box of the detection; a (4,) numpy array.
+           ['mask': The segmentation of the detection; a (height, width,)
+                numpy array.]
+    :return:
+    """
+    if not isinstance(detections, list):
+        detections = [detections]
+    for detection in detections:
+        if detection['box'] is not None:
+            oid, s, b = [detection['id'], detection['score'], detection['box']]
+            cv2.rectangle(image, pt1=(b[0], b[1]), pt2=(b[2], b[3]),
+                          color=red, thickness=2)
+            textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
+                    font_face=cv2.FONT_HERSHEY_SIMPLEX,
+                    font_scale=0.5, thickness=2, color=black, color_box=white)
+        if 'mask' in detection and detection['mask'] is not None:
+            # TODO: verify that this works as expected
+            image[detection['mask']] = yellow

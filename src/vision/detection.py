@@ -136,8 +136,10 @@ class ObjectDetection(object):
             of objects.
         :param threshold: The threshold (0, 1) on the score for a detection
             to be considered as valid.
-        :return: The best score and bounding box if the best score > threshold,
-            The best score and None otherwise.
+        :return: A dictionary containing the detection with
+            'id': The object identifier.
+            'score: The score of the detection (scalar).
+            'box': The bounding box of the detection; a (4,) numpy array.
         """
         if object_id not in self._classes:
             raise KeyError("Object {} is not contained in the defined "
@@ -159,8 +161,8 @@ class ObjectDetection(object):
             threshold)
         )
         if best_score > threshold:
-            return best_score, best_box
-        return best_score, None
+            return {'id': object_id, 'score': best_score, 'box': best_box}
+        return {'id': object_id, 'score': best_score, 'box': None}
 
     def detect_best(self, image, threshold=0.5):
         """Feed forward the given image through the previously loaded network.
@@ -190,40 +192,12 @@ class ObjectDetection(object):
             threshold)
         )
         if best_score > threshold:
-            return best_object, best_score, best_box
-        return best_object, best_score, None
-
-    @staticmethod
-    def draw_detection(image, object_ids, scores, boxes):
-        """Draw all given bounding boxes onto the given image and label them
-        with their object identifier and score.
-        Note: Modifies the passed image!
-
-        :param image: An image (numpy array) of shape (height, width, 3).
-        :param object_ids: One object identifier string contained in the list
-            of objects.
-        :param scores: Detection scores (n x 1 numpy array).
-        :param boxes: Detected bounding boxes (n x 4 numpy array).
-        :return:
-        """
-        if boxes is None:
-            return None
-        if len(boxes.shape) == 1:
-            scores = scores[np.newaxis]
-            boxes = boxes[np.newaxis, :]
-        if isinstance(object_ids, str):
-            object_ids = [object_ids]*len(scores)
-        if len(scores) != len(boxes):
-            raise ValueError("Require scores and corresponding bounding boxes!")
-        for oid, s, b in zip(object_ids, scores, boxes):
-            cv2.rectangle(image, pt1=(b[0], b[1]), pt2=(b[2], b[3]),
-                          color=red, thickness=2)
-            textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
-                    font_face=cv2.FONT_HERSHEY_SIMPLEX,
-                    font_scale=0.5, thickness=2, color=black, color_box=white)
+            return {'id': best_object, 'score': best_score, 'box': best_box}
+        return {'id': best_object, 'score': best_score, 'box': None}
 
 
 if __name__ == '__main__':
+    from visualization_utils import draw_detection
     path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
     _logger.info('started')
     classes = ('__background__',
@@ -239,11 +213,10 @@ if __name__ == '__main__':
                      for i in ['004545', '000456', '000542', '001150', '001763']]:
         img = cv2.imread(img_file)
         if img is not None:
-            oid, score, box = od.detect_best(img, 0.8)
-    #         score, box = od.detect_object(img, 'dog', 0.8)
-            if box is not None:
-                # od.draw_detection(img, 'dog', score, box)
-                od.draw_detection(img, oid, score, box)
+            # det = od.detect_best(img, 0.8)
+            det = od.detect_object(img, 'cat', 0.8)
+            if det['box'] is not None:
+                draw_detection(img, det)
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
