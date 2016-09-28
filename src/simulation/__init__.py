@@ -9,6 +9,10 @@ from simulation import (
     sim_or_real,
     delete_gazebo_models,
     load_gazebo_model,
-    spawn_gazebo_model,
-    pose_msg
+    spawn_gazebo_model
+)
+
+from environment import (
+    Environment,
+    remove_default_loghandler as env_remove_default_loghandler
 )

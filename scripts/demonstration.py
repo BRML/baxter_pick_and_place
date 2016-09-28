@@ -31,7 +31,7 @@ import rospy
 
 from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
-from simulation import sim_or_real
+from simulation import sim_or_real, Environment
 from vision import ObjectDetection, ObjectSegmentation
 
 
@@ -45,10 +45,16 @@ class Demonstration(object):
             of objects, prepended by a background class.
         """
         self._sim = sim_or_real()
+        self._environment = Environment(root_dir=ros_ws,
+                                        # TODO replace with object_set[1:],
+                                        object_ids=['duplo_brick', 'robot'],
+                                        ws_limits=settings.workspace_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect()
-        self._detection = ObjectDetection(root_dir=ros_ws, object_ids=object_set)
-        self._segmentation = ObjectSegmentation(root_dir=ros_ws, object_ids=object_set)
+        self._detection = ObjectDetection(root_dir=ros_ws,
+                                          object_ids=object_set)
+        self._segmentation = ObjectSegmentation(root_dir=ros_ws,
+                                                object_ids=object_set)
         self._demo = PickAndPlace(robot=self._robot,
                                   camera=self._camera,
                                   detection=self._detection,
@@ -56,13 +62,16 @@ class Demonstration(object):
         #  register visual servoing module (requires robot, detection, segmentation instances, ...)
 
     def shutdown_routine(self):
+        """Clean up everything that needs cleaning up before ROS is shutdown."""
         self._robot.clean_up()
+        if self._sim:
+            self._environment.clean_up()
 
     def set_up(self):
+        """Prepare all the components of the demonstration."""
         self._robot.set_up()
         if self._sim:
-            pass
-            # set up Gazebo environment
+            self._environment.set_up()
         # perform / load calibration (Baxter-Kinect)
         # self._detection.init_model(warmup=True)
         # self._segmentation.init_model(warmup=True)
