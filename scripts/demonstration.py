@@ -59,7 +59,6 @@ class Demonstration(object):
                                   camera=self._camera,
                                   detection=self._detection,
                                   segmentation=self._segmentation)
-        #  register visual servoing module (requires robot, detection, segmentation instances, ...)
 
     def shutdown_routine(self):
         """Clean up everything that needs cleaning up before ROS is shutdown."""
@@ -72,6 +71,7 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
+        # TODO: un-comment those two
         # self._detection.init_model(warmup=True)
         # self._segmentation.init_model(warmup=True)
         self._demo.calibrate()
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     demo.demonstrate()
 
 
+# TODO: clean up this mess
 # def main():
 #     from visual.image import imgmsg2img
 #     from vision.detection import ObjectDetector
