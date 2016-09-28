@@ -23,8 +23,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import logging
+import numpy as np
 
 import rospy
 
@@ -43,6 +43,7 @@ from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
 from utils import list_to_pose_msg
+from demo.settings import workspace_limits_m as lims
 
 
 # Set up logging
@@ -287,3 +288,33 @@ class Baxter(object):
         :return:
         """
         return self._grippers[arm].open(block=True)
+
+    def collect_image(self, arm):
+        """Read the most recent image from one of the two hand cameras.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: An image (a (height, width, n_channels) numpy array).
+        """
+        return self._cameras[arm].collect_image()
+
+    def estimate_object_position(self, arm, bbox):
+        """Estimate an objects position in the x-y plane.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param bbox: The bounding box of the object we are interested in in
+            the corresponding image.
+        :return:
+        """
+        cx, cy = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        x, y, _ = self._cameras[arm].projection_pixel_to_camera((cx, cy))
+        # TODO: transform [x, y, _] from camera to robot space
+        # return [x, y]
+        # TODO: remove this debugging stuff
+        rs = np.random.random_sample
+        if rs() > 0.8:
+            return [
+                (lims['x_max'] - lims['x_min'])*rs() + lims['x_min'],
+                (lims['y_max'] - lims['y_min'])*rs() + lims['y_min']
+            ]
+        else:
+            return None
