@@ -27,7 +27,6 @@
 import logging
 
 import rospy
-from tf import transformations
 
 from geometry_msgs.msg import (
     Pose,
@@ -42,6 +41,7 @@ from baxter_core_msgs.srv import (
 
 from base import Camera
 from motion_planning.base import MotionPlanner
+from motion_planning import SimplePlanner
 from utils import list_to_pose_msg
 
 
@@ -72,6 +72,9 @@ class Baxter(object):
                        for a in self._arms}
         self._grippers = {a: baxter_interface.Gripper(a)
                           for a in self._arms}
+        self._grippers_pars = self._grippers['left'].valid_parameters()
+        self._grippers_pars['moving_force'] = 40.0
+        self._grippers_pars['holding_force'] = 30.0
         # Cameras on the Baxter robot are tricky. Due to limited bandwidth
         # only two cameras can be operating at a time.
         # http://sdk.rethinkrobotics.com/wiki/Camera_Control_Tool
@@ -88,6 +91,8 @@ class Baxter(object):
         # do the remaining camera handling for us.
         self._cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a))
                          for a in self._arms}
+        self._planner = SimplePlanner()
+
         self._rs = None
         self._init_state = None
 
@@ -106,6 +111,7 @@ class Baxter(object):
         _logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
             self._limbs[arm].move_to_neutral()
+            self._grippers[arm].set_parameters(parameters=self._grippers_pars)
             self._grippers[arm].calibrate()
 
     def clean_up(self):
@@ -178,13 +184,39 @@ class Baxter(object):
             return dict(zip(ik_response.joints[0].name,
                             ik_response.joints[0].position))
         else:
-            s = "inverse kinematics - No valid joint configuration found!"
+            s = "No valid configuration found for " \
+                "pose {} with {} arm!".format(pose, arm)
+            _logger.debug(s)
             raise ValueError(s)
 
-    def control(self, arm, trajectory):
+    def ik_either_limb(self, pose):
+        """Attempt to solve the inverse kinematics for a given pose with
+        either arm. If no solution is found, raise an exception
+
+        :param pose:
+        :return: tuple of string and dict:
+            - the arm <'left', 'right'> the solution was found for
+            - a dictionary of joint name keys to joint angles.
+        :raise ValueError: if no valid configuration was found for either arm.
+        """
+        arm = 'left'
+        try:
+            cfg = self.inverse_kinematics(arm, pose)
+        except ValueError:
+            # no valid configuration found for left arm
+            arm = 'right'
+            try:
+                cfg = self.inverse_kinematics(arm, pose)
+            except ValueError:
+                # no valid configuration found for right arm
+                s = "No valid configuration found for pose {} with either arm!".format(pose)
+                _logger.warning(s)
+                raise ValueError(s)
+        return arm, cfg
+
+    def control(self, trajectory):
         """Control one limb using position, velocity or torque control.
 
-        :param arm: The arm <'left', 'right'> to control.
         :param trajectory: A generator MotionPlanner instance.
         :return:
         """
@@ -192,6 +224,7 @@ class Baxter(object):
             raise TypeError("'trajectory' must be a MotionPlanner instance!")
         if trajectory.controller_type == 'position':
             for q in trajectory:
+                arm = q.keys()[0].split('_')[0]
                 self._limbs[arm].move_to_joint_positions(q)
         elif trajectory.controller_type == 'velocity':
             raise NotImplementedError("Need to implement velocity control!")
@@ -204,6 +237,26 @@ class Baxter(object):
         else:
             raise KeyError("No such control mode: '{}'!".format(trajectory.controller_type))
 
+    def plan(self, target):
+        """Plan a trajectory from the current to the target configuration.
+
+        :param target: Dictionary of joint name keys to target joint angles.
+        :return: A MotionPlanner trajectory generator.
+        """
+        arm = target.keys()[0].split('_')[0]
+        start = self._limbs[arm].joint_angles()
+        return self._planner.plan(start=start, end=target)
+
+    def move_to(self, config):
+        """Shortcut for planning a trajectory to the target configuration
+        and executing the trajectory.
+
+        :param config: Dictionary of joint name keys to target joint angles.
+        :return:
+        """
+        trajectory = self.plan(target=config)
+        self.control(trajectory=trajectory)
+
     def grasp(self, arm):
         """Close the specified gripper and validate that it grasped something.
         Blocking command.
@@ -215,6 +268,17 @@ class Baxter(object):
         """
         self._grippers[arm].close(block=True)
         return self._grippers[arm].gripping()
+
+    def is_gripping(self, arm):
+        """Whether the specified gripper is currently holding an object.
+        If the currently measured force exceeds half the defined holding
+        force, we interpret this as that an object is currently held.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: Whether an object is held (True) or not (False).
+        """
+        force_measured = self._grippers[arm].force()
+        return force_measured > 0.5*self._grippers_pars['holding_force']
 
     def release(self, arm):
         """Open the specified gripper. Blocking command.
