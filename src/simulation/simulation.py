@@ -23,7 +23,6 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import rospy
 import roswtf
 
@@ -89,7 +88,7 @@ def spawn_gazebo_model(model_xml, model_name, robot_namespace,
     rospy.logdebug("Calling service {0}".format(service_spawn))
     try:
         spawn_urdf = rospy.ServiceProxy(service_spawn, SpawnModel)
-        rospy.loginfo("Spawning {0} model".format(model_name))
+        rospy.logdebug("Spawning {0} model".format(model_name))
         resp_urdf = spawn_urdf(model_name=model_name,
                                model_xml=model_xml,
                                robot_namespace=robot_namespace,
@@ -100,10 +99,32 @@ def spawn_gazebo_model(model_xml, model_name, robot_namespace,
     return resp_urdf
 
 
+def delete_gazebo_model(model):
+    """Delete a given Gazebo model.
+    We do not wait for the Gazebo DeleteModel service, since Gazebo should
+    already be running. If the service is not available, it is fine to error
+    out.
+
+    :param model: The name of the model to delete.
+    :return: (bool success, string status_message)
+    """
+    service_delete = '/gazebo/delete_model'
+
+    resp_delete = tuple()
+    rospy.logdebug("Calling service {0}".format(service_delete))
+    try:
+        delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
+        rospy.logdebug("Deleting {0} model".format(model))
+        resp_delete = delete_model(model)
+    except rospy.ServiceException as e:
+        rospy.logerr("Delete model service call failed:", e)
+    return resp_delete
+
+
 def delete_gazebo_models(models):
     """ Delete Gazebo models.
     Call this on ROS exit. We do not wait for the Gazebo Delete Model
-    service, since Gazebo schould already be running. If the service is not
+    service, since Gazebo should already be running. If the service is not
     available since Gazebo has been killed, it is fine to error out.
     :param models: A list of models to delete.
     :return: list((bool success, string status_message))
@@ -117,7 +138,7 @@ def delete_gazebo_models(models):
     try:
         delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
         for model in reversed(models):
-            rospy.loginfo("Deleting {0} model".format(model))
+            rospy.logdebug("Deleting {0} model".format(model))
             resp_deletes.append(delete_model(model))
     except rospy.ServiceException as e:
         rospy.logerr("Delete model service call failed:", e)

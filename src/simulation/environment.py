@@ -32,6 +32,7 @@ from hardware.utils import list_to_pose_msg
 from simulation import (
     load_gazebo_model,
     spawn_gazebo_model,
+    delete_gazebo_model,
     delete_gazebo_models
 )
 
@@ -83,30 +84,49 @@ class Environment(object):
             2*pi*random_sample() - pi
         ]
 
+    def add_model(self, model, pose, ns, frame):
+        """Add a model (defined by its URDF description) to Gazebo.
+
+        :param model: The model name.
+        :param pose: The pose of the spawned model [x, y, z, r, p, y].
+        :param ns: The namespace to spawn the model in.
+        :param frame: The reference frame for the model.
+        :return:
+        """
+        model_urdf = os.path.join(self._ws, model, 'model.urdf')
+        model_xml = load_gazebo_model(model_urdf)
+        spawn_gazebo_model(model_xml=model_xml,
+                           model_name=model,
+                           robot_namespace=ns,
+                           model_pose=list_to_pose_msg(pose),
+                           model_reference_frame=frame)
+        self._models.append(model)
+        _logger.info("Successfully spawned {}.".format(model))
+
+    def remove_model(self, model):
+        """Remove a model from Gazebo (if it exists).
+
+        :param model: The model name.
+        :return:
+        """
+        if model in self._models:
+            delete_gazebo_model(model=model)
+            _logger.info("Successfully removed {}.".format(model))
+
     def set_up(self):
         """Place a table in front of Baxter and scatter objects on it."""
         _logger.info("Setting up Gazebo environment.")
         # place table in front of Baxter
-        table_urdf = os.path.join(self._ws, 'table', 'model.urdf')
-        table_xml = load_gazebo_model(table_urdf)
-        table_pose = list_to_pose_msg([0.7, 0, 0, 0, 0, 0])
-        spawn_gazebo_model(model_xml=table_xml, model_name='table',
-                           robot_namespace='/objects', model_pose=table_pose,
-                           model_reference_frame='world')
-        self._models.append('table')
-        _logger.debug("Successfully spawned table.")
-
+        self.add_model(model='table',
+                       pose=[0.7, 0, 0, 0, 0, 0],
+                       ns='/objects',
+                       frame='world')
         # randomly scatter objects on table
         for oid in self._object_ids:
-            model_urdf = os.path.join(self._ws, oid, 'model.urdf')
-            model_xml = load_gazebo_model(model_urdf)
-            model_pose = list_to_pose_msg(self._sample_object_pose())
-            spawn_gazebo_model(model_xml=model_xml, model_name=oid,
-                               robot_namespace='/objects',
-                               model_pose=model_pose,
-                               model_reference_frame='world')
-            self._models.append(oid)
-            _logger.debug("Successfully spawned {}.".format(oid))
+            self.add_model(model=oid,
+                           pose=self._sample_object_pose(),
+                           ns='/objects',
+                           frame='world')
 
     def clean_up(self):
         """Delete all spawned Gazebo models."""
