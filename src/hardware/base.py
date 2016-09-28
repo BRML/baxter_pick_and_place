@@ -68,10 +68,10 @@ class Camera(object):
         return np.asarray(cal).reshape((3, 4))
 
     def collect_image(self):
-        """Get the most recent image message from the ROS topic and convert
+        """Read the most recent image message from the ROS topic and convert
         it into a numpy array.
 
-        :return: An image (a (height, width, n_channels) numpy array.
+        :return: An image (a (height, width, n_channels) numpy array).
         """
         try:
             msg = rospy.wait_for_message(topic=self._topic,
@@ -79,7 +79,7 @@ class Camera(object):
                                          timeout=0.5)
             img = imgmsg_to_img(imgmsg=msg)
         except rospy.ROSException:
-            # TODO: replace this debugging stuff with 'return None'
+            # TODO: replace this debugging stuff with 'img = None'
             path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
             img_files = ['004545', '000456', '000542', '001150', '001763',
                          '2008_000533', '2008_000910', '2008_001602',
