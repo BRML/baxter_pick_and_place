@@ -209,11 +209,12 @@ class ObjectSegmentation(object):
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
         scores, boxes, masks = self.detect(image=image)
+        # TODO: understand outputs
         print scores.shape, score.dtype
         print boxes.shape, box.dtype
         print masks.shape, mask.dtype
 
-        # TODO adapt from here
+        # TODO adapt detection of best score for given object
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
@@ -232,6 +233,10 @@ class ObjectSegmentation(object):
         if best_score > threshold:
             return best_score, best_box, best_mask
         return best_score, None, None
+
+    def detect_best(self, image, object_id, threshold=0.5):
+        # TODO: implement detection of best score across classes
+        pass
 
     @staticmethod
     def draw_detection(image, object_ids, scores, boxes, masks):
@@ -265,6 +270,7 @@ class ObjectSegmentation(object):
             textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
                     font_face=cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale=0.5, thickness=2, color=black, color_box=white)
+            # TODO: add visualization of segmentation
 
 
 if __name__ == '__main__':
