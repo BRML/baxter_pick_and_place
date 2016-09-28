@@ -162,6 +162,37 @@ class ObjectDetection(object):
             return best_score, best_box
         return best_score, None
 
+    def detect_best(self, image, threshold=0.5):
+        """Feed forward the given image through the previously loaded network.
+        Return the bounding box with the highest score amongst all classes.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :param threshold: The threshold (0, 1) on the score for a detection
+            to be considered as valid.
+        :return: The object id with the best score and bounding box if the
+            best score > threshold, he object id, best score and None
+            otherwise.
+        """
+        scores, boxes = self.detect(image=image)
+
+        # find best score among all classes (except background)
+        best_proposal, best_class = np.unravel_index(scores[:, 1:].argmax(),
+                                                     scores[:, 1:].shape)
+        best_class += 1  # compensate for background
+        best_score = scores[best_proposal, best_class]
+        best_box = boxes[best_proposal, 4*best_class:4*(best_class + 1)]
+        best_object = self._classes[best_class]
+
+        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+            best_object,
+            best_score,
+            '>=' if best_score > threshold else '<',
+            threshold)
+        )
+        if best_score > threshold:
+            return best_object, best_score, best_box
+        return best_object, best_score, None
+
     @staticmethod
     def draw_detection(image, object_ids, scores, boxes):
         """Draw all given bounding boxes onto the given image and label them
@@ -208,9 +239,11 @@ if __name__ == '__main__':
                      for i in ['004545', '000456', '000542', '001150', '001763']]:
         img = cv2.imread(img_file)
         if img is not None:
-            score, box = od.detect_object(img, 'dog', 0.8)
+            oid, score, box = od.detect_best(img, 0.8)
+    #         score, box = od.detect_object(img, 'dog', 0.8)
             if box is not None:
-                od.draw_detection(img, 'dog', score, box)
+                # od.draw_detection(img, 'dog', score, box)
+                od.draw_detection(img, oid, score, box)
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
