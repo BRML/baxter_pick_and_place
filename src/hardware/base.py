@@ -23,13 +23,17 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import numpy as np
+import os
 
+import cv2
 import cv_bridge
 
 import rospy
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import (
+    CameraInfo,
+    Image
+)
 
 
 class Camera(object):
@@ -41,35 +45,69 @@ class Camera(object):
           - a method to project camera coordinates to pixel coordinates.
         """
         self._topic = topic
-        self.fx = None
-        self.fy = None
-        self.cx = None
-        self.cy = None
-        # use camera_info to get fx, fy, cx, cy?
-        self._camera_matrix = np.array([self.fx, 0.0, self.cx, 0.0,
-                                        0.0, self.fy, self.cy, 0.0,
-                                        0.0, 0.0, 1.0, 0.0,
-                                        0.0, 0.0, 1.0, 0.0]).reshape((4, 4))
+
+        self._camera_matrix = self._get_calibration()
+
+    def _get_calibration(self):
+        """Read the calibration data of the camera from either a ROS topic or
+        a calibration file. For additional information see
+        http://docs.ros.org/indigo/api/sensor_msgs/html/msg/CameraInfo.html.
+
+        :return: The projection/camera matrix (a 3x4 numpy array).
+        """
+        topic = self._topic.rsplit('/', 1)[0] + '/camera_info'
+        try:
+            # try to read calibration from ROS camera info topic
+            msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
+                                         timeout=0.5)
+            cal = msg.P
+        except rospy.ROSException:
+            # fall back to stored calibration values
+            # TODO: load calibration from file
+            cal = [2, 0, 1, 0, 0, 2, 1, 0, 0, 0, 1, 0]
+        return np.asarray(cal).reshape((3, 4))
 
     def collect_image(self):
-        """Get the most recent image message from the ROS topic and convert it
-        into a numpy array.
+        """Get the most recent image message from the ROS topic and convert
+        it into a numpy array.
 
-        :return: A numpy array holding the image.
+        :return: An image (a (height, width, n_channels) numpy array.
         """
-        # http://docs.ros.org/api/rospy/html/rospy.client-module.html#wait_for_message
-        # imgmsg = rospy.wait_for_message(topic=self._topic, topic_type=Image,
-        #                                 timeout=0.5)
-        # img = imgmsg2img(imgmsg=imgmsg)
-        # print img.shape
-        # return img
-        return np.zeros((1280, 800, 3))
+        try:
+            msg = rospy.wait_for_message(topic=self._topic,
+                                         topic_type=Image,
+                                         timeout=0.5)
+            img = imgmsg_to_img(imgmsg=msg)
+        except rospy.ROSException:
+            # TODO: replace this debugging stuff with 'return None'
+            path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
+            img_files = ['004545', '000456', '000542', '001150', '001763',
+                         '2008_000533', '2008_000910', '2008_001602',
+                         '2008_001717', '2008_008093']
+            idx = np.random.randint(len(img_files))
+            img_file = os.path.join(path, 'data', '%s.jpg' % img_files[idx])
+            img = cv2.imread(img_file)
+        return img
 
     def projection_pixel_to_camera(self, pixel):
-        raise NotImplementedError()
+        # TODO: implement
+        pass
 
     def projection_camera_to_pixel(self, position):
-        raise NotImplementedError()
+        """Project a 3d point [x, y, z] in camera coordinates onto the
+        rectified image. For additional information see
+        http://docs.ros.org/indigo/api/sensor_msgs/html/msg/CameraInfo.html.
+
+        :param position: A 3D position as a list of length 3 [x, y, z].
+        :return: The corresponding pixel coordinates (px, py).
+        """
+        if isinstance(position, list) and len(position) == 3:
+            hom = np.asarray(position + [1])
+            u, v, w = np.dot(self._camera_matrix, hom)
+            px = float(u/w)
+            py = float(v/w)
+            return px, py
+        raise ValueError("'position' should be a list of length 3!")
 
 
 def imgmsg_to_img(imgmsg):
