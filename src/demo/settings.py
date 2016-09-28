@@ -47,3 +47,12 @@ object_ids = (
     'train',
     'tvmonitor'
 )
+
+workspace_limits_m = {
+    'x_min': 0.3,
+    'x_max': 0.7,
+    'y_min': 0.05,
+    'y_max': 0.4,
+    'z_min': 0.75
+}
+
