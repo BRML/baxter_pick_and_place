@@ -32,6 +32,7 @@ def add_path(path):
         sys.path.insert(0, path)
 
 
+# TODO: set proper path
 develop_dir = os.path.expanduser('~/software')
 
 
