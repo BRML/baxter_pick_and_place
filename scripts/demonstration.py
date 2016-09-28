@@ -72,9 +72,9 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
-        # perform / load calibration (Baxter-Kinect)
         # self._detection.init_model(warmup=True)
         # self._segmentation.init_model(warmup=True)
+        self._demo.calibrate()
 
     def demonstrate(self):
         """Perform the demonstration."""
