@@ -42,6 +42,7 @@ from baxter_core_msgs.srv import (
 
 from base import Camera
 from motion_planning.base import MotionPlanner
+from utils import list_to_pose_msg
 
 
 # Set up logging
@@ -133,25 +134,13 @@ class Baxter(object):
         :param target_frame: The name of the target frame.
         :return: A stamped pose ROS message.
         """
-        msg = Pose()
         if isinstance(pose, Pose):
             msg = pose
-        elif isinstance(pose, list):
-            if len(pose) == 6 or len(pose) == 7:
-                msg.position.x, msg.position.y, msg.position.z = pose[:3]
-                if len(pose) == 6:
-                    q = transformations.quaternion_from_euler(pose[3], pose[4], pose[5])
-                else:
-                    q = pose[3:]
-                msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w = q
-            else:
-                s = "Expected pose to be [x, y, z, r, p, y] or [x, y, z, qx, qy, qz, qw]!"
-                _logger.error(s)
-                raise ValueError(s)
         else:
-            s = "Expected pose to be a Pose or list of length 6 or 7!"
-            _logger.error(s)
-            raise ValueError(s)
+            msg = list_to_pose_msg(pose)
+            if isinstance(msg, str):
+                _logger.error(msg)
+                raise ValueError(msg)
         pose_msg = PoseStamped()
         pose_msg.pose = msg
         pose_msg.header.frame_id = target_frame
