@@ -120,8 +120,11 @@ def imgmsg_to_img(imgmsg):
     """
     try:
         img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
-    except cv_bridge.CvBridgeError as e:
-        raise e
+    except cv_bridge.CvBridgeError:
+        try:
+            img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, '32FC1')
+        except cv_bridge.CvBridgeError as e:
+            raise e
     except AttributeError as e:
         raise e
     return img
