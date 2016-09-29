@@ -49,3 +49,16 @@ def list_to_pose_msg(pose):
             return "Expected pose to be [x, y, z, r, p, y] or [x, y, z, qx, qy, qz, qw]!"
     else:
         return "Expected pose to be a list of length 6 or 7!"
+
+
+def pose_msg_to_list(pose):
+    """Convert a pose ROS message into a list.
+
+    :param pose: A pose ROS message.
+    :return: The pose as a list [x, y, z, roll, pitch, yaw].
+    """
+    if isinstance(pose, Pose):
+        rot = transformations.euler_from_quaternion(pose['orientation'])
+        return pose['position'] + rot
+    else:
+        return "Expected pose to be a ROS Pose message!"
