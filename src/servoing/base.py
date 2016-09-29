@@ -26,7 +26,6 @@
 import logging
 import numpy as np
 
-from demo import settings
 from hardware import img_to_imgmsg
 from vision import draw_rroi
 
@@ -47,7 +46,7 @@ def remove_default_loghandler():
 
 
 class Servoing(object):
-    def __init__(self, robot, segmentation, pub_vis):
+    def __init__(self, robot, segmentation, pub_vis, object_size, tolerance):
         """Base class for visual servoing. Can be used to position the end
         effector directly over the requested object.
         Note: Assumes that the end effector is restricted to pointing along
@@ -58,16 +57,15 @@ class Servoing(object):
         :param robot: A robot abstraction module instance.
         :param segmentation: An object segmentation module instance.
         :param pub_vis: A ROS publisher to publish visualization images with.
+        :param object_size: The measured length of the longer dimension of
+            each object (in the x-y plane) in meters.
+        :param tolerance: The position error tolerance in meters.
         """
         self._robot = robot
         self._segmentation = segmentation
         self._pub_vis = pub_vis
-
-        # The measured length of the longer dimension of each object
-        # (in the x-y plane) in meters.
-        self._object_size_meters = settings.object_size_meters
-        # The position error tolerance in meters.
-        self._tolerance = settings.servo_tolerance_meters
+        self._object_size_meters = object_size
+        self._tolerance = tolerance
 
     def _find_rotated_enclosing_rect(self, image, object_id):
         """Find the rectangle with arbitrary orientation that encloses the
