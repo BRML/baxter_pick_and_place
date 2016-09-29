@@ -28,6 +28,7 @@ import logging
 
 import rospy
 
+import settings
 from instruction import client
 
 
@@ -47,8 +48,9 @@ def remove_default_loghandler():
 
 
 class PickAndPlace(object):
-    def __init__(self, robot, camera, detection, segmentation):
+    def __init__(self, robot, servo, camera, detection, segmentation):
         self._robot = robot
+        self._servo = servo
         self._camera = camera
         self._detection = detection
         self._segmentation = segmentation
@@ -62,29 +64,34 @@ class PickAndPlace(object):
         _logger.info("Performing calibration/loading calibration file.")
 
         # height of table
+        calibration_pose = [0, 0, 0, 0, 0, 0]
         #  move to calibration_pose
         #  repeat
         #    ask if indicated area under end effector is empty from objects
         #    if not, ask to clear the area from objects
         #    else, proceed
         #  use distance sensor to measure distance to table
+        self._robot.distance_to_table = 0.27
+        self._robot.z_table = -(self._robot.distance_to_table - calibration_pose[2])
         #  compute height of table in robot coordinates and store it
         # mean color of table when empty
         #  record hand camera image and store it
 
-        # size of bounding box in known distance
-        #  move to calibration_pose
-        #  for each object_id in object_ids do
-        #    ask to put object_id into indicated area under end effector
-        #    if done, record an image using the hand camera
-        #    do object detection and ask if bounding box is sufficiently close
-        #    store size of bounding box at distance
-        #  repeat for second calibration pose (different distance)
-        #  for each object_id store linear equation mapping pixel size to distance
-        #   (e.g., assuming longer edge of bb is horizontal)
+        # Measured meters per pixel @ 1 m distance
+        for arm in ['left', 'right']:
+            self._robot.cameras[arm].meters_per_pixel = 0.0025
 
         # external camera relative to Baxter coordinates
         pass
+
+    def _get_apporach_pose(self, pose):
+        """Compute a pose safe for approaching the given pose by adding some
+        safety offset.
+
+        :param pose: The pose we wish to approach.
+        :return: The approach pose (the original pose + the safety offset).
+        """
+        return [a + b for a, b in zip(pose, self._approach_offset)]
 
     def perform(self):
         _logger.info('Starting pick and place demonstration.')
@@ -95,9 +102,8 @@ class PickAndPlace(object):
                 'the {}'.format(obj_id) if obj_id != 'hand' else "'it'",
                 'give it to you' if tgt_id == 'hand' else 'put it on the table')
             )
+
             _logger.info('Looking for {} and estimate its pose.'.format(obj_id))
-            # TODO: implement
-            obj_pose = [0.4, 0.5, 0.3, 0, 0, 0]
             if obj_id == 'hand':
                 obj_pose = self._camera.estimate_hand_position()
                 while obj_pose is None:
@@ -105,21 +111,21 @@ class PickAndPlace(object):
                                     "Please relocate your hand holding the object.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
-                    obj_pose = self._camera.estimate_hand_position() + [0, 0, 0]
+                    obj_pose = self._camera.estimate_hand_position()
+                obj_pose += [0, 0, 0]
             else:
-                pass
-                #   get kinect frame
-                #   detect object.
-                #   if object not found:
-                #       move hand camera along pre-defined trajectory over the table
-                #       apply object detection until object found or failure
-                #       compute 3d coordinates from detection and known height of table
-                #   else:
-                #         detect object in color image
-                #         compute 3d coordinates from color + rectified depth image
+                obj_pose = self._camera.estimate_object_position(object_id=obj_id)
+                while obj_pose is None:
+                    _logger.info("I did not find the {}!".format(obj_id))
+                    # TODO: implement looking for the object
+                    # move hand camera along pre-defined trajectory over the table
+                    # apply object detection until object found or failure
+                    # compute 3d coordinates from detection and known height of table
+                obj_pose += [0, 0, 0]
 
             if tgt_id == 'table':
                 _logger.info('Looking for a spot to put the object down.')
+                # TODO: implement looking for an empty spot on the table
                 # move to calibration_pose
                 # record an image with the hand camera
                 # randomly select patches of appropriate size and compare them to the
@@ -129,10 +135,9 @@ class PickAndPlace(object):
                 target_pose = [0.5, 0.2, 0.3, 0, 0, 0]
 
             _logger.info('Picking up the object.')
-            approach_pose = [a + b
-                             for a, b in zip(obj_pose, self._approach_offset)]
+            appr_pose = self._get_apporach_pose(pose=obj_pose)
             try:
-                arm, approach_cfg = self._robot.ik_either_limb(approach_pose)
+                arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
             except ValueError:
                 _logger.warning("I abort this task! Please start over.")
                 instr = client.wait_for_instruction()
@@ -140,18 +145,18 @@ class PickAndPlace(object):
             _logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
             while not success:
-                self._robot.move_to(config=approach_cfg)
+                self._robot.move_to(config=appr_cfg)
                 _logger.info('Using visual servoing to grasp object.')
-                # visual servo to object.
-                # If obj_id is hand segmentation needs to return highest score across all classes
-                # If target_id is table use known height of table to grasp it
-                # If target_id is hand use size of bounding box to estimate distance to object
+                if obj_id == 'hand':
+                    self._servo['hand'].servo(arm=arm, object_id=obj_id)
+                else:
+                    self._servo['table'].servo(arm=arm, object_id=obj_id)
                 if self._robot.grasp(arm):
                     success = True
                 else:
                     _logger.info('Something went wrong. I will try again.')
                     self._robot.release(arm)
-            # lift object
+            self._robot.move_to(config=settings.top_cfgs[arm])
 
             if tgt_id == 'table':
                 approach_pose = [a + b

@@ -103,3 +103,5 @@ class Kinect(object):
                 (lims['y_max'] - lims['y_min'])*random_sample() + lims['y_min'],
                 0.2*random_sample() - 0.1 + lims['z_min']
             ]
+        else:
+            return None

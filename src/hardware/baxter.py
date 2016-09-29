@@ -42,7 +42,7 @@ from baxter_core_msgs.srv import (
 from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
-from utils import list_to_pose_msg
+from utils import list_to_pose_msg, pose_msg_to_list
 from demo.settings import workspace_limits_m as lims
 
 
@@ -82,20 +82,23 @@ class Baxter(object):
         # Default behavior on Baxter startup is for both of the hand cameras
         # to be in operation at a resolution of 320x200 at a frame rate of
         # 25 fps. We get their CameraControllers using the Baxter SDK ...
-        self._cameras = {a: baxter_interface.CameraController('%s_hand_camera' % a, sim=sim)
-                         for a in self._arms}
+        self.cameras = {a: baxter_interface.CameraController('%s_hand_camera' % a, sim=sim)
+                        for a in self._arms}
         # ... and set their resolution to 1280x800 @ 14 fps.
         for arm in self._arms:
-            self._cameras[arm].resolution = (1280, 800)
-            self._cameras[arm].fps = 14.0
+            self.cameras[arm].resolution = (1280, 800)
+            self.cameras[arm].fps = 14.0
         # We don't need the CameraControllers any more. Our own module will
         # do the remaining camera handling for us.
-        self._cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a))
-                         for a in self._arms}
+        self.cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a))
+                        for a in self._arms}
         self._planner = SimplePlanner()
 
         self._rs = None
         self._init_state = None
+
+        self.distance_to_table = None
+        self.z_table = None
 
     def set_up(self):
         """Enable the robot, move both limbs to neutral configuration and
@@ -153,6 +156,15 @@ class Baxter(object):
         pose_msg.header.frame_id = target_frame
         pose_msg.header.stamp = rospy.Time.now()
         return pose_msg
+
+    def endpoint_pose(self, arm):
+        """Return the current Cartesian pose of the end effector of the given
+        limb.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: The pose as a list [x, y, z, roll, pitch, yaw].
+        """
+        return pose_msg_to_list(self._limbs[arm].endpoint_pose())
 
     def inverse_kinematics(self, arm, pose=None):
         """Solve inverse kinematics for one limb at given pose.
@@ -289,14 +301,6 @@ class Baxter(object):
         """
         return self._grippers[arm].open(block=True)
 
-    def collect_image(self, arm):
-        """Read the most recent image from one of the two hand cameras.
-
-        :param arm: The arm <'left', 'right'> to control.
-        :return: An image (a (height, width, n_channels) numpy array).
-        """
-        return self._cameras[arm].collect_image()
-
     def estimate_object_position(self, arm, bbox):
         """Estimate an objects position in the x-y plane.
 
@@ -306,7 +310,7 @@ class Baxter(object):
         :return:
         """
         cx, cy = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        x, y, _ = self._cameras[arm].projection_pixel_to_camera((cx, cy))
+        x, y, _ = self.cameras[arm].projection_pixel_to_camera((cx, cy))
         # TODO: transform [x, y, _] from camera to robot space
         # return [x, y]
         # TODO: remove this debugging stuff
