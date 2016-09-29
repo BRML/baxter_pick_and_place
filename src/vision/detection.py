@@ -32,11 +32,6 @@ import time
 
 import cv2
 
-from visualization_utils import (
-    red, black, white,
-    textbox
-)
-
 from init_paths import set_up_faster_rcnn
 set_up_faster_rcnn()
 # suppress caffe logging up to 0 debug, 1 info 2 warning 3 error
