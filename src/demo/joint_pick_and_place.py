@@ -59,7 +59,7 @@ class PickAndPlace(object):
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
     def calibrate(self):
-        # TODO: implement
+        # TODO: implement calibration routines
         # Either perform calibration or load existing calibration file(s)
         _logger.info("Performing calibration/loading calibration file.")
 
@@ -81,10 +81,13 @@ class PickAndPlace(object):
         for arm in ['left', 'right']:
             self._robot.cameras[arm].meters_per_pixel = 0.0025
 
+        # discretize table (looking for empty spots)
+        # with valid poses and configs
+
         # external camera relative to Baxter coordinates
         pass
 
-    def _get_apporach_pose(self, pose):
+    def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some
         safety offset.
 
@@ -94,6 +97,10 @@ class PickAndPlace(object):
         return [a + b for a, b in zip(pose, self._approach_offset)]
 
     def perform(self):
+        """Perform the pick-and-place demonstration.
+
+        :return:
+        """
         _logger.info('Starting pick and place demonstration.')
         instr = client.wait_for_instruction()
         while not rospy.is_shutdown() and instr != 'exit':
@@ -114,7 +121,14 @@ class PickAndPlace(object):
                     obj_pose = self._camera.estimate_hand_position()
                 obj_pose += [0, 0, 0]
             else:
-                obj_pose = self._camera.estimate_object_position(object_id=obj_id)
+                img_color = self._camera.color.collect_image()
+                img_depth = self._camera.depth.collect_image()
+                det = self._detection.detect_object(image=img_color,
+                                                    object_id=obj_id,
+                                                    threshold=0.8)
+                obj_pose = self._camera.estimate_object_position(img_rgb=img_color,
+                                                                 bbox=det['box'],
+                                                                 img_depth=img_depth)
                 while obj_pose is None:
                     _logger.info("I did not find the {}!".format(obj_id))
                     # TODO: implement looking for the object
@@ -122,6 +136,13 @@ class PickAndPlace(object):
                     # apply object detection until object found or failure
                     # compute 3d coordinates from detection and known height of table
                 obj_pose += [0, 0, 0]
+            appr_pose = self._get_approach_pose(pose=obj_pose)
+            try:
+                arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
+            except ValueError:
+                _logger.warning("I abort this task! Please start over.")
+                instr = client.wait_for_instruction()
+                continue
 
             if tgt_id == 'table':
                 _logger.info('Looking for a spot to put the object down.')
@@ -132,16 +153,10 @@ class PickAndPlace(object):
                 #  corresponding patch in the image stored during calibration
                 #  http://jeffkreeftmeijer.com/2011/comparing-images-and-creating-image-diffs/
                 # if difference < threshold, patch is assumed to be empty
-                target_pose = [0.5, 0.2, 0.3, 0, 0, 0]
+                tgt_pose = [0.5, 0.2, 0.3, 0, 0, 0]
 
             _logger.info('Picking up the object.')
-            appr_pose = self._get_apporach_pose(pose=obj_pose)
-            try:
-                arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
-            except ValueError:
-                _logger.warning("I abort this task! Please start over.")
-                instr = client.wait_for_instruction()
-                continue
+
             _logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
             while not success:
@@ -158,41 +173,45 @@ class PickAndPlace(object):
                     self._robot.release(arm)
             self._robot.move_to(config=settings.top_cfgs[arm])
 
+            _logger.info('Placing the object.')
             if tgt_id == 'table':
-                approach_pose = [a + b
-                                 for a, b in zip(target_pose, self._approach_offset)]
+                appr_pose = self._get_approach_pose(pose=tgt_pose)
                 try:
-                    approach_cfg = self._robot.inverse_kinematics(arm, approach_pose)
+                    appr_cfg = self._robot.inverse_kinematics(arm=arm, pose=appr_pose)
                 except ValueError as e:
-                    # how to handle this case?
+                    # TODO: how to handle this case?
                     raise e
-                self._robot.move_to(config=approach_cfg)
+                self._robot.move_to(config=appr_cfg)
                 try:
-                    cfg = self._robot.inverse_kinematics(arm, target_pose)
+                    tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
                 except ValueError as e:
-                    # how to handle this case?
+                    # TODO: handle this case similar to above
                     raise e
-                self._robot.move_to(config=cfg)
+                self._robot.move_to(config=tgt_cfg)
                 self._robot.release()
-                self._robot.move_to(config=approach_cfg)
+                self._robot.move_to(config=appr_cfg)
             else:
-                pass
-                # get kinect skeleton
-                # if hand not found tell user to relocate hand and try again
-                # compute 3d coordinates of hand
-                target_pose = [0.5, 0.2, 0.5, 0, 0, 0]
+                tgt_pose = self._camera.estimate_hand_position()
+                while tgt_pose is None:
+                    _logger.warning("No hand position estimate was found! "
+                                    "Please relocate your hand.")
+                    # TODO: adapt this sleep time
+                    rospy.sleep(1.0)
+                    tgt_pose = self._camera.estimate_hand_position()
+                tgt_pose += [0, 0, 0]
                 try:
-                    target_cfg = self._robot.inverse_kinematics(arm, target_pose)
+                    tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
                 except ValueError as e:
-                    # how to handle this case?
+                    # TODO: handle this case similar to above
                     raise e
-                self._robot.move_to(config=target_cfg)
+                self._robot.move_to(config=tgt_cfg)
                 _logger.info('Please take the object from me.')
                 while self._robot.is_gripping(arm):
                     rospy.sleep(0.5)
                 self._robot.release()
-
-                # retract gripper
+            self._robot.move_to(config=settings.top_cfgs[arm])
+            self._robot.move_to_neutral(arm=arm)
+            _logger.info('I finished my task.')
 
             instr = client.wait_for_instruction()
         _logger.info('Exiting pick and place demonstration.')

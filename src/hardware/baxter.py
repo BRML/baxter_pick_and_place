@@ -270,6 +270,21 @@ class Baxter(object):
         trajectory = self.plan(target=config)
         self.control(trajectory=trajectory)
 
+    def move_to_neutral(self, arm=None):
+        """Move the lift, right or both limbs to their neutral configuration.
+
+        :param arm: The arm <'left', 'right'> to control. If None, move both
+            arms.
+        :return:
+        """
+        if arm is None:
+            for arm in self._arms:
+                self._limbs[arm].move_to_neutral()
+        elif arm in self._arms:
+            self._limbs[arm].move_to_neutral()
+        else:
+            raise KeyError("No '{}' limb!".format(arm))
+
     def grasp(self, arm):
         """Close the specified gripper and validate that it grasped something.
         Blocking command.
