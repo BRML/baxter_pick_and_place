@@ -26,14 +26,13 @@
 from base import Servoing
 
 
-class ServoingSize(Servoing):
+class ServoingDistance(Servoing):
     def estimate_distance(self, object_id, rroi, arm):
         """Estimate the distance to the object from
-        - the known size of the object in meters,
-        - the meters per pixel at one meter reference distance and
-        - the approximate size of the object in pixels
+        - the measured pose of the end effector and
+        - the measured height of the table top in robot coordinates
         by computing
-            distance = size_meters / (size_pixels * mpp).
+            distance = height_gripper - height_table.
 
         :param object_id: The object identifier of the object to estimate the
             distance to.
@@ -42,7 +41,5 @@ class ServoingSize(Servoing):
         :param arm: The arm <'left', 'right'> to control.
         :return: The approximate distance from the camera to the object.
         """
-        size_meters = self._object_size_meters[object_id]
-        size_pixels = max(rroi[1])
-
-        return size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
+        # TODO: should we compensate for offset camera--fingertips?
+        return self._robot.endpoint_pose(arm=arm)[2] - self._robot.z_table
