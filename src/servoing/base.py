@@ -160,6 +160,7 @@ class Servoing(object):
         # TODO: adapt control parameter
         kp = 0.7  # proportional control parameter
 
+        # TODO: servoing should not only update x and y, but also z!
         img = self._robot.cameras[arm].collect_image()
         camera_error = self._error(image_size=img.shape[:2],
                                    object_id=object_id, rroi=rroi, arm=arm)

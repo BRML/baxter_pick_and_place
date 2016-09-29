@@ -48,6 +48,8 @@ class Camera(object):
 
         self._camera_matrix = self._get_calibration()
 
+        self.meters_per_pixel = None
+
     def _get_calibration(self):
         """Read the calibration data of the camera from either a ROS topic or
         a calibration file. For additional information see
@@ -111,9 +113,10 @@ class Camera(object):
 
 
 def imgmsg_to_img(imgmsg):
-    """ Convert a ROS image message to a numpy array holding the image.
-    :param imgmsg: a ROS image message
-    :return: a numpy array containing an RGB image
+    """Convert a ROS image message to a numpy array holding the image.
+
+    :param imgmsg: A ROS image message.
+    :return: The BGR image as a (height, width, n_channels) numpy array.
     """
     try:
         img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
@@ -122,3 +125,16 @@ def imgmsg_to_img(imgmsg):
     except AttributeError as e:
         raise e
     return img
+
+
+def img_to_imgmsg(img):
+    """Convert a numpy array holding an image to a ROS image message.
+
+    :param img: A BGR image as a (height, width, n_channels) numpy array.
+    :return: The corresponding ROS image message.
+    """
+    try:
+        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
+    except cv_bridge.CvBridgeError:
+        raise
+    return imgmsg
