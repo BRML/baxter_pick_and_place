@@ -94,6 +94,8 @@ class Kinect(object):
         :return: A list [x, y, z] representing the approximate hand position
             in camera coordinates.
         """
+        # if bbox is None:
+        #     return None
         # TODO: implement. But how?
         # requires re-projecting the center of the bounding box to 3d and
         # calibrating the color and depth images to find the proper depth value
