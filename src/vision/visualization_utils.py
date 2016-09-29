@@ -23,11 +23,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import numpy as np
+
 import cv2
 
 
-# Set colors for visualisation of detections
-red = (0, 0, 255)  # BGR
+# Set colors for visualisation of detections. Note BGR convention used!
+red = (0, 0, 255)
+green = (0, 255, 0)
+blue = (255, 0, 0)
 yellow = (0, 255, 255)
 black = (0, 0, 0)
 white = (255, 255, 255)
@@ -84,3 +88,26 @@ def draw_detection(image, detections):
         if 'mask' in detection and detection['mask'] is not None:
             # TODO: verify that this works as expected
             image[detection['mask']] = yellow
+
+
+def draw_rroi(image, rroi):
+    """Draw the given rotated rectangle onto the given image.
+    Note: Modifies the passed image!
+
+    :param image: An image (numpy array) of shape (height, width, 3).
+    :param rroi: The rotated rectangle ((cx, cy), (w, h), angle) to draw.
+    :return:
+    """
+    h, w = image.shape[:2]
+    # visualize image center (=target)
+    cv2.circle(image, center=(w//2, h//2), radius=4, color=blue, thickness=2)
+    # visualize rroi center and orientation
+    cv2.circle(image, center=rroi[0], radius=4, color=green, thickness=2)
+    # TODO: verify that all of this works as expected
+    pt2 = [a + b
+           for a, b in zip(rroi[0], (5*np.sin(rroi[2]), 5*np.cos(rroi[2])))]
+    cv2.line(image, pt1=rroi[0], pt2=pt2, color=green, thickness=2)
+    # draw rotated rectangle
+    box = np.int0(cv2.cv.BoxPoints(rroi))
+    cv2.drawContours(image, contours=[box], contourIdx=0, color=green,
+                     thickness=2)
