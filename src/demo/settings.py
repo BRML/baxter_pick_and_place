@@ -107,6 +107,10 @@ object_size_meters = {
     'train': 12,
     'tvmonitor': 1.2
 }
+# The set of objects we know about and Baxter should be able to grasp.
+# Needed for the object detection and object segmentation algorithms as well
+# as setting up the simulation environment (stripped of the background class)
+# if we are working in Gazebo.
 object_ids = tuple(['__background__'] + sorted(object_size_meters.keys()))
 
 # The tolerance for the offset from the segmented objects center to the image

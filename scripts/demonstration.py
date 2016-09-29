@@ -25,12 +25,13 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-
 import rospkg
 import rospy
+from sensor_msgs.msg import Image
 
 from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
+from servo import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
 from vision import ObjectDetection, ObjectSegmentation
 
@@ -55,7 +56,22 @@ class Demonstration(object):
                                           object_ids=object_set)
         self._segmentation = ObjectSegmentation(root_dir=ros_ws,
                                                 object_ids=object_set)
+        pub_vis = rospy.Publisher(settings.topic_visualization, Image,
+                                  queue_size=10, latch=True)
+        self._servo = {
+            'table': ServoingDistance(robot=self._robot,
+                                      segmentation=self._segmentation,
+                                      pub_vis=pub_vis,
+                                      object_size=settings.object_size_meters,
+                                      tolerance=settings.servo_tolerance_meters),
+            'hand': ServoingSize(robot=self._robot,
+                                 segmentation=self._segmentation,
+                                 pub_visp=pub_vis,
+                                 object_size=settings.object_size_meters,
+                                 tolerance=settings.servo_tolerance_meters)
+        }
         self._demo = PickAndPlace(robot=self._robot,
+                                  servo=self._servo,
                                   camera=self._camera,
                                   detection=self._detection,
                                   segmentation=self._segmentation)
