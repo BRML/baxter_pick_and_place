@@ -118,6 +118,9 @@ object_ids = tuple(['__background__'] + sorted(object_size_meters.keys()))
 # Needed for comparing the position error computed in visual servoing.
 servo_tolerance_meters = 0.005
 
+# The topic on which debugging image output is visualized
+topic_visualization = '/visualization/image'
+
 # TODO: set these limits to something useful
 workspace_limits_m = {
     'x_min': 0.3,
