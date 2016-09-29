@@ -31,7 +31,7 @@ from sensor_msgs.msg import Image
 
 from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
-from servo import ServoingDistance, ServoingSize
+from servoing import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
 from vision import ObjectDetection, ObjectSegmentation
 
@@ -66,7 +66,7 @@ class Demonstration(object):
                                       tolerance=settings.servo_tolerance_meters),
             'hand': ServoingSize(robot=self._robot,
                                  segmentation=self._segmentation,
-                                 pub_visp=pub_vis,
+                                 pub_vis=pub_vis,
                                  object_size=settings.object_size_meters,
                                  tolerance=settings.servo_tolerance_meters)
         }
