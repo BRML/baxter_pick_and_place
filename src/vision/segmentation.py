@@ -32,11 +32,6 @@ import time
 
 import cv2
 
-from visualization_utils import (
-    red, yellow, black, white,
-    textbox
-)
-
 from init_paths import set_up_mnc
 set_up_mnc()
 # suppress caffe logging up to 0 debug, 1 info 2 warning 3 error
@@ -212,9 +207,9 @@ class ObjectSegmentation(object):
                            "set of objects!".format(object_id))
         scores, boxes, masks = self.detect(image=image)
         # TODO: understand outputs
-        print scores.shape, score.dtype
-        print boxes.shape, box.dtype
-        print masks.shape, mask.dtype
+        print scores.shape, scores.dtype
+        print boxes.shape, boxes.dtype
+        print masks.shape, masks.dtype
 
         # TODO adapt detection of best score for given object
         # Find scores for requested object class

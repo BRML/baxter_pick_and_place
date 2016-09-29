@@ -11,3 +11,5 @@ from segmentation import (
     ObjectSegmentation,
     remove_default_loghandler as mnc_remove_default_loghandler
 )
+
+from visualization_utils import draw_rroi
