@@ -111,3 +111,32 @@ def draw_rroi(image, rroi):
     box = np.int0(cv2.cv.BoxPoints(rroi))
     cv2.drawContours(image, contours=[box], contourIdx=0, color=green,
                      thickness=2)
+
+
+def color_difference(image_1, image_2):
+    """Compute the pixel-wise delta E color difference for two RGB images.
+    Note: We compare RGB images, which means that the result is not as
+        accurate as if we converted the images to LAB color space before
+        computing the delta E difference. This way the result is nicely
+        interpretable, though.
+    See
+        http://jeffkreeftmeijer.com/2011/comparing-images-and-creating-image-diffs/
+    and
+        https://www.cis.rit.edu/~cnspci/media/software/deltae.py
+    for more information.
+
+    :param image_1: A color image ((h, w, 3) uint8 numpy array).
+    :param image_2: A color image ((h, w, 3) uint8 numpy array).
+    :return: The delta E color difference as a (h, w) float numpy array with
+        values in the range [0, 1].
+    """
+    assert image_1.shape == image_2.shape
+    # Scale both color images to unit range
+    image_1, image_2 = [img.astype(np.float32)/255.
+                        for img in [image_1, image_2]]
+    # compute the delta E color difference per pixel
+    delta_e = np.sqrt(np.sum((image_2 - image_1)**2, axis=-1)/3.)
+    print 'pixels (total):', delta_e.size
+    print 'pixels changed:', np.count_nonzero(delta_e)
+    print 'image changed (%):', delta_e.mean()*100.0
+    return delta_e
