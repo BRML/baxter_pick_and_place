@@ -118,15 +118,16 @@ def imgmsg_to_img(imgmsg):
     :param imgmsg: A ROS image message.
     :return: The BGR image as a (height, width, n_channels) numpy array.
     """
-    try:
-        img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, 'bgr8')
-    except cv_bridge.CvBridgeError:
+    img = None
+    for enc in ['bgr8', 'mono8', '32FC1']:
         try:
-            img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, '32FC1')
-        except cv_bridge.CvBridgeError as e:
+            img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, enc)
+        except cv_bridge.CvBridgeError:
+            pass
+        except AttributeError as e:
             raise e
-    except AttributeError as e:
-        raise e
+    if img is None:
+        raise ValueError("Cannot convert image message to numpy array!")
     return img
 
 
@@ -136,8 +137,13 @@ def img_to_imgmsg(img):
     :param img: A BGR image as a (height, width, n_channels) numpy array.
     :return: The corresponding ROS image message.
     """
-    try:
-        imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, 'bgr8')
-    except cv_bridge.CvBridgeError:
-        raise
+    imgmsg = None
+    for enc in ['bgr8', 'mono8', '32FC1']:
+        try:
+            imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, enc)
+        except cv_bridge.CvBridgeError:
+            pass
+    if imgmsg is None:
+        raise ValueError("Cannot convert {} {} array to image message!".format(
+            img.shape, img.dtype))
     return imgmsg

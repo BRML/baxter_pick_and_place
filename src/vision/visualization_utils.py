@@ -128,7 +128,8 @@ def color_difference(image_1, image_2):
     :param image_1: A color image ((h, w, 3) uint8 numpy array).
     :param image_2: A color image ((h, w, 3) uint8 numpy array).
     :return: The delta E color difference as a (h, w) float numpy array with
-        values in the range [0, 1].
+        values in the range [0, 1] and
+        the the corresponding gray scale image.
     """
     assert image_1.shape == image_2.shape
     # Scale both color images to unit range
@@ -139,4 +140,4 @@ def color_difference(image_1, image_2):
     print 'pixels (total):', delta_e.size
     print 'pixels changed:', np.count_nonzero(delta_e)
     print 'image changed (%):', delta_e.mean()*100.0
-    return delta_e
+    return delta_e, np.asarray(255.*delta_e, dtype=np.uint8)
