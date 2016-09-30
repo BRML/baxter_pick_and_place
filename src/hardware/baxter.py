@@ -97,7 +97,6 @@ class Baxter(object):
         self._rs = None
         self._init_state = None
 
-        self.distance_to_table = None
         self.z_table = None
 
     def set_up(self):

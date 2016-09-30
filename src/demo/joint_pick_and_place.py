@@ -30,6 +30,7 @@ import random
 import rospy
 
 import settings
+from hardware import img_to_imgmsg
 from instruction import client
 from vision import color_difference
 
@@ -50,51 +51,91 @@ def remove_default_loghandler():
 
 
 class PickAndPlace(object):
-    def __init__(self, robot, servo, camera, detection, segmentation):
+    def __init__(self, robot, servo, camera, detection, segmentation, pub_vis):
         self._robot = robot
         self._servo = servo
         self._camera = camera
         self._detection = detection
         self._segmentation = segmentation
+        self._pub_vis = pub_vis
 
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
+
+    def _calibrate_table_height(self):
+        # if file exists, load height from npz file and return
+        # else
+        # move to calibration pose
+        # record image
+        # draw rectangle around table (hard-coded?)
+        # publish
+        # ask if indicated area (entire table) is empty from objects
+        #   if not, ask to clear the area from objects
+        #   else, proceed
+        # for n = 10 poses:
+        #   while no solution:
+        #       random sample pose
+        #       compute config
+        #   move to config
+        #   measure distance 10 times and compute average in this pose
+        #   append computed height of table (-(average distance - endpoint_pose()[2]))
+        # compute min, max, mean and std dev of table height
+        # if std dev < threshold, store mean height
+        # else store max height
+        # write to npz file and return
+        return -0.20
+
+    def _calibrate_table_view(self):
+        # if file exists, load images, patches and poses from npz file and return
+        # else
+        # with both limbs
+        #   move to calibration pose
+        #   record hand camera image
+        #   draw rectangle around table (hard-coded?)
+        #   publish
+        #   ask if indicated area (entire table) is empty from objects
+        #       if not, ask to clear the area from objects
+        #       else, proceed
+        #   record and store reference image
+        #   discretize table surface
+        #       draw a grid of poses on the table
+        #       compute corresponding configs
+        #       store corresponding patch of appropriate size
+        #           (depends on max object size in meters, mpp and the current distance)
+        pass
+
+    def _load_external_calibration(self):
+        # if file exists, load transformation from camera to robot coordinates
+        # else instruct user to run calibration tool
+        pass
 
     def calibrate(self):
         # TODO: implement calibration routines
         # Either perform calibration or load existing calibration file(s)
         _logger.info("Performing calibration/loading calibration file.")
 
-        # height of table
-        calibration_pose = [0, 0, 0, 0, 0, 0]
-        #  move to calibration_pose
-        #  repeat
-        #    ask if indicated area under end effector is empty from objects
-        #    if not, ask to clear the area from objects
-        #    else, proceed
-        #  use distance sensor to measure distance to table
-        self._robot.distance_to_table = 0.27
-        #  compute height of table in robot coordinates and store it
-        self._robot.z_table = -(self._robot.distance_to_table - calibration_pose[2])
-        # reference image of table when empty
-        #  record both hand camera images and store them
-        self._table_image = {'left': None, 'right': None}
+        # Measured meters per pixel @ 1 m distance
+        for arm in ['left', 'right']:
+            self._robot.cameras[arm].meters_per_pixel = 0.0025
+
+        # height of the table in robot coordinates
+        height = self._calibrate_table_height()
+        self._robot.z_table = height
+
         # image patches corresponding to pre-selected poses / configurations on the
         # table.
         #   - patches: list of quadruples (xul, yul, xlr, ylr)
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
+        self._calibrate_table_view()
+        self._table_image = {'left': None, 'right': None}
         self._table_patches = []
         self._table_poses = []
         self._table_cfgs = []
 
-        # Measured meters per pixel @ 1 m distance
-        for arm in ['left', 'right']:
-            self._robot.cameras[arm].meters_per_pixel = 0.0025
-
         # external camera relative to Baxter coordinates
-        pass
+        self._load_external_calibration()
 
     def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some
@@ -164,7 +205,9 @@ class PickAndPlace(object):
                     xul, yul, xlr, ylr = self._table_patches[idx]
                     table_patch = table_img[yul:ylr, xul: xlr]
                     ref_patch = self._table_image[arm][yul:ylr, xul: xlr]
-                    diff = color_difference(image_1=table_patch, image_2=ref_patch)
+                    diff, vis_patch = color_difference(image_1=table_patch,
+                                                       image_2=ref_patch)
+                    self._pub_vis.publish(img_to_imgmsg(vis_patch))
                     # TODO: adapt this threshold
                     if diff.mean()*100.0 < 10.0:
                         tgt_pose = self._table_poses[idx]
