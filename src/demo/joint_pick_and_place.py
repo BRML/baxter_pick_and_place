@@ -25,11 +25,13 @@
 
 
 import logging
+import random
 
 import rospy
 
 import settings
 from instruction import client
+from vision import color_difference
 
 
 # Set up logging
@@ -72,17 +74,24 @@ class PickAndPlace(object):
         #    else, proceed
         #  use distance sensor to measure distance to table
         self._robot.distance_to_table = 0.27
-        self._robot.z_table = -(self._robot.distance_to_table - calibration_pose[2])
         #  compute height of table in robot coordinates and store it
-        # mean color of table when empty
-        #  record hand camera image and store it
+        self._robot.z_table = -(self._robot.distance_to_table - calibration_pose[2])
+        # reference image of table when empty
+        #  record both hand camera images and store them
+        self._table_image = {'left': None, 'right': None}
+        # image patches corresponding to pre-selected poses / configurations on the
+        # table.
+        #   - patches: list of quadruples (xul, yul, xlr, ylr)
+        #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
+        #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
+        # Needed for selecting empty spots on the table for placing objects.
+        self._table_patches = []
+        self._table_poses = []
+        self._table_cfgs = []
 
         # Measured meters per pixel @ 1 m distance
         for arm in ['left', 'right']:
             self._robot.cameras[arm].meters_per_pixel = 0.0025
-
-        # discretize table (looking for empty spots)
-        # with valid poses and configs
 
         # external camera relative to Baxter coordinates
         pass
@@ -146,17 +155,28 @@ class PickAndPlace(object):
 
             if tgt_id == 'table':
                 _logger.info('Looking for a spot to put the object down.')
-                # TODO: implement looking for an empty spot on the table
-                # move to calibration_pose
-                # record an image with the hand camera
-                # randomly select patches of appropriate size and compare them to the
-                #  corresponding patch in the image stored during calibration
-                #  http://jeffkreeftmeijer.com/2011/comparing-images-and-creating-image-diffs/
-                # if difference < threshold, patch is assumed to be empty
-                tgt_pose = [0.5, 0.2, 0.3, 0, 0, 0]
+                self._robot.move_to(config=settings.calibration_cfgs[arm])
+                table_img = self._robot.cameras[arm].collect_image()
+                idxs = range(len(self._table_patches))
+                random.shuffle(idxs)
+                tgt_pose = None
+                for idx in idxs:
+                    xul, yul, xlr, ylr = self._table_patches[idx]
+                    table_patch = table_img[yul:ylr, xul: xlr]
+                    ref_patch = self._table_image[arm][yul:ylr, xul: xlr]
+                    diff = color_difference(image_1=table_patch, image_2=ref_patch)
+                    # TODO: adapt this threshold
+                    if diff.mean()*100.0 < 10.0:
+                        tgt_pose = self._table_poses[idx]
+                        tgt_cfg = self._table_cfgs[idx][arm]
+                        break
+                if tgt_pose is None:
+                    _logger.warning("Found no place to put the object down! "
+                                    "I abort this task. Please start over.")
+                    instr = client.wait_for_instruction()
+                    continue
 
             _logger.info('Picking up the object.')
-
             _logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
             while not success:
@@ -182,11 +202,6 @@ class PickAndPlace(object):
                     # TODO: how to handle this case?
                     raise e
                 self._robot.move_to(config=appr_cfg)
-                try:
-                    tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
-                except ValueError as e:
-                    # TODO: handle this case similar to above
-                    raise e
                 self._robot.move_to(config=tgt_cfg)
                 self._robot.release()
                 self._robot.move_to(config=appr_cfg)
