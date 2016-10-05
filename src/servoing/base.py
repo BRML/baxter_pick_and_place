@@ -27,7 +27,7 @@ import logging
 import numpy as np
 
 from hardware import img_to_imgmsg
-from vision import draw_rroi
+from vision import mask_to_rroi, draw_rroi
 
 
 # Set up logging
@@ -88,8 +88,7 @@ class Servoing(object):
         handstring = ' in hand' if object_id is 'hand' else ''
         if det['mask'] is not None:
             _logger.info("Segmented {}{}.".format(det['id'], handstring))
-            # TODO: compute rroi ((cx, cy), (w, h), angle of longest axis)
-            rroi = (145, 248), (67, 44), -0.02
+            rroi = mask_to_rroi(mask=det['mask'])
         else:
             raise ValueError("Segmentation of {}{} failed!".format(det['id'],
                                                                    handstring))

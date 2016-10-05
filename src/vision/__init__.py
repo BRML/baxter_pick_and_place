@@ -14,5 +14,6 @@ from segmentation import (
 
 from visualization_utils import (
     draw_rroi,
+    mask_to_rroi,
     color_difference
 )
