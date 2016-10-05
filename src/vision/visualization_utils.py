@@ -86,8 +86,7 @@ def draw_detection(image, detections):
                     font_face=cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale=0.5, thickness=2, color=black, color_box=white)
         if 'mask' in detection and detection['mask'] is not None:
-            # TODO: verify that this works as expected
-            image[detection['mask']] = yellow
+            image[detection['mask'] == 255] = yellow
 
 
 def draw_rroi(image, rroi):

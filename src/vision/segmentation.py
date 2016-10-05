@@ -206,21 +206,31 @@ class ObjectSegmentation(object):
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
         scores, boxes, masks = self.detect(image=image)
-        # TODO: understand outputs
-        print scores.shape, scores.dtype
-        print boxes.shape, boxes.dtype
-        print masks.shape, masks.dtype
+        # TODO: understand output for masks
 
-        # TODO adapt detection of best score for given object
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
-        cls_boxes = boxes[:, 4*cls_idx:4*(cls_idx + 1)]
 
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
-        best_box = cls_boxes[best_idx]
-        best_mask = None
+        best_box = boxes[best_idx]
+
+        mask_img = np.zeros(image.shape[:2], dtype=np.uint8)
+        # clip box into image space
+        box = np.round(best_box).astype(np.uint32)
+        box[0] = min(max(box[0], 0), image.shape[1] - 1)
+        box[1] = min(max(box[1], 0), image.shape[0] - 1)
+        box[2] = min(max(box[2], 0), image.shape[1] - 1)
+        box[3] = min(max(box[3], 0), image.shape[0] - 1)
+        mask = masks[best_idx][0]
+        mask = cv2.resize(mask, (box[2] - box[0] + 1, box[3] - box[1] + 1))
+        mask = mask >= cfg.BINARIZE_THRESH
+        mask = 255*np.array(mask, dtype=np.uint8)
+
+        mask_img[box[1]:box[3] + 1, box[0]:box[2] + 1] = mask
+
+        best_mask = mask_img
         _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
@@ -231,9 +241,41 @@ class ObjectSegmentation(object):
             return {'id': object_id, 'score': best_score, 'box': best_box, 'mask': best_mask}
         return {'id': object_id, 'score': best_score, 'box': None, 'mask': None}
 
-    def detect_best(self, image, object_id, threshold=0.5):
-        # TODO: implement detection of best score across classes
-        pass
+    def detect_best(self, image, threshold=0.5):
+        """Feed forward the given image through the previously loaded network.
+        Return the bounding box and segmentation with the highest score
+        amongst all classes.
+
+        :param image: An image (numpy array) of shape (height, width, 3).
+        :param threshold: The threshold (0, 1) on the score for a detection
+            to be considered as valid.
+        :return: A dictionary containing the detection with
+            'id': The object identifier.
+            'score: The score of the detection (scalar).
+            'box': The bounding box of the detection; a (4,) numpy array.
+            'mask': The segmentation of the detection; a (height, width,)
+                numpy array.
+        """
+        scores, boxes, masks = self.detect(image=image)
+
+        # find best score among all classes (except background)
+        best_proposal, best_class = np.unravel_index(scores[:, 1:].argmax(),
+                                                     scores[:, 1:].shape)
+        best_class += 1  # compensate for background
+        best_score = scores[best_proposal, best_class]
+        best_box = boxes[best_proposal]
+        best_mask = None  # masks[best_proposal]
+        best_object = self._classes[best_class]
+
+        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+            best_object,
+            best_score,
+            '>=' if best_score > threshold else '<',
+            threshold)
+        )
+        if best_score > threshold:
+            return {'id': best_object, 'score': best_score, 'box': best_box, 'mask': best_mask}
+        return {'id': best_object, 'score': best_score, 'box': None, 'mask': None}
 
 
 if __name__ == '__main__':
@@ -254,7 +296,8 @@ if __name__ == '__main__':
                                '2008_001717', '2008_008093']]:
         img = cv2.imread(img_file)
         if img is not None:
-            det = od.detect_object(img, 'dog', 0.8)
+            # det = od.detect_best(img, 0.8)
+            det = od.detect_object(img, 'person', 0.8)
             if det['box'] is not None:
                 draw_detection(img, det)
                 cv2.imshow('image', img)
