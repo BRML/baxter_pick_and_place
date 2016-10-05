@@ -166,9 +166,10 @@ class ObjectDetection(object):
         :param image: An image (numpy array) of shape (height, width, 3).
         :param threshold: The threshold (0, 1) on the score for a detection
             to be considered as valid.
-        :return: The object id with the best score and bounding box if the
-            best score > threshold, he object id, best score and None
-            otherwise.
+        :return: A dictionary containing the detection with
+            'id': The object identifier.
+            'score: The score of the detection (scalar).
+            'box': The bounding box of the detection; a (4,) numpy array.
         """
         scores, boxes = self.detect(image=image)
 
