@@ -78,6 +78,8 @@ def draw_detection(image, detections):
     if not isinstance(detections, list):
         detections = [detections]
     for detection in detections:
+        if 'mask' in detection and detection['mask'] is not None:
+            image[detection['mask'] == 255] = yellow
         if detection['box'] is not None:
             oid, s, b = [detection['id'], detection['score'], detection['box']]
             cv2.rectangle(image, pt1=(b[0], b[1]), pt2=(b[2], b[3]),
@@ -85,8 +87,24 @@ def draw_detection(image, detections):
             textbox(image, text='%s %.3f' % (oid, s), org=(b[0] + 3, b[3] - 3),
                     font_face=cv2.FONT_HERSHEY_SIMPLEX,
                     font_scale=0.5, thickness=2, color=black, color_box=white)
-        if 'mask' in detection and detection['mask'] is not None:
-            image[detection['mask'] == 255] = yellow
+
+
+def mask_to_rroi(mask):
+    """Compute the minimum enclosing rectangle (possibly rotated) for a given
+    pre-computed segmentation of an object.
+
+    :param mask: The binary mask image to compute the minimum enclosing
+        rectangle (possibly rotated) for.
+    :return: The minimum enclosing rectangle, defined by
+        <(cx, cy), (w, h), alpha>, where w and h are the width and height of
+        the rectangle centered around cx and cy and rotated by alpha degrees.
+    """
+    contours, _ = cv2.findContours(image=mask, mode=cv2.RETR_LIST,
+                                   method=cv2.CHAIN_APPROX_SIMPLE)
+    if len(contours) > 1:
+        raise ValueError("Expected to find exactly one contour!")
+    # TODO: why does alpha not always point along the longer axis?
+    return cv2.minAreaRect(contours[0])
 
 
 def draw_rroi(image, rroi):
@@ -101,11 +119,15 @@ def draw_rroi(image, rroi):
     # visualize image center (=target)
     cv2.circle(image, center=(w//2, h//2), radius=4, color=blue, thickness=2)
     # visualize rroi center and orientation
-    cv2.circle(image, center=rroi[0], radius=4, color=green, thickness=2)
-    # TODO: verify that all of this works as expected
+    center = tuple(np.round(rroi[0]).astype(np.uint32))
+    cv2.circle(image, center=center, radius=4, color=green, thickness=2)
+    angle = np.deg2rad(rroi[2])
+    line_length = 20
     pt2 = [a + b
-           for a, b in zip(rroi[0], (5*np.sin(rroi[2]), 5*np.cos(rroi[2])))]
-    cv2.line(image, pt1=rroi[0], pt2=pt2, color=green, thickness=2)
+           for a, b in zip(rroi[0], (line_length*np.cos(angle),
+                                     line_length*np.sin(angle)))]
+    pt2 = tuple(np.round(pt2).astype(np.uint32))
+    cv2.line(image, pt1=center, pt2=pt2, color=green, thickness=1)
     # draw rotated rectangle
     box = np.int0(cv2.cv.BoxPoints(rroi))
     cv2.drawContours(image, contours=[box], contourIdx=0, color=green,
