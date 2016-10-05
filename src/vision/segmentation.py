@@ -185,6 +185,42 @@ class ObjectSegmentation(object):
         )
         return scores, boxes, masks
 
+    @staticmethod
+    def _mask_image_from_mask(mask, box, image_size):
+        """Convert an MNC mask detection into a binary mask image.
+
+        :param mask: The MNC mask detection to convert (a 21x21 numpy array).
+        :param box: The corresponding bounding box of the detection.
+        :param image_size: The height and width of the input and mask images.
+        :return: The segmentation of the detection; a (height, width) numpy
+            array.
+        """
+        def clip_box(box, image_size):
+            """Clip bounding box to image size.
+
+            :param box: The bounding box, defined as <xul, yul, xlr, ylr>.
+            :param image_size: The height and width of the image.
+            :return: The bounding box coordinates, clipped to the image size
+                and rounded to the next integer value.
+            """
+            # clip box into image space
+            box = np.round(box).astype(np.uint32)
+            height, width = image_size
+            box[0] = min(max(box[0], 0), width - 1)
+            box[1] = min(max(box[1], 0), height - 1)
+            box[2] = min(max(box[2], 0), width - 1)
+            box[3] = min(max(box[3], 0), height - 1)
+            return box
+
+        height, width = image_size
+        mask_img = np.zeros((height, width), dtype=np.uint8)
+        box = clip_box(box=box, image_size=image_size)
+        mask = cv2.resize(mask, (box[2] - box[0] + 1, box[3] - box[1] + 1))
+        mask = mask >= cfg.BINARIZE_THRESH
+        mask = 255*np.array(mask, dtype=np.uint8)
+        mask_img[box[1]:box[3] + 1, box[0]:box[2] + 1] = mask
+        return mask_img
+
     def detect_object(self, image, object_id, threshold=0.5):
         """Feed forward the given image through the previously loaded network.
         Return the bounding box and segmentation with the highest score for
@@ -199,14 +235,13 @@ class ObjectSegmentation(object):
             'id': The object identifier.
             'score: The score of the detection (scalar).
             'box': The bounding box of the detection; a (4,) numpy array.
-            'mask': The segmentation of the detection; a (height, width,)
+            'mask': The segmentation of the detection; a (height, width)
                 numpy array.
         """
         if object_id not in self._classes:
             raise KeyError("Object {} is not contained in the defined "
                            "set of objects!".format(object_id))
         scores, boxes, masks = self.detect(image=image)
-        # TODO: understand output for masks
 
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
@@ -215,22 +250,9 @@ class ObjectSegmentation(object):
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
         best_box = boxes[best_idx]
-
-        mask_img = np.zeros(image.shape[:2], dtype=np.uint8)
-        # clip box into image space
-        box = np.round(best_box).astype(np.uint32)
-        box[0] = min(max(box[0], 0), image.shape[1] - 1)
-        box[1] = min(max(box[1], 0), image.shape[0] - 1)
-        box[2] = min(max(box[2], 0), image.shape[1] - 1)
-        box[3] = min(max(box[3], 0), image.shape[0] - 1)
-        mask = masks[best_idx][0]
-        mask = cv2.resize(mask, (box[2] - box[0] + 1, box[3] - box[1] + 1))
-        mask = mask >= cfg.BINARIZE_THRESH
-        mask = 255*np.array(mask, dtype=np.uint8)
-
-        mask_img[box[1]:box[3] + 1, box[0]:box[2] + 1] = mask
-
-        best_mask = mask_img
+        best_mask = self._mask_image_from_mask(mask=masks[best_idx][0],
+                                               box=best_box,
+                                               image_size=image.shape[:2])
         _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
@@ -253,7 +275,7 @@ class ObjectSegmentation(object):
             'id': The object identifier.
             'score: The score of the detection (scalar).
             'box': The bounding box of the detection; a (4,) numpy array.
-            'mask': The segmentation of the detection; a (height, width,)
+            'mask': The segmentation of the detection; a (height, width)
                 numpy array.
         """
         scores, boxes, masks = self.detect(image=image)
@@ -264,7 +286,9 @@ class ObjectSegmentation(object):
         best_class += 1  # compensate for background
         best_score = scores[best_proposal, best_class]
         best_box = boxes[best_proposal]
-        best_mask = None  # masks[best_proposal]
+        best_mask = self._mask_image_from_mask(mask=masks[best_proposal][0],
+                                               box=best_box,
+                                               image_size=image.shape[:2])
         best_object = self._classes[best_class]
 
         _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
