@@ -25,6 +25,8 @@
 
 
 import logging
+import numpy as np
+import os
 import random
 
 import rospy
@@ -51,76 +53,104 @@ def remove_default_loghandler():
 
 
 class PickAndPlace(object):
-    def __init__(self, robot, servo, camera, detection, segmentation, pub_vis):
+    def __init__(self, robot, servo, camera, detection, segmentation, pub_vis, root_dir):
         self._robot = robot
         self._servo = servo
         self._camera = camera
         self._detection = detection
         self._segmentation = segmentation
         self._pub_vis = pub_vis
+        self._root = root_dir
+
+        self._setup_dir = os.path.join(self._root, 'data', 'setup')
+        if not os.path.exists(self._setup_dir):
+            _logger.info('Creating setup directory at {}.'.format(self._setup_dir))
+            os.makedirs(self._setup_dir)
 
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
     def _calibrate_table_height(self):
-        # if file exists, load height from npz file and return
-        # else
-        # move to calibration pose
-        # record image
-        # draw rectangle around table (hard-coded?)
-        # publish
-        # ask if indicated area (entire table) is empty from objects
-        #   if not, ask to clear the area from objects
-        #   else, proceed
-        # for n = 10 poses:
-        #   while no solution:
-        #       random sample pose
-        #       compute config
-        #   move to config
-        #   measure distance 10 times and compute average in this pose
-        #   append computed height of table (-(average distance - endpoint_pose()[2]))
-        # compute min, max, mean and std dev of table height
-        # if std dev < threshold, store mean height
-        # else store max height
-        # write to npz file and return
-        return -0.20
+        setup_file = os.path.join(self._setup_dir, 'table_height.npz')
+        try:
+            with np.load(setup_file) as setup:
+                height = setup['height']
+            _logger.info('Read table height from calibration file.')
+        except IOError:
+            _logger.info('Calibrate table height.')
+            # move to calibration pose
+            # record image
+            # draw rectangle around table (hard-coded?)
+            # publish
+            # ask if indicated area (entire table) is empty from objects
+            #   if not, ask to clear the area from objects
+            #   else, proceed
+            # for n = 10 poses:
+            #   while no solution:
+            #       random sample pose
+            #       compute config
+            #   move to config
+            #   measure distance 10 times and compute average in this pose
+            #   append computed height of table (-(average distance - endpoint_pose()[2]))
+            # compute min, max, mean and std dev of table height
+            # if std dev < threshold, store mean height
+            # else store max height
+            height = -0.2
+            np.savez(setup_file, height=height)
+        return height
 
     def _calibrate_table_view(self):
-        # if file exists, load images, patches and poses from npz file and return
-        # else
-        # with both limbs
-        #   move to calibration pose
-        #   record hand camera image
-        #   draw rectangle around table (hard-coded?)
-        #   publish
-        #   ask if indicated area (entire table) is empty from objects
-        #       if not, ask to clear the area from objects
-        #       else, proceed
-        #   record and store reference image
-        #   discretize table surface
-        #       draw a grid of poses on the table
-        #       compute corresponding configs
-        #       store corresponding patch of appropriate size
-        #           (depends on max object size in meters, mpp and the current distance)
-        pass
+        # images: two hand camera images <left, right>
+        # patches: patches <x, y, w, h> in both images
+        setup_file = os.path.join(self._setup_dir, 'table_view.npz')
+        try:
+            with np.load(setup_file) as setup:
+                images = setup['images']
+                patches = setup['patches']
+            _logger.info('Read table view from calibration file.')
+        except IOError:
+            _logger.info('Calibrate table view.')
+            # with both limbs
+            #   move to calibration pose
+            #   record hand camera image
+            #   draw rectangle around table (hard-coded?)
+            #   publish
+            #   ask if indicated area (entire table) is empty from objects
+            #       if not, ask to clear the area from objects
+            #       else, proceed
+            #   record and store reference image
+            #   discretize table surface
+            #       draw a grid of poses on the table
+            #       compute corresponding configs
+            #       store corresponding patch of appropriate size
+            #           (depends on max object size in meters, mpp and the current distance)
+            images = None
+            patches = None
+            np.savez(setup_file, images=images, patches=patches)
+        return images, patches
 
     def _load_external_calibration(self):
-        # if file exists, load transformation from camera to robot coordinates
-        # else instruct user to run calibration tool
-        pass
+        setup_file = os.path.join(self._setup_dir, 'external_parameters.npz')
+        try:
+            with np.load(setup_file) as setup:
+                trafo = setup['trafo']
+            _logger.info('Read external camera parameters from calibration file.')
+        except IOError:
+            _logger.warning('No external calibration found! Please run the '
+                            'external calibration routine and try again.')
+            raise IOError('No external calibration found!')
+        return trafo
 
     def calibrate(self):
         # TODO: implement calibration routines
-        # Either perform calibration or load existing calibration file(s)
-        _logger.info("Performing calibration/loading calibration file.")
+        _logger.info("Perform / read calibration of demonstration setup.")
 
         # Measured meters per pixel @ 1 m distance
         for arm in ['left', 'right']:
             self._robot.cameras[arm].meters_per_pixel = 0.0025
 
         # height of the table in robot coordinates
-        height = self._calibrate_table_height()
-        self._robot.z_table = height
+        self._robot.z_table = self._calibrate_table_height()
 
         # image patches corresponding to pre-selected poses / configurations on the
         # table.
@@ -128,14 +158,14 @@ class PickAndPlace(object):
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
-        self._calibrate_table_view()
+        images, patches = self._calibrate_table_view()
         self._table_image = {'left': None, 'right': None}
         self._table_patches = []
         self._table_poses = []
         self._table_cfgs = []
 
         # external camera relative to Baxter coordinates
-        self._load_external_calibration()
+        trafo = self._load_external_calibration()
 
     def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some

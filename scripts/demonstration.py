@@ -75,7 +75,8 @@ class Demonstration(object):
                                   camera=self._camera,
                                   detection=self._detection,
                                   segmentation=self._segmentation,
-                                  pub_vis=pub_vis)
+                                  pub_vis=pub_vis,
+                                  root_dir=ros_ws)
 
     def shutdown_routine(self):
         """Clean up everything that needs cleaning up before ROS is shutdown."""
