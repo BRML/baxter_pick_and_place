@@ -76,6 +76,8 @@ class Baxter(object):
         self._grippers_pars = self._grippers['left'].valid_parameters()
         self._grippers_pars['moving_force'] = 40.0
         self._grippers_pars['holding_force'] = 30.0
+        self._sensors = {a: baxter_interface.analog_io.AnalogIO('%s_hand_range' % a)
+                         for a in self._arms}
         # Cameras on the Baxter robot are tricky. Due to limited bandwidth
         # only two cameras can be operating at a time.
         # http://sdk.rethinkrobotics.com/wiki/Camera_Control_Tool
@@ -314,6 +316,18 @@ class Baxter(object):
         :return:
         """
         return self._grippers[arm].open(block=True)
+
+    def measure_distance(self, arm):
+        """Measure the distance from the specified limb to the closest object
+        using the limb's infrared sensor.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: The measured distance in meters or None.
+        """
+        distance = self._sensors[arm].state()
+        if distance < 65000:
+            return distance/1000.0
+        return None
 
     def estimate_object_position(self, arm, bbox):
         """Estimate an objects position in the x-y plane.

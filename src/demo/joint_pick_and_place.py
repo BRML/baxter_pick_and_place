@@ -29,6 +29,8 @@ import numpy as np
 import os
 import random
 
+import cv2
+
 import rospy
 
 import settings
@@ -70,6 +72,19 @@ class PickAndPlace(object):
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
+    def _wait_for_clear_table(self, arm):
+        empty = False
+        while not empty:
+            table_img = self._robot.cameras[arm].collect_image()
+            # TODO: adapt size of rectangle
+            cv2.rectangle(table_img, pt1=(20, 30), pt2=(100, 160),
+                          color=(0, 0, 255), thickness=2)
+            self._pub_vis.publish(img_to_imgmsg(table_img))
+            _logger.warning("Is area in red rectangle empty from objects?")
+            s = input('(y/n)')
+            if s.lower == 'y':
+                empty = True
+
     def _calibrate_table_height(self):
         setup_file = os.path.join(self._setup_dir, 'table_height.npz')
         try:
@@ -78,24 +93,38 @@ class PickAndPlace(object):
             _logger.info('Read table height from calibration file.')
         except IOError:
             _logger.info('Calibrate table height.')
-            # move to calibration pose
-            # record image
-            # draw rectangle around table (hard-coded?)
-            # publish
-            # ask if indicated area (entire table) is empty from objects
-            #   if not, ask to clear the area from objects
-            #   else, proceed
-            # for n = 10 poses:
-            #   while no solution:
-            #       random sample pose
-            #       compute config
-            #   move to config
-            #   measure distance 10 times and compute average in this pose
-            #   append computed height of table (-(average distance - endpoint_pose()[2]))
-            # compute min, max, mean and std dev of table height
-            # if std dev < threshold, store mean height
-            # else store max height
-            height = -0.2
+            arm = 'left'
+            n_samples = 10
+            self._robot.move_to(config=settings.calibration_cfgs[arm])
+            self._wait_for_clear_table(arm=arm)
+            heights = list()
+            for n in range(n_samples):
+                # TODO: implement generating random end effector pose
+                config = None
+                # while no solution:
+                # random sample pose
+                # compute config
+                self._robot.move_to(config=config)
+                distance = list()
+                while len(distance) < 10:
+                    d = self._robot.measure_distance(arm=arm)
+                    if d is not None:
+                        distance.append(d)
+                distance = np.mean(distance)
+                heights.append(-(distance - self._robot.endpoint_pose(arm=arm)[2]))
+            heights = np.asarray(heights)
+            h_min = heights.min()
+            h_max = heights.max()
+            h_mean = heights.mean()
+            h_std = heights.std()
+            # TODO: adapt threshold
+            if h_std < 0.1:
+                height = h_mean
+            else:
+                height = h_max
+            msg = 'Computed table height to be %.3f m. ' % height
+            msg += '(min: %.3f m, max: %.3f m, mean: %.3f m, std: %.3f m).' % (h_min, h_max, h_mean, h_std)
+            _logger.info(msg)
             np.savez(setup_file, height=height)
         return height
 
@@ -105,29 +134,28 @@ class PickAndPlace(object):
         setup_file = os.path.join(self._setup_dir, 'table_view.npz')
         try:
             with np.load(setup_file) as setup:
-                images = setup['images']
+                image_left = setup['image_left']
+                image_right = setup['image_right']
                 patches = setup['patches']
             _logger.info('Read table view from calibration file.')
         except IOError:
             _logger.info('Calibrate table view.')
-            # with both limbs
-            #   move to calibration pose
-            #   record hand camera image
-            #   draw rectangle around table (hard-coded?)
-            #   publish
-            #   ask if indicated area (entire table) is empty from objects
-            #       if not, ask to clear the area from objects
-            #       else, proceed
-            #   record and store reference image
-            #   discretize table surface
-            #       draw a grid of poses on the table
-            #       compute corresponding configs
-            #       store corresponding patch of appropriate size
-            #           (depends on max object size in meters, mpp and the current distance)
-            images = None
+            images = dict()
             patches = None
-            np.savez(setup_file, images=images, patches=patches)
-        return images, patches
+            for arm in ['left', 'right']:
+                self._robot.move_to(config=settings.calibration_cfgs[arm])
+                self._wait_for_clear_table(arm=arm)
+                images[arm] = self._robot.cameras[arm].collect_image()
+                # discretize table surface
+                #     draw a grid of poses on the table
+                #     compute corresponding configs
+                #     store corresponding patch of appropriate size
+                #         (depends on max object size in meters, mpp and the current distance)
+            image_left = images['left']
+            image_right = images['right']
+            np.savez(setup_file, image_left=images['left'],
+                     image_right=images['right'], patches=patches)
+        return image_left, image_right, patches
 
     def _load_external_calibration(self):
         setup_file = os.path.join(self._setup_dir, 'external_parameters.npz')
@@ -158,7 +186,7 @@ class PickAndPlace(object):
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
-        images, patches = self._calibrate_table_view()
+        image_left, image_right, patches = self._calibrate_table_view()
         self._table_image = {'left': None, 'right': None}
         self._table_patches = []
         self._table_poses = []
