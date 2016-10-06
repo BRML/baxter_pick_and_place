@@ -35,4 +35,4 @@ class SimplePlanner(MotionPlanner):
 
     def plan(self, start, end, **kwargs):
         """This dummy motion planner simply yields the given target."""
-        yield end
+        self._trajectory = [end]
