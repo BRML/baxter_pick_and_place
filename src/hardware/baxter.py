@@ -42,7 +42,7 @@ from baxter_core_msgs.srv import (
 from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
-from utils import list_to_pose_msg, pose_msg_to_list
+from utils import list_to_pose_msg, pose_msg_to_list, pose_dict_to_list
 from demo.settings import workspace_limits_m as lims
 
 
@@ -148,10 +148,11 @@ class Baxter(object):
         if isinstance(pose, Pose):
             msg = pose
         else:
-            msg = list_to_pose_msg(pose)
-            if isinstance(msg, str):
-                _logger.error(msg)
-                raise ValueError(msg)
+            try:
+                msg = list_to_pose_msg(pose)
+            except ValueError as e:
+                _logger.error(str(e))
+                raise e
         pose_msg = PoseStamped()
         pose_msg.pose = msg
         pose_msg.header.frame_id = target_frame
@@ -165,7 +166,7 @@ class Baxter(object):
         :param arm: The arm <'left', 'right'> to control.
         :return: The pose as a list [x, y, z, roll, pitch, yaw].
         """
-        return pose_msg_to_list(self._limbs[arm].endpoint_pose())
+        return pose_dict_to_list(self._limbs[arm].endpoint_pose())
 
     def inverse_kinematics(self, arm, pose=None):
         """Solve inverse kinematics for one limb at given pose.
@@ -259,7 +260,8 @@ class Baxter(object):
         """
         arm = target.keys()[0].split('_')[0]
         start = self._limbs[arm].joint_angles()
-        return self._planner.plan(start=start, end=target)
+        self._planner.plan(start=start, end=target)
+        return self._planner
 
     def move_to(self, config):
         """Shortcut for planning a trajectory to the target configuration

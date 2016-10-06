@@ -36,6 +36,13 @@ class MotionPlanner(object):
             coordinate> values.
         """
         self.controller_type = ''
+        self._trajectory = None
+
+    def __iter__(self):
+        if self._trajectory is None:
+            raise RuntimeError("Need to plan a trajectory first!")
+        for t in self._trajectory:
+            yield t
 
     def plan(self, start, end, **kwargs):
         """A generator implementing the planning algorithm."""
