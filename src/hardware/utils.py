@@ -45,10 +45,8 @@ def list_to_pose_msg(pose):
                 q = pose[3:]
             msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w = q
             return msg
-        else:
-            return "Expected pose to be [x, y, z, r, p, y] or [x, y, z, qx, qy, qz, qw]!"
-    else:
-        return "Expected pose to be a list of length 6 or 7!"
+        raise ValueError("Expected pose to be [x, y, z, r, p, y] or [x, y, z, qx, qy, qz, qw]!")
+    raise ValueError("Expected pose to be a list of length 6 or 7!")
 
 
 def pose_msg_to_list(pose):
@@ -58,7 +56,19 @@ def pose_msg_to_list(pose):
     :return: The pose as a list [x, y, z, roll, pitch, yaw].
     """
     if isinstance(pose, Pose):
-        rot = transformations.euler_from_quaternion(pose['orientation'])
+        rot = list(transformations.euler_from_quaternion(pose['orientation']))
         return pose['position'] + rot
-    else:
-        return "Expected pose to be a ROS Pose message!"
+    raise ValueError("Expected pose to be a ROS Pose message!")
+
+
+def pose_dict_to_list(pose):
+    """Convert a pose baxter_interface dictionary into a list.
+
+    :param pose: A pose baxter_interface dict.
+    :return: The pose as a list [x, y, z, roll, pitch, yaw].
+    """
+    if isinstance(pose, dict):
+        pos = [pose['position'].x, pose['position'].y, pose['position'].z]
+        rot = list(transformations.euler_from_quaternion(pose['orientation']))
+        return pos + rot
+    raise ValueError("Expected pose to be a dictionary!")
