@@ -74,15 +74,15 @@ class PickAndPlace(object):
 
     def _wait_for_clear_table(self, arm):
         empty = False
-        while not empty:
+        while not empty and not rospy.is_shutdown():
             table_img = self._robot.cameras[arm].collect_image()
             # TODO: adapt size of rectangle
             cv2.rectangle(table_img, pt1=(20, 30), pt2=(100, 160),
                           color=(0, 0, 255), thickness=2)
             self._pub_vis.publish(img_to_imgmsg(table_img))
             _logger.warning("Is area in red rectangle empty from objects?")
-            s = input('(y/n)')
-            if s.lower == 'y':
+            s = raw_input('(yes/no) ')
+            if s.lower()[0] == 'y':
                 empty = True
 
     def _calibrate_table_height(self):
@@ -90,7 +90,7 @@ class PickAndPlace(object):
         try:
             with np.load(setup_file) as setup:
                 height = setup['height']
-            _logger.info('Read table height from calibration file.')
+            _logger.info('Read table height %.3f m from calibration file.' % height)
         except IOError:
             _logger.info('Calibrate table height.')
             arm = 'left'
@@ -99,26 +99,27 @@ class PickAndPlace(object):
             self._wait_for_clear_table(arm=arm)
             heights = list()
             for n in range(n_samples):
+                if rospy.is_shutdown():
+                    break
                 # TODO: implement generating random end effector pose
                 config = None
                 # while no solution:
                 # random sample pose
                 # compute config
-                self._robot.move_to(config=config)
-                distance = list()
-                while len(distance) < 10:
+                # self._robot.move_to(config=config)
+                distances = list()
+                while len(distances) < 10:
                     d = self._robot.measure_distance(arm=arm)
                     if d is not None:
-                        distance.append(d)
-                distance = np.mean(distance)
+                        distances.append(d)
+                distance = np.mean(distances)
                 heights.append(-(distance - self._robot.endpoint_pose(arm=arm)[2]))
             heights = np.asarray(heights)
             h_min = heights.min()
             h_max = heights.max()
             h_mean = heights.mean()
             h_std = heights.std()
-            # TODO: adapt threshold
-            if h_std < 0.1:
+            if h_std < 0.0025:
                 height = h_mean
             else:
                 height = h_max
