@@ -126,6 +126,8 @@ def imgmsg_to_img(imgmsg):
             pass
         except AttributeError as e:
             raise e
+        if img is not None:
+            break
     if img is None:
         raise ValueError("Cannot convert image message to numpy array!")
     return img
@@ -143,6 +145,8 @@ def img_to_imgmsg(img):
             imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, enc)
         except cv_bridge.CvBridgeError:
             pass
+        if imgmsg is not None:
+            break
     if imgmsg is None:
         raise ValueError("Cannot convert {} {} array to image message!".format(
             img.shape, img.dtype))
