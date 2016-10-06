@@ -27,7 +27,6 @@ import logging
 import numpy as np
 
 import rospy
-
 from geometry_msgs.msg import (
     Pose,
     PoseStamped
@@ -43,6 +42,7 @@ from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
 from utils import list_to_pose_msg, pose_msg_to_list, pose_dict_to_list
+from utils import pose_dict_to_hom
 from demo.settings import workspace_limits_m as lims
 
 
@@ -98,8 +98,24 @@ class Baxter(object):
 
         self._rs = None
         self._init_state = None
+        self.cam_offset = None
 
         self.z_table = None
+
+    @staticmethod
+    def _get_cam_offset():
+        """Get the hand_camera--gripper offset in gripper coordinates.
+        Note: The offset is the same for the left and right limbs.
+
+        It would be nicer to implement it using a tf.TransformListener between
+        topics "/left_gripper" and "/left_hand_camera", but for some reason
+        it does not find the topics...
+        See http://wiki.ros.org/tf/TfUsingPython#TransformListener for more
+        details.
+
+        :return: The offset as a list of length 3 [dx, dy, dz].
+        """
+        return [0.03828, 0.012, -0.142345]
 
     def set_up(self):
         """Enable the robot, move both limbs to neutral configuration and
@@ -107,17 +123,22 @@ class Baxter(object):
 
         :return:
         """
-        _logger.info("Getting robot state")
+        _logger.info("Getting robot state.")
         self._rs = baxter_interface.RobotEnable(baxter_interface.CHECK_VERSION)
         self._init_state = self._rs.state().enabled
-        _logger.info("Enabling robot")
+        _logger.info("Enabling robot.")
         self._rs.enable()
+
+        _logger.info("Getting camera offset.")
+        self.cam_offset = self._get_cam_offset()
 
         _logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
             self._limbs[arm].move_to_neutral()
             self._grippers[arm].set_parameters(parameters=self._grippers_pars)
             self._grippers[arm].calibrate()
+            # Measured meters per pixel @ 1 m distance
+            self.cameras[arm].meters_per_pixel = 0.0025
 
     def clean_up(self):
         """Open both grippers, move both limbs to neutral configuration and
@@ -208,7 +229,11 @@ class Baxter(object):
         """Attempt to solve the inverse kinematics for a given pose with
         either arm. If no solution is found, raise an exception
 
-        :param pose:
+        :param pose: The pose to stamp. One of
+            - None, in which case the current set of joint angles is returned,
+            - a ROS Pose,
+            - a list of length 6 [x, y, z, roll, pitch, yaw] or
+            - a list of length 7 [x, y, z, qx, qy, qz, qw].
         :return: tuple of string and dict:
             - the arm <'left', 'right'> the solution was found for
             - a dictionary of joint name keys to joint angles.
@@ -263,13 +288,26 @@ class Baxter(object):
         self._planner.plan(start=start, end=target)
         return self._planner
 
-    def move_to(self, config):
+    def move_to(self, config=None, pose=None):
         """Shortcut for planning a trajectory to the target configuration
-        and executing the trajectory.
+        and executing the trajectory. If a target pose is specified,
+        compute the corresponding target configuration using the inverse
+        kinematics solver before planning and executing the trajectory.
+        Note: Only *one* of <config, pose> can be specified at a time.
 
         :param config: Dictionary of joint name keys to target joint angles.
+        :param pose: The pose to stamp. One of
+            - None, in which case the current set of joint angles is returned,
+            - a ROS Pose,
+            - a list of length 6 [x, y, z, roll, pitch, yaw] or
+            - a list of length 7 [x, y, z, qx, qy, qz, qw].
         :return:
         """
+        inpt = [False if x is None else True for x in [config, pose]]
+        if sum(inpt) == 0 or sum(inpt) == 2:
+            raise ValueError("Need to provide either target config or pose!")
+        if pose is not None:
+            _, config = self.ik_either_limb(pose=pose)
         trajectory = self.plan(target=config)
         self.control(trajectory=trajectory)
 
@@ -331,24 +369,32 @@ class Baxter(object):
             return distance/1000.0
         return None
 
-    def estimate_object_position(self, arm, bbox):
-        """Estimate an objects position in the x-y plane.
+    def _hom_camera_to_robot(self, arm):
+        """Get the homogeneous transformation matrix {}^R\mat{T}_{C} relating
+        camera coordinates to robot coordinates.
 
         :param arm: The arm <'left', 'right'> to control.
-        :param bbox: The bounding box of the object we are interested in in
-            the corresponding image.
-        :return:
+        :return: The homogeneous transformation matrix (a 4x4 numpy array).
         """
-        cx, cy = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        x, y, _ = self.cameras[arm].projection_pixel_to_camera((cx, cy))
-        # TODO: transform [x, y, _] from camera to robot space
-        # return [x, y]
-        # TODO: remove this debugging stuff
-        rs = np.random.random_sample
-        if rs() > 0.8:
-            return [
-                (lims['x_max'] - lims['x_min'])*rs() + lims['x_min'],
-                (lims['y_max'] - lims['y_min'])*rs() + lims['y_min']
-            ]
-        else:
-            return None
+        ee_pose = self._limbs[arm].endpoint_pose()
+        cam_pose = ee_pose
+        return pose_dict_to_hom(pose=cam_pose)
+
+    def estimate_object_position(self, arm, center):
+        """Compute an estimate for the 3D position of an object lying on a
+        table with known height.
+        Note: This method only works if the gripper is restricted to be
+        oriented perpendicular to the table top.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param center: The pixel coordinates to project to robot coordinates.
+        :return: The estimated object position as a list of length 3 [x, y, z].
+        """
+        z_ee = self.endpoint_pose(arm=arm)[2]
+        distance = z_ee - self.cam_offset[2] - self.z_table
+        cam_coord = self.cameras[arm].projection_pixel_to_camera(pixel=center,
+                                                                 z=distance)
+        hom_coord = np.asarray(cam_coord + [1])
+        rob_coord = np.dot(self._hom_camera_to_robot(arm=arm), hom_coord)
+        rob_coord /= rob_coord[-1]
+        return [rob_coord[0], rob_coord[2], self.z_table]
