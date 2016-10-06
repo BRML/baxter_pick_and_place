@@ -91,9 +91,32 @@ class Camera(object):
             img = cv2.imread(img_file)
         return img
 
-    def projection_pixel_to_camera(self, pixel):
-        # TODO: implement
-        pass
+    def projection_pixel_to_camera(self, pixel, z):
+        """Project a 2d point (px, py) in pixel coordinates into 3D camera
+        coordinates.
+        Since the projection from camera to pixel space is non-invertible,
+        we are restricted to the case that we know the z coordinate of the
+        point in camera coordinates, e.g., for an object lying on a table
+        with known height.
+
+        :param pixel: A 2D position as a tuple of length 2 (px, py).
+        :param z: The known height of the pixel in camera coordinates.
+        :return: The corresponding 3D camera coordinates [x, y, z].
+        """
+        if isinstance(pixel, (tuple, list)) and len(pixel) == 2:
+            # For known z coordinate we can rearrange
+            #   (u)   [fx 0  cx](x)
+            #   (v) = [0  fy cy](y)
+            #   (w)   [0  0  1 ](z)
+            # to compute
+            #   w = z,
+            #   x = (u - cx*z)/fx,  u = px*w, and
+            #   y = (v - cy*z)/fy,  v = py*w.
+            u, v = [p*z for p in pixel]
+            x = (u - self._camera_matrix[0, 2]*z)/self._camera_matrix[0, 0]
+            y = (v - self._camera_matrix[1, 2]*z)/self._camera_matrix[1, 1]
+            return [x, y, z]
+        raise ValueError("'pixel' should be a tuple of length 2!")
 
     def projection_camera_to_pixel(self, position):
         """Project a 3d point [x, y, z] in camera coordinates onto the

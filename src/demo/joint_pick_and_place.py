@@ -66,21 +66,27 @@ class PickAndPlace(object):
 
         self._setup_dir = os.path.join(self._root, 'data', 'setup')
         if not os.path.exists(self._setup_dir):
-            _logger.info('Creating setup directory at {}.'.format(self._setup_dir))
+            _logger.info('Create setup directory at {}.'.format(self._setup_dir))
             os.makedirs(self._setup_dir)
 
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
     def _wait_for_clear_table(self, arm):
+        """Busy wait until the user has cleared the region indicated in the
+        published image to be cleared entirely of objects.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return:
+        """
         empty = False
         while not empty and not rospy.is_shutdown():
             table_img = self._robot.cameras[arm].collect_image()
             # TODO: adapt size of rectangle
-            cv2.rectangle(table_img, pt1=(20, 30), pt2=(100, 160),
-                          color=(0, 0, 255), thickness=2)
+            cv2.rectangle(table_img, pt1=(100, 200), pt2=(1180, 700),
+                          color=(0, 0, 255), thickness=3)
             self._pub_vis.publish(img_to_imgmsg(table_img))
-            _logger.warning("Is area in red rectangle empty from objects?")
+            _logger.warning("Is the area within the red rectangle devoid of objects?")
             s = raw_input('(yes/no) ')
             if s.lower()[0] == 'y':
                 empty = True
@@ -95,7 +101,7 @@ class PickAndPlace(object):
             _logger.info('Calibrate table height.')
             arm = 'left'
             n_samples = 10
-            self._robot.move_to(config=settings.calibration_cfgs[arm])
+            self._robot.move_to(pose=settings.calibration_pose)
             self._wait_for_clear_table(arm=arm)
             heights = list()
             for n in range(n_samples):
@@ -127,6 +133,7 @@ class PickAndPlace(object):
             msg += '(min: %.3f m, max: %.3f m, mean: %.3f m, std: %.3f m).' % (h_min, h_max, h_mean, h_std)
             _logger.info(msg)
             np.savez(setup_file, height=height)
+            self._robot.move_to_neutral(arm=arm)
         return height
 
     def _calibrate_table_view(self):
@@ -174,10 +181,6 @@ class PickAndPlace(object):
         # TODO: implement calibration routines
         _logger.info("Perform / read calibration of demonstration setup.")
 
-        # Measured meters per pixel @ 1 m distance
-        for arm in ['left', 'right']:
-            self._robot.cameras[arm].meters_per_pixel = 0.0025
-
         # height of the table in robot coordinates
         self._robot.z_table = self._calibrate_table_height()
 
@@ -187,14 +190,14 @@ class PickAndPlace(object):
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
-        image_left, image_right, patches = self._calibrate_table_view()
-        self._table_image = {'left': None, 'right': None}
-        self._table_patches = []
-        self._table_poses = []
-        self._table_cfgs = []
+        # image_left, image_right, patches = self._calibrate_table_view()
+        # self._table_image = {'left': None, 'right': None}
+        # self._table_patches = []
+        # self._table_poses = []
+        # self._table_cfgs = []
 
         # external camera relative to Baxter coordinates
-        trafo = self._load_external_calibration()
+        # trafo = self._load_external_calibration()
 
     def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some

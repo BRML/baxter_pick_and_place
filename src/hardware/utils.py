@@ -72,3 +72,18 @@ def pose_dict_to_list(pose):
         rot = list(transformations.euler_from_quaternion(pose['orientation']))
         return pos + rot
     raise ValueError("Expected pose to be a dictionary!")
+
+
+def pose_dict_to_hom(pose):
+    """Convert a pose baxter_interface dictionary into a homogeneous
+    transformation matrix.
+
+    :param pose: A pose baxter_interface dict.
+    :return: The corresponding homogeneous transformation matrix (a 4x4
+        numpy array).
+    """
+    if isinstance(pose, dict):
+        hom = transformations.quaternion_matrix(pose['orientation'])
+        hom[:-1, -1] = pose['position']
+        return hom
+    raise ValueError("Expected pose to be a dictionary!")
