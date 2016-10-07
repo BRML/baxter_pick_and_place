@@ -168,18 +168,25 @@ class PickAndPlace(object):
             images = dict()
             patches = None
             for arm in ['left', 'right']:
-                self._robot.move_to(config=settings.calibration_cfgs[arm])
+                try:
+                    config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
+                except ValueError as e:
+                    _logger.error("This should not have happened! Abort.")
+                    raise e
+                self._robot.move_to(config=config)
                 self._wait_for_clear_table(arm=arm)
                 images[arm] = self._robot.cameras[arm].collect_image()
+                self._pub_vis.publish(img_to_imgmsg(images[arm]))
                 # discretize table surface
                 #     draw a grid of poses on the table
                 #     compute corresponding configs
                 #     store corresponding patch of appropriate size
                 #         (depends on max object size in meters, mpp and the current distance)
+                self._robot.move_to_neutral(arm=arm)
             image_left = images['left']
             image_right = images['right']
-            np.savez(setup_file, image_left=images['left'],
-                     image_right=images['right'], patches=patches)
+            # np.savez(setup_file, image_left=images['left'],
+            #          image_right=images['right'], patches=patches)
         return image_left, image_right, patches
 
     def _load_external_calibration(self):
@@ -206,7 +213,7 @@ class PickAndPlace(object):
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
-        # image_left, image_right, patches = self._calibrate_table_view()
+        image_left, image_right, patches = self._calibrate_table_view()
         # self._table_image = {'left': None, 'right': None}
         # self._table_patches = []
         # self._table_poses = []
