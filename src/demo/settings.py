@@ -33,9 +33,9 @@ top_pose = [
     0.45,  # x = (+) front, (-) back
     0.0,  # y = (+) left, (-) right
     0.15,  # z = (+) up, (-) down
-    -1.0*pi,  # roll = rotation about x-axis
+    1.0*pi,  # roll = rotation about x-axis
     0.0*pi,  # pitch = rotation about y-axis
-    0.0*pi  # yaw = rotation about z-axis
+    1.0*pi  # yaw = rotation about z-axis
 ]
 # pre-computed configurations for that pose
 top_cfgs = {
@@ -59,27 +59,7 @@ top_cfgs = {
     }
 }
 # The calibration pose is used for calibrating the robot--table relations.
-calibration_pose = [0.45, 0.0, -0.1, -1.0*pi, 0.0*pi, 0.0*pi]
-calibration_cfgs = {
-    'left': {
-        'left_w0': -0.7107410074078935,
-        'left_w1': 0.4340928648447648,
-        'left_w2': -3.059000015258789,
-        'left_e0': 0.42645654223310514,
-        'left_e1': 2.1246825962582374,
-        'left_s0': -1.7016799449920654,
-        'left_s1': -0.8455232555031188
-    },
-    'right': {
-        'right_s0': 0.3418348268654378,
-        'right_s1': 0.323282667591836,
-        'right_w0': 1.2131201858304432,
-        'right_w1': -1.5707963705062866,
-        'right_w2': 1.6099074175462753,
-        'right_e0': 1.4147929189254114,
-        'right_e1': 2.029526806713892
-    }
-}
+calibration_pose = [0.45, 0.0, 0.1, pi, 0.0, pi]
 
 # TODO: set those ids and values to something useful
 # The measured length of the longer dimension of each object (in the x-y
@@ -129,4 +109,14 @@ workspace_limits_m = {
     'y_max': 0.4,
     'z_min': 0.75,
     'z_max': 1.15
+}
+
+# The robot's task space limits in meter
+task_space_limits_m = {
+    'x_min': 0.35,
+    'x_max': 0.84,
+    'y_min': -0.475,
+    'y_max': 0.475,
+    'z_min': -0.19,
+    'z_max': 0.33,
 }
