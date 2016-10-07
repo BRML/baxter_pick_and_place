@@ -284,9 +284,9 @@ class PickAndPlace(object):
             else:
                 img_color = self._camera.color.collect_image()
                 img_depth = self._camera.depth.collect_image()
-                det = self._detection.detect_object(image=img_color,
-                                                    object_id=obj_id,
-                                                    threshold=0.8)
+                det = self._segmentation.detect_object(image=img_color,
+                                                       object_id=obj_id,
+                                                       threshold=0.8)
                 obj_pose = self._camera.estimate_object_position(img_rgb=img_color,
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
