@@ -190,16 +190,23 @@ class Baxter(object):
         return pose_dict_to_list(self._limbs[arm].endpoint_pose())
 
     @staticmethod
-    def sample_task_space_pose():
+    def sample_task_space_pose(clip_z=False):
         """Sample a random pose from within the robot's task space.
         Note: The orientation is held fixed!
 
+        :param clip_z: Whether to clip the maximum z coordinate.
+            Used for calibrating the table height, due to strange behavior of
+            the distance sensor.
         :return: The random pose as a list [x, y, z, roll, pitch, yaw].
         """
+        if clip_z:
+            z_max = 0.0
+        else:
+            z_max = lims['z_max']
         return [
             (lims['x_max'] - lims['x_min'])*np.random.random_sample() + lims['x_min'],
             (lims['y_max'] - lims['y_min'])*np.random.random_sample() + lims['y_min'],
-            (lims['z_max'] - lims['z_min'])*np.random.random_sample() + lims['z_min'],
+            (z_max - lims['z_min'])*np.random.random_sample() + lims['z_min'],
             np.pi,
             0.0,
             np.pi
