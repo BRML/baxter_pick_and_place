@@ -82,8 +82,7 @@ class PickAndPlace(object):
         empty = False
         while not empty and not rospy.is_shutdown():
             table_img = self._robot.cameras[arm].collect_image()
-            # TODO: adapt size of rectangle
-            cv2.rectangle(table_img, pt1=(100, 200), pt2=(1180, 700),
+            cv2.rectangle(table_img, pt1=(250, 175), pt2=(1030, 650),
                           color=(0, 0, 255), thickness=3)
             self._pub_vis.publish(img_to_imgmsg(table_img))
             _logger.warning("Is the area within the red rectangle devoid of objects?")
@@ -101,18 +100,27 @@ class PickAndPlace(object):
             _logger.info('Calibrate table height.')
             arm = 'left'
             n_samples = 10
-            self._robot.move_to(pose=settings.calibration_pose)
+            try:
+                config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
+            except ValueError as e:
+                _logger.error("This should not have happened! Abort.")
+                raise e
+            self._robot.move_to(config=config)
             self._wait_for_clear_table(arm=arm)
             heights = list()
             for n in range(n_samples):
                 if rospy.is_shutdown():
                     break
-                # TODO: implement generating random end effector pose
                 config = None
-                # while no solution:
-                # random sample pose
-                # compute config
-                # self._robot.move_to(config=config)
+                while config is None:
+                    if rospy.is_shutdown():
+                        break
+                    random_pose = self._robot.sample_task_space_pose()
+                    try:
+                        config = self._robot.inverse_kinematics(arm=arm, pose=random_pose)
+                    except ValueError:
+                        pass
+                self._robot.move_to(config=config)
                 distances = list()
                 while len(distances) < 10:
                     d = self._robot.measure_distance(arm=arm)
@@ -183,6 +191,38 @@ class PickAndPlace(object):
 
         # height of the table in robot coordinates
         self._robot.z_table = self._calibrate_table_height()
+        #
+        # poses = [
+        #     [3.474511204441573242e-01,4.240918001777834179e-01,-1.818327075140410698e-01,np.pi, 0, np.pi],
+        #     [4.486065370313064293e-01,1.585234974062365576e-01,-1.941784103410283402e-01,np.pi, 0, np.pi],
+        #     [4.273256217017279979e-01,-1.169049593789118630e-01,-1.903435730173476115e-01,np.pi, 0, np.pi],
+        #     [4.258741230325833738e-01,-2.754209697768291165e-01,-1.915241783879885196e-01,np.pi, 0, np.pi],
+        #     [6.665673355448135107e-01,-2.329086952749551132e-01,-1.900911213653721510e-01,np.pi, 0, np.pi],
+        #     [7.926988479637417928e-01,-3.688670600240247927e-02,-1.950678207448614254e-01,np.pi, 0, np.pi],
+        #     [7.363391754846297932e-01,1.643870472957599804e-01,-1.918860599003910095e-01,np.pi, 0, np.pi],
+        #     [7.697996495429271224e-01,2.896080329543057053e-01,-1.850138606273399322e-01,np.pi, 0, np.pi],
+        #     [7.877625421233425129e-01,4.699422587719501720e-01,-1.814204073963585073e-01,np.pi, 0, np.pi],
+        #     [6.028305444399418844e-01,4.209698687662092320e-01,-1.731020865767910477e-01,np.pi, 0, np.pi],
+        #     [6.440953022856594767e-01,1.110063953159414196e-01,-1.950212588636314193e-01,np.pi, 0, np.pi],
+        #     [5.204044985266307322e-01,-4.543502361196464223e-01,-1.917104674221183913e-01,np.pi, 0, np.pi],
+        #     [7.960987703901561963e-01,-4.197480572985886060e-01,-1.967741644222767150e-01,np.pi, 0, np.pi],
+        #     [8.482889011279781677e-01,-1.992462743559996752e-01,-1.900051500786717751e-01,np.pi, 0, np.pi],
+        #     [7.903178826621605202e-01,-9.968352150047045737e-03,-1.927256517738526742e-01,np.pi, 0, np.pi],
+        #     [6.252523168081447480e-01,2.186443113416189077e-01,-1.981463666051733186e-01,np.pi, 0, np.pi],
+        #     [5.319423364555162514e-01,2.386146069221656008e-01,-1.914204854316724769e-01,np.pi, 0, np.pi],
+        #     [4.687382212406772108e-01,1.157192186970120162e-01,-1.960251832577140918e-01,np.pi, 0, np.pi],
+        #     [4.884083451591978986e-01,-7.775869597101019159e-02,-1.812619483261371789e-01,np.pi, 0, np.pi],
+        #     [3.823379179972307140e-01,-2.515174171112854462e-01,-1.903380149535630061e-01,np.pi, 0, np.pi],
+        #     [7.427183539866843986e-01,-3.524006626666135733e-01,2.743750952472202020e-01,np.pi, 0, np.pi],
+        #     [6.168234383752749794e-01,-4.743035949239314542e-02,2.751004741928499975e-01,np.pi, 0, np.pi],
+        #     [7.497373487611416198e-01,2.119651040468711889e-01,2.580796587140152809e-01,np.pi, 0, np.pi],
+        #     [7.000913558743803167e-01,5.355776459011701851e-01,2.560497938880563762e-01,np.pi, 0, np.pi],
+        #     [5.631908155692697537e-01,5.332474235404055865e-03,3.368878063045371296e-01,np.pi, 0, np.pi]
+        # ]
+        # for i in range(len(poses)):
+        #     print i,
+        #     self._robot.move_to(pose=self._robot.sample_task_space_pose())
+        #     print ''
 
         # image patches corresponding to pre-selected poses / configurations on the
         # table.

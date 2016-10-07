@@ -41,9 +41,9 @@ from baxter_core_msgs.srv import (
 from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
-from utils import list_to_pose_msg, pose_msg_to_list, pose_dict_to_list
+from utils import list_to_pose_msg, pose_dict_to_list
 from utils import pose_dict_to_hom
-from demo.settings import workspace_limits_m as lims
+from demo.settings import task_space_limits_m as lims
 
 
 # Set up logging
@@ -188,6 +188,22 @@ class Baxter(object):
         :return: The pose as a list [x, y, z, roll, pitch, yaw].
         """
         return pose_dict_to_list(self._limbs[arm].endpoint_pose())
+
+    @staticmethod
+    def sample_task_space_pose():
+        """Sample a random pose from within the robot's task space.
+        Note: The orientation is held fixed!
+
+        :return: The random pose as a list [x, y, z, roll, pitch, yaw].
+        """
+        return [
+            (lims['x_max'] - lims['x_min'])*np.random.random_sample() + lims['x_min'],
+            (lims['y_max'] - lims['y_min'])*np.random.random_sample() + lims['y_min'],
+            (lims['z_max'] - lims['z_min'])*np.random.random_sample() + lims['z_min'],
+            np.pi,
+            0.0,
+            np.pi
+        ]
 
     def inverse_kinematics(self, arm, pose=None):
         """Solve inverse kinematics for one limb at given pose.
