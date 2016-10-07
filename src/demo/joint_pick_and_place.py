@@ -91,6 +91,15 @@ class PickAndPlace(object):
                 empty = True
 
     def _calibrate_table_height(self):
+        """Calibrate the height of the table in the robot's task coordinates.
+        After ensuring that the table has been cleared of objects the robot
+        moves its limb to a number of randomly sampled poses in the task
+        space. At each pose it measures the distance to the table top using
+        an infrared sensor. The estimate of the table height is computed from
+        these distance measurements.
+
+        :return: The estimated table height in meters.
+        """
         setup_file = os.path.join(self._setup_dir, 'table_height.npz')
         try:
             with np.load(setup_file) as setup:
@@ -115,7 +124,7 @@ class PickAndPlace(object):
                 while config is None:
                     if rospy.is_shutdown():
                         break
-                    random_pose = self._robot.sample_task_space_pose()
+                    random_pose = self._robot.sample_task_space_pose(clip_z=True)
                     try:
                         config = self._robot.inverse_kinematics(arm=arm, pose=random_pose)
                     except ValueError:
@@ -133,7 +142,7 @@ class PickAndPlace(object):
             h_max = heights.max()
             h_mean = heights.mean()
             h_std = heights.std()
-            if h_std < 0.0025:
+            if h_std < 0.005:
                 height = h_mean
             else:
                 height = h_max
