@@ -30,7 +30,7 @@ import rospy
 from std_msgs.msg import Float32MultiArray
 
 from base import Camera
-from demo.settings import workspace_limits_m as lims
+from demo.settings import task_space_limits_m as lims
 
 
 class Kinect(object):
