@@ -33,7 +33,7 @@ from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
-from vision import ObjectDetection, ObjectSegmentation
+from vision import ObjectSegmentation
 
 
 class Demonstration(object):
@@ -52,8 +52,7 @@ class Demonstration(object):
                                         ws_limits=settings.task_space_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect()
-        self._detection = ObjectDetection(root_dir=ros_ws,
-                                          object_ids=object_set)
+        self._detection = None
         self._segmentation = ObjectSegmentation(root_dir=ros_ws,
                                                 object_ids=object_set)
         pub_vis = rospy.Publisher(settings.topic_visualization, Image,
@@ -89,10 +88,7 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
-        # TODO: un-comment those two
-        # self._detection.init_model(warmup=True)
-        # TODO: why does it fail?
-        # self._segmentation.init_model(warmup=False)
+        self._segmentation.init_model(warmup=False)
         self._demo.calibrate()
 
     def demonstrate(self):
