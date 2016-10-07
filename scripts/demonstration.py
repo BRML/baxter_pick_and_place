@@ -49,7 +49,7 @@ class Demonstration(object):
         self._environment = Environment(root_dir=ros_ws,
                                         # TODO replace with object_set[1:],
                                         object_ids=['duplo_brick', 'robot'],
-                                        ws_limits=settings.workspace_limits_m)
+                                        ws_limits=settings.task_space_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect()
         self._detection = ObjectDetection(root_dir=ros_ws,
@@ -91,7 +91,8 @@ class Demonstration(object):
             self._environment.set_up()
         # TODO: un-comment those two
         # self._detection.init_model(warmup=True)
-        # self._segmentation.init_model(warmup=True)
+        # TODO: why does it fail?
+        # self._segmentation.init_model(warmup=False)
         self._demo.calibrate()
 
     def demonstrate(self):
@@ -107,7 +108,7 @@ if __name__ == '__main__':
     demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)
     rospy.on_shutdown(demo.shutdown_routine)
     demo.set_up()
-    demo.demonstrate()
+    # demo.demonstrate()
 
 
 # TODO: clean up this mess
