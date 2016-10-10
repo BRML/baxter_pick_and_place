@@ -25,18 +25,33 @@
 
 import numpy as np
 from numpy.random import random_sample
+import os
 
 import rospy
 from std_msgs.msg import Float32MultiArray
+from sensor_msgs.msg import CameraInfo
 
 from base import Camera
 from demo.settings import task_space_limits_m as lims
 
 
 class Kinect(object):
-    def __init__(self):
-        self.depth = Camera(topic='/kinect2/sd/image_depth_rect')
-        self.color = Camera(topic='/kinect2/hd/image_color_rect')
+    def __init__(self, root_dir):
+        cm_color = None
+        cm_depth = None
+        try:
+            # try to read calibration from ROS camera info topic
+            _ = rospy.wait_for_message(topic='/kinect2/sd/camera_info',
+                                       topic_type=CameraInfo,
+                                       timeout=0.5)
+        except rospy.ROSException:
+            print 'loading stored Kinect calibration'
+            path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
+            with np.load(path) as cal:
+                cm_color = cal['hd']
+                cm_depth = cal['depth']
+        self.depth = Camera(topic='/kinect2/sd/image_depth_rect', cam_mat=cm_depth)
+        self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
 
         self._topic = '/kinect2/skeleton'
 

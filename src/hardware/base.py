@@ -37,7 +37,7 @@ from sensor_msgs.msg import (
 
 
 class Camera(object):
-    def __init__(self, topic):
+    def __init__(self, topic, cam_mat=None):
         """Base class for a ROS camera.
         A camera should have at least
           - a method to read images from a ROS topic,
@@ -46,7 +46,12 @@ class Camera(object):
         """
         self._topic = topic
 
-        self._camera_matrix = self._get_calibration()
+        if cam_mat is None:
+            self._camera_matrix = self._get_calibration()
+        else:
+            if cam_mat.shape != (3, 4):
+                raise ValueError("Expected a 3x4 camera matrix, got {}!".format(cam_mat.shape))
+            self._camera_matrix = cam_mat
 
         self.meters_per_pixel = None
 
@@ -64,9 +69,7 @@ class Camera(object):
                                          timeout=0.5)
             cal = msg.P
         except rospy.ROSException:
-            # fall back to stored calibration values
-            # TODO: load calibration from file
-            cal = [2, 0, 1, 0, 0, 2, 1, 0, 0, 0, 1, 0]
+            raise RuntimeError("Unable to read camera info from ROS master!")
         return np.asarray(cal).reshape((3, 4))
 
     def collect_image(self):
