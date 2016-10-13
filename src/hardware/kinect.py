@@ -45,10 +45,22 @@ class Kinect(object):
                                        topic_type=CameraInfo,
                                        timeout=0.5)
         except rospy.ROSException:
-            print 'loading stored Kinect calibration'
+            # Load previously stored camera matrices for color (1920x1080)
+            # and depth (512x424) sensors. The values in kinect_params.npz
+            # are obtained by running
+            # $ roslaunch kinect2_bridge kinect2_bridge.launch
+            # $ rostopic echo -n 1 /kinect2/sd/camera_info (depth)
+            # $ rostopic echo -n 1 /kinect2/hd/camera_info (color with 1920x1080)
+            # $ rostopic echo -n 1 /kinect2/qhd/camera_info (color with 960x540)
+            # Note that qhd is scaled from hd by a factor of 1/2 in image size
+            # and in fx, fy, cx, cy. It therefore is sufficient to save the hd
+            # values.
             path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
             with np.load(path) as cal:
                 cm_color = cal['hd']
+                # ELTE KinectOverNetwork tool scales color image by factor
+                # of 1/2 (960x540).
+                cm_color /= 2.0
                 cm_depth = cal['depth']
         self.depth = Camera(topic='/kinect2/sd/image_depth_rect', cam_mat=cm_depth)
         self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
