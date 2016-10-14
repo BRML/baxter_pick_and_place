@@ -23,9 +23,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 import numpy as np
 from numpy.random import random_sample
 import os
+import socket
+import struct
+import time
+
+import cv2
 
 import rospy
 from std_msgs.msg import Float32MultiArray
@@ -35,15 +41,34 @@ from base import Camera
 from demo.settings import task_space_limits_m as lims
 
 
+# Set up logging
+_logger = logging.getLogger('kinect')
+_logger.setLevel(logging.INFO)
+_default_loghandler = logging.StreamHandler()
+_default_loghandler.setLevel(logging.INFO)
+_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
+_logger.addHandler(_default_loghandler)
+
+
+def remove_default_loghandler():
+    """Call this to mute this library or to prevent duplicate messages
+    when adding another log handler to the logger named 'kinect'."""
+    _logger.removeHandler(_default_loghandler)
+
+
 class Kinect(object):
-    def __init__(self, root_dir):
+    def __init__(self, root_dir, host=None):
         cm_color = None
         cm_depth = None
+        self._host = host
+        self._socket = None
+        self._native_ros = False
         try:
             # try to read calibration from ROS camera info topic
             _ = rospy.wait_for_message(topic='/kinect2/sd/camera_info',
                                        topic_type=CameraInfo,
                                        timeout=0.5)
+            self._native_ros = True
         except rospy.ROSException:
             # Load previously stored camera matrices for color (1920x1080)
             # and depth (512x424) sensors. The values in kinect_params.npz
@@ -65,48 +90,138 @@ class Kinect(object):
         self.depth = Camera(topic='/kinect2/sd/image_depth_rect', cam_mat=cm_depth)
         self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
 
-        self._topic = '/kinect2/skeleton'
+        # self._topic = '/kinect2/skeleton'
+        self.joint_type_hand_left = 7
+        self.joint_type_hand_right = 11
 
-    def collect_skeleton(self):
-        """Read the latest estimated skeleton data from the Kinect V2
-        skeleton topic.
+    def _receive_data(self):
+        start = time.time()
+        # Reading the size of the data stream we want to read
+        data = self._socket.recv(4)
+        n_bytes = struct.unpack("<I", data)[0]
+        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+        # Sending ACK that we received the size
+        self._socket.sendall("OK\n")
+        # Reading the socket stream to get every packet
+        data = self._socket.recv(n_bytes)
+        while len(data) < n_bytes:
+            data += self._socket.recv(n_bytes - len(data))
+        _logger.info("Received {}/{} bytes in {:.3f} s.".format(len(data),
+                                                                n_bytes, time.time() - start)
+                     )
+        if len(data) != n_bytes:
+            msg = "Received {} but should have received {} bytes!".format(
+                len(data), n_bytes)
+            _logger.error(msg)
+            raise ValueError(msg)
+        # Sending ACK that we received the data
+        self._socket.sendall("OK2\n")
+        return data
 
-        :return: One of
-            - The skeleton as a (n, 3) numpy array of joint positions or
-            - None if no skeleton estimate is computed by the Kinect.
-        """
-        try:
-            msg = rospy.wait_for_message(topic=self._topic,
-                                         topic_type=Float32MultiArray,
-                                         timeout=0.5)
-            skeleton = np.asarray(msg.data).reshape((-1, 3))
-        except rospy.ROSException:
-            # TODO: replace this debugging stuff with 'skeleton = None'
-            if random_sample() > 0.5:
-                skeleton = np.zeros((10, 3))
-            else:
-                skeleton = None
-        return skeleton
+    def _receive_color(self):
+        msg = self._receive_data()
+        barray = np.fromstring(msg, np.uint8)
+        img = cv2.imdecode(barray, cv2.IMREAD_COLOR)
+        _logger.debug("Received a {} {} color image (min={}, max={}).".format(
+            img.shape, img.dtype, img.min(), img.max())
+        )
+        return img
+
+    def _receive_depth(self):
+        msg = self._receive_data()
+        barray = np.fromstring(msg, np.uint8)
+        img = cv2.imdecode(barray, cv2.IMREAD_GRAYSCALE)
+        _logger.debug("Received a {} {} depth image (min={}, max={}).".format(
+            img.shape, img.dtype, img.min(), img.max())
+        )
+        return img
+
+    def _receive_skeleton_data(self):
+        # Reading the number of bodies we want to read
+        data = self._socket.recv(4)
+        n_bodies = struct.unpack("<I", data)[0]
+        # Sending ACK that we received the size
+        self._socket.sendall("OK\n")
+        data = self._receive_data()
+        return n_bodies, data
+
+    def _receive_skeleton(self):
+        n_bodies, msg = self._receive_skeleton_data()
+        barray = np.fromstring(msg, np.float32)
+        bodies = list()
+        for _ in range(n_bodies):
+            cam_space_points = list()
+            color_space_points = list()
+            depth_space_points = list()
+            for i in range(0, barray.size, 7):
+                cam_space_points.append((barray[i], barray[i + 1], barray[i + 2]))
+                color_space_points.append((barray[i + 3], barray[i + 4]))
+                depth_space_points.append((barray[i + 5], barray[i + 6]))
+            bodies.append((cam_space_points, color_space_points, depth_space_points))
+        _logger.debug("Received skeleton data for {} bod{}.".format(
+            len(bodies), 'y' if len(bodies) == 1 else 'ies')
+        )
+        return bodies
+
+    def collect_data(self, color=False, depth=False, skeleton=False):
+        img_color = None
+        img_depth = None
+        data_skeleton = None
+        if self._native_ros:
+            if color:
+                img_color = self.color.collect_image()
+            if depth:
+                img_depth = self.depth.collect_image()
+            if skeleton:
+                data_skeleton = None
+        else:
+            if not self._host:
+                msg = "No host name for ELTE Kinect Windows tool provided!"
+                _logger.error(msg)
+                raise ValueError(msg)
+            # Create a TCP/IP socket
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # Connect the socket to the host and port where the server listens
+            server = self._host, 9999
+            _logger.info('Connect to {} on port {}.'.format(server[0].upper(),
+                                                            server[1]))
+            self._socket.connect(server)
+            try:
+                msg = '{}{}{}\n'.format(*[1 if x else 0
+                                          for x in [color, depth, skeleton]])
+                self._socket.sendall(msg)
+                if color:
+                    img_color = self._receive_color()
+                if depth:
+                    img_depth = self._receive_depth()
+                if skeleton:
+                    data_skeleton = self._receive_skeleton()
+            except Exception as e:
+                _logger.warning(str(e))
+            finally:
+                _logger.info('Close socket.')
+                self._socket.close()
+            self._socket = None
+        return img_color, img_depth, data_skeleton
 
     def estimate_hand_position(self):
-        """Extract the estimate for the approximate hand position in 3d
-        from the skeleton data given by Kinect.
+        """Extract the estimate for the approximate hand position from the
+        skeleton data obtained from the Kinect.
 
         :return: One of
-            - A list [x, y, z] representing the approximate hand position
-                in camera coordinates or
+            -
             - None if no skeleton estimate is computed by the Kinect.
         """
-        skeleton = self.collect_skeleton()
+        _, _, skeletons = self.collect_data(skeleton=True)
+        if len(skeletons) != 1:
+            raise ValueError("Need to track exactly one person!")
+        skeleton = skeletons[0]
         if skeleton is None:
             estimate = None
         else:
-            # TODO: extract the coordinates from skeleton we are interested in
-            estimate = [
-                (lims['x_max'] - lims['x_min'])*random_sample() + lims['x_min'],
-                (lims['y_max'] - lims['y_min'])*random_sample() + lims['y_min'],
-                (lims['z_max'] - lims['z_min'])*random_sample() + lims['z_min']
-            ]
+            estimate = dict()
+            estimate['left'] = [a[self.joint_type_hand_left] for a in skeleton]
+            estimate['right'] = [a[self.joint_type_hand_right] for a in skeleton]
         return estimate
 
     def estimate_object_position(self, img_rgb, bbox, img_depth):
