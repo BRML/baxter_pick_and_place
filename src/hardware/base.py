@@ -24,9 +24,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import numpy as np
-import os
 
-import cv2
 import cv_bridge
 
 import rospy
@@ -66,7 +64,7 @@ class Camera(object):
         try:
             # try to read calibration from ROS camera info topic
             msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
-                                         timeout=0.5)
+                                         timeout=1.5)
             cal = msg.P
         except rospy.ROSException:
             raise RuntimeError("Unable to read camera info from ROS master!")
@@ -84,14 +82,22 @@ class Camera(object):
                                          timeout=0.5)
             img = imgmsg_to_img(imgmsg=msg)
         except rospy.ROSException:
-            # TODO: replace this debugging stuff with 'img = None'
-            path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
-            img_files = ['004545', '000456', '000542', '001150', '001763',
-                         '2008_000533', '2008_000910', '2008_001602',
-                         '2008_001717', '2008_008093']
-            idx = np.random.randint(len(img_files))
-            img_file = os.path.join(path, 'data', '%s.jpg' % img_files[idx])
-            img = cv2.imread(img_file)
+            img = None
+        if img.dtype == np.float32:
+            # In simulation, depth map is a float32 image
+            mask = np.isnan(img)
+            if mask.any():
+                # In simulation, the background has NaN depth values.
+                # We replace them with 0 m, similar to what the Kinect V1 did.
+                # See https://msdn.microsoft.com/en-us/library/jj131028.aspx.
+                rospy.logdebug("There was at least one NaN in the depth image. " +
+                               "I replaced all occurrences with 0.0 m.")
+                img.flags.writeable = True
+                img[mask] = 0.0
+                # We now map the float values in meters to uint16 values in mm
+                # as provided by the libfreenect2 library and Kinect SDK.
+                img *= 1000.0
+                img = img.astype(np.uint16, copy=False)
         return img
 
     def projection_pixel_to_camera(self, pixel, z):
@@ -145,7 +151,7 @@ def imgmsg_to_img(imgmsg):
     :return: The BGR image as a (height, width, n_channels) numpy array.
     """
     img = None
-    for enc in ['bgr8', 'mono8', '32FC1']:
+    for enc in ['bgr8', 'mono8', 'passthrough']:
         try:
             img = cv_bridge.CvBridge().imgmsg_to_cv2(imgmsg, enc)
         except cv_bridge.CvBridgeError:
@@ -166,7 +172,7 @@ def img_to_imgmsg(img):
     :return: The corresponding ROS image message.
     """
     imgmsg = None
-    for enc in ['bgr8', 'mono8', '32FC1']:
+    for enc in ['bgr8', 'mono8', 'passthrough']:
         try:
             imgmsg = cv_bridge.CvBridge().cv2_to_imgmsg(img, enc)
         except cv_bridge.CvBridgeError:
