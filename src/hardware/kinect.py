@@ -166,6 +166,9 @@ class Kinect(object):
         """
         # Reading the number of bodies we want to read
         data = self._socket.recv(4)
+        if len(data) != 4:
+            # Kinect did not find a skeleton to track
+            return 0, None
         n_bodies = struct.unpack("<I", data)[0]
         # Sending ACK that we received the size
         self._socket.sendall("OK\n")
@@ -184,6 +187,8 @@ class Kinect(object):
             coordinates in camera, color and depth space.
         """
         n_bodies, msg = self._receive_skeleton_data()
+        if n_bodies == 0:
+            return None
         barray = np.fromstring(msg, np.float32)
         bodies = list()
         for _ in range(n_bodies):
@@ -248,8 +253,10 @@ class Kinect(object):
                     img_depth = self._receive_depth()
                 if skeleton:
                     data_skeleton = self._receive_skeleton()
-            except Exception as e:
-                _logger.warning(str(e))
+            except ValueError:
+                err = 'Problem when receiving the data!'
+                _logger.warning(err)
+                raise ValueError(err)
             finally:
                 _logger.info('Close socket.')
                 self._socket.close()
