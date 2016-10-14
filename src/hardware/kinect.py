@@ -191,6 +191,7 @@ class Kinect(object):
             return None
         barray = np.fromstring(msg, np.float32)
         bodies = list()
+        # TODO: does this work for n_bodies > 1?
         for _ in range(n_bodies):
             cam_space_points = list()
             color_space_points = list()
