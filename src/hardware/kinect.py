@@ -23,6 +23,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+# DISCLAIMER: The client interface to the ELTE Kinect Windows tool is adapted
+# from and inspired by software written by Mike Olasz at ELTE.
+
 import logging
 import numpy as np
 from numpy.random import random_sample
@@ -34,7 +37,6 @@ import time
 import cv2
 
 import rospy
-from std_msgs.msg import Float32MultiArray
 from sensor_msgs.msg import CameraInfo
 
 from base import Camera
@@ -83,18 +85,24 @@ class Kinect(object):
             path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
             with np.load(path) as cal:
                 cm_color = cal['hd']
-                # ELTE KinectOverNetwork tool scales color image by factor
-                # of 1/2 (960x540).
+                # ELTE KinectOverNetwork tool scales the color image by a
+                # factor of 1/2 (960x540).
                 cm_color /= 2.0
                 cm_depth = cal['depth']
         self.depth = Camera(topic='/kinect2/sd/image_depth_rect', cam_mat=cm_depth)
         self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
 
-        # self._topic = '/kinect2/skeleton'
+        # index into the skeleton arrays
         self.joint_type_hand_left = 7
         self.joint_type_hand_right = 11
 
     def _receive_data(self):
+        """Receive a given number of bytes from the data stream provided by
+        the ELTE Kinect Windows tool.
+
+        :return: The received data.
+        :raise ValueError: If the requested number of bytes was not received.
+        """
         start = time.time()
         # Reading the size of the data stream we want to read
         data = self._socket.recv(4)
@@ -119,6 +127,11 @@ class Kinect(object):
         return data
 
     def _receive_color(self):
+        """Receive a color image from the ELTE Kinect Windows tool and decode
+        it as a uint8, three-channel numpy array of size height x width.
+
+        :return: A (h, w, 3) numpy array holding the color image.
+        """
         msg = self._receive_data()
         barray = np.fromstring(msg, np.uint8)
         img = cv2.imdecode(barray, cv2.IMREAD_COLOR)
@@ -128,15 +141,29 @@ class Kinect(object):
         return img
 
     def _receive_depth(self):
+        """Receive a depth image from the ELTE Kinect Windows tool and decode
+        it as an uint16 depth map where each value represents the distance in
+        millimeters. The maximum depth distance is 8 meters, although
+        reliability starts to degrade at around 4.5 meters.
+        See https://msdn.microsoft.com/en-us/library/windowspreview.kinect.depthframe.aspx
+        for more information.
+
+        :return: A (h, w) numpy array holding the depth map.
+        """
         msg = self._receive_data()
-        barray = np.fromstring(msg, np.uint8)
-        img = cv2.imdecode(barray, cv2.IMREAD_GRAYSCALE)
+        barray = np.fromstring(msg, np.uint16)
+        img = cv2.imdecode(barray, cv2.IMREAD_UNCHANGED)
         _logger.debug("Received a {} {} depth image (min={}, max={}).".format(
             img.shape, img.dtype, img.min(), img.max())
         )
         return img
 
     def _receive_skeleton_data(self):
+        """Receive skeleton data from the ELTE Kinect Windows tool.
+
+        :return: A tuple containing the number of bodies (skeletons) in the
+            data and the received data.
+        """
         # Reading the number of bodies we want to read
         data = self._socket.recv(4)
         n_bodies = struct.unpack("<I", data)[0]
@@ -146,6 +173,16 @@ class Kinect(object):
         return n_bodies, data
 
     def _receive_skeleton(self):
+        """Receive skeleton data from the ELTE Kinect Windows tool and decode
+        if as a list of length number of bodies (skeletons), where each
+        skeleton is defined by three lists holding 13 joint coordinates each,
+        where the first list holds the camera coordinates, the second list
+        holds color space (pixel) coordinates and the third list holds depth
+        space (pixel) coordinates.
+
+        :return: A list holding n skeletons defined by three lists of joint
+            coordinates in camera, color and depth space.
+        """
         n_bodies, msg = self._receive_skeleton_data()
         barray = np.fromstring(msg, np.float32)
         bodies = list()
@@ -164,10 +201,23 @@ class Kinect(object):
         return bodies
 
     def collect_data(self, color=False, depth=False, skeleton=False):
+        """Collect the latest color, depth and skeleton data from the Kinect V2
+        sensor.
+        Note: If the Kinect is connected to a Ubuntu machine, use the native
+        ROS interface using the libfreenect2 and iai_kinect2 libraries. If the
+        Kinect is connected to a Windows machine and runs the ELTE Kinect
+        Windows tool server, communicate via a TCP/IP socket connection.
+
+        :param color: Whether to retrieve the latest color image.
+        :param depth: Whether to retrieve the latest depth image.
+        :param skeleton: Whether to retrieve the latest skeleton data.
+        :return: A triple (color image, depth image, skeletons).
+        """
         img_color = None
         img_depth = None
         data_skeleton = None
         if self._native_ros:
+            # Kinect is connected to the Ubuntu machine, communicate via ROS
             if color:
                 img_color = self.color.collect_image()
             if depth:
@@ -175,6 +225,8 @@ class Kinect(object):
             if skeleton:
                 data_skeleton = None
         else:
+            # Kinect is connected to a Windows machine, communicate via
+            # TCP/IP socket connection
             if not self._host:
                 msg = "No host name for ELTE Kinect Windows tool provided!"
                 _logger.error(msg)
@@ -209,7 +261,8 @@ class Kinect(object):
         skeleton data obtained from the Kinect.
 
         :return: One of
-            -
+            - A dictionary holding the hand coordinate triplets (camera,
+              color and depth space coordinates) for the left and right hands.
             - None if no skeleton estimate is computed by the Kinect.
         """
         _, _, skeletons = self.collect_data(skeleton=True)
