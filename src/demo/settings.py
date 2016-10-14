@@ -26,6 +26,10 @@
 from numpy import pi
 
 
+# The name or IP of the host PC on which the ELTE Kinect Windows server runs.
+elte_kinect_win_host = 'pc-baxter'
+
+
 # The top pose is the pose taken whenever the robot has completed a task
 # (picked up/released an object) or needs to get an overview over the table.
 top_pose = [

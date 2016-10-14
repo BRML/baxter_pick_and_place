@@ -51,7 +51,7 @@ class Demonstration(object):
                                         object_ids=['duplo_brick', 'robot'],
                                         ws_limits=settings.task_space_limits_m)
         self._robot = Baxter(sim=self._sim)
-        self._camera = Kinect(root_dir=ros_ws)
+        self._camera = Kinect(root_dir=ros_ws, host=settings.elte_kinect_win_host)
         self._detection = None
         self._segmentation = ObjectSegmentation(root_dir=ros_ws,
                                                 object_ids=object_set)
