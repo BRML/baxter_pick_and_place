@@ -43,14 +43,15 @@ from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
 from utils import list_to_pose_msg, pose_dict_to_list
 from utils import pose_dict_to_hom
+import demo.settings as settings
 from demo.settings import task_space_limits_m as lims
 
 
 # Set up logging
 _logger = logging.getLogger('baxter')
-_logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 _default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
+_default_loghandler.setLevel(logging.DEBUG)
 _default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
 _logger.addHandler(_default_loghandler)
 
@@ -348,6 +349,68 @@ class Baxter(object):
             self._limbs[arm].move_to_neutral()
         else:
             raise KeyError("No '{}' limb!".format(arm))
+
+    @staticmethod
+    def _gripper_ranges_meters():
+        """Grasp ranges for wide and narrow finger slots."""
+        return {
+            ('narrow', 1): (0.0, 0.018),
+            ('narrow', 2): (0.014, 0.037),
+            ('narrow', 3): (0.033, 0.056),
+            ('narrow', 4): (0.052, 0.075),
+            ('wide', 1): (0.071, 0.094),
+            ('wide', 2): (0.090, 0.113),
+            ('wide', 3): (0.109, 0.132),
+            ('wide', 4): (0.128, 0.151)
+        }
+
+    def select_gripper_for_object(self, object_id):
+        """Select the most suitable gripper for the grasp width corresponding
+        to a given object identifier.
+
+        :param object_id: The object identifier.
+        :return: The most appropriate limb <'left', 'right'> to grasp the
+            requested object.
+        """
+        dist = 0.0
+        min_width = 0.0
+        arm = None
+
+        size = settings.object_size_meters[object_id]
+        for a in self._arms:
+            gr = self._gripper_ranges_meters()[settings.gripper_settings[a]]
+            if gr[0] <= size < gr[1]:
+                dists = [abs(x - size) for x in gr]
+                min_dist = min(dists)
+                if min_dist > 0.0:
+                    _logger.debug("{} gripper is suitable to grasp object "
+                                  "(offset={:.3f} m).".format(
+                                      a.capitalize(), min_dist)
+                                  )
+                    if min_dist > dist:
+                        dist = min_dist
+                        if gr[0] > min_width:
+                            min_width = gr[0]
+                        arm = a
+                    elif min_dist == dist:
+                        # select wider gripper configuration
+                        if gr[0] > min_width:
+                            min_width = gr[0]
+                            arm = a
+        if arm is None:
+            msg = ("No suitable gripper for object size {:.3f} m installed! "
+                   "Check your gripper settings. Currently installed ranges"
+                   "are {:.3f}--{:.3f} and {:.3f}--{:.3f}.".format(
+                       settings.object_size_meters[object_id],
+                       self._gripper_ranges_meters()[settings.gripper_settings['left']][0],
+                       self._gripper_ranges_meters()[settings.gripper_settings['left']][1],
+                       self._gripper_ranges_meters()[settings.gripper_settings['right']][0],
+                       self._gripper_ranges_meters()[settings.gripper_settings['right']][1])
+                   )
+            _logger.error(msg)
+            raise ValueError(msg)
+        _logger.info("Selected {} limb to grasp object.".format(arm))
+        return arm
 
     def grasp(self, arm):
         """Close the specified gripper and validate that it grasped something.
