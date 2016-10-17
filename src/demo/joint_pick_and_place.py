@@ -151,7 +151,7 @@ class PickAndPlace(object):
             _logger.info(msg)
             np.savez(setup_file, height=height)
             self._robot.move_to_neutral(arm=arm)
-        return height
+        return float(height)
 
     def _calibrate_table_view(self):
         # images: two hand camera images <left, right>
@@ -213,7 +213,7 @@ class PickAndPlace(object):
         #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
         #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
         # Needed for selecting empty spots on the table for placing objects.
-        image_left, image_right, patches = self._calibrate_table_view()
+        # image_left, image_right, patches = self._calibrate_table_view()
         # self._table_image = {'left': None, 'right': None}
         # self._table_patches = []
         # self._table_poses = []
