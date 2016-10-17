@@ -43,6 +43,13 @@ top_pose = [
 # The calibration pose is used for calibrating the robot--table relations.
 calibration_pose = [0.45, 0.0, 0.1, pi, 0.0, pi]
 
+# The fingers installed in which slot of the left and right hand of Baxter.
+# Needed to select the proper gripper for the object to grasp.
+gripper_settings = {
+    'left': ('narrow', 3),
+    'right': ('narrow', 4)
+}
+
 # TODO: set those ids and values to something useful
 # The measured length of the longer dimension of each object (in the x-y
 # plane) in meters.
@@ -52,7 +59,7 @@ object_size_meters = {
     'bicycle': 1.5,
     'bird': 0.15,
     'boat': 5,
-    'bottle': 0.06,
+    'bottle': 0.055,
     'bus': 12,
     'car': 3.8,
     'cat': 0.27,
