@@ -42,7 +42,7 @@ from base import Camera
 from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
 from utils import list_to_pose_msg, pose_dict_to_list
-from utils import pose_dict_to_hom
+from utils import pose_dict_to_hom, hom_to_list
 import demo.settings as settings
 from demo.settings import task_space_limits_m as lims
 
@@ -463,8 +463,20 @@ class Baxter(object):
         :return: The homogeneous transformation matrix (a 4x4 numpy array).
         """
         ee_pose = self._limbs[arm].endpoint_pose()
-        cam_pose = ee_pose
-        return pose_dict_to_hom(pose=cam_pose)
+        hom_grip_in_rob = pose_dict_to_hom(pose=ee_pose)
+        hom_cam_in_grip = np.eye(4)
+        hom_cam_in_grip[:-1, -1] = self.cam_offset
+        hom_cam_in_rob = np.dot(hom_grip_in_rob, hom_cam_in_grip)
+        return hom_cam_in_rob
+
+    def camera_pose(self, arm):
+        """Return the current Cartesian pose of the camera of the given limb.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: The pose as a list [x, y, z, roll, pitch, yaw].
+        """
+        cam_pose = hom_to_list(matrix=self._hom_camera_to_robot(arm=arm))
+        return cam_pose
 
     def estimate_object_position(self, arm, center):
         """Compute an estimate for the 3D position of an object lying on a
@@ -476,11 +488,14 @@ class Baxter(object):
         :param center: The pixel coordinates to project to robot coordinates.
         :return: The estimated object position as a list of length 3 [x, y, z].
         """
-        z_ee = self.endpoint_pose(arm=arm)[2]
-        distance = z_ee - self.cam_offset[2] - self.z_table
+        distance = self.camera_pose(arm=arm)[2] - self.z_table
+        print 'camera coordinates'
         cam_coord = self.cameras[arm].projection_pixel_to_camera(pixel=center,
                                                                  z=distance)
+        print 'pixel', center, 'cam meters', cam_coord, 'seems to make sense'
+        print 'pixel', center, 'reprojection', self.cameras[arm].projection_camera_to_pixel(cam_coord), 'does not look good'
         hom_coord = np.asarray(cam_coord + [1])
+        print 'robot coordinates'
         rob_coord = np.dot(self._hom_camera_to_robot(arm=arm), hom_coord)
         rob_coord /= rob_coord[-1]
         return [rob_coord[0], rob_coord[2], self.z_table]
