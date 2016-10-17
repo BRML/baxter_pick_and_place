@@ -87,3 +87,16 @@ def pose_dict_to_hom(pose):
         hom[:-1, -1] = pose['position']
         return hom
     raise ValueError("Expected pose to be a dictionary!")
+
+
+def hom_to_list(matrix):
+    """Convert a homogeneous transformation matrix into a list.
+
+    :param matrix: A 4x4 numpy array representing a homogeneous
+        transformation matrix.
+    :return: The corresponding pose as a list [x, y, z, roll, pitch, yaw].
+    """
+    if matrix.shape == (4, 4):
+        rot = list(transformations.euler_from_matrix(matrix[:-1, :-1]))
+        return list(matrix[:-1, -1]) + rot
+    raise ValueError("Expected a 4x4 numpy array!")
