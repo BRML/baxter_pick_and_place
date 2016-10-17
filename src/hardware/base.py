@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 import numpy as np
 
 import cv_bridge
@@ -32,6 +33,21 @@ from sensor_msgs.msg import (
     CameraInfo,
     Image
 )
+
+
+# Set up logging
+_logger = logging.getLogger('cam')
+_logger.setLevel(logging.DEBUG)
+_default_loghandler = logging.StreamHandler()
+_default_loghandler.setLevel(logging.DEBUG)
+_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
+_logger.addHandler(_default_loghandler)
+
+
+def remove_default_loghandler():
+    """Call this to mute this library or to prevent duplicate messages
+    when adding another log handler to the logger named 'cam'."""
+    _logger.removeHandler(_default_loghandler)
 
 
 class Camera(object):
@@ -48,7 +64,8 @@ class Camera(object):
             self._camera_matrix = self._get_calibration()
         else:
             if cam_mat.shape != (3, 4):
-                raise ValueError("Expected a 3x4 camera matrix, got {}!".format(cam_mat.shape))
+                raise ValueError("Expected a 3x4 camera matrix, got "
+                                 "{}!".format(cam_mat.shape))
             self._camera_matrix = cam_mat
 
         self.meters_per_pixel = None
@@ -68,7 +85,14 @@ class Camera(object):
             cal = msg.P
         except rospy.ROSException:
             raise RuntimeError("Unable to read camera info from ROS master!")
-        return np.asarray(cal).reshape((3, 4))
+        cal = np.asarray(cal).reshape((3, 4))
+        # all cameras used are monocular, make sure tx and ty are zero!
+        if cal[0, 3] != 0.0 or cal[1, 3] != 0.0:
+            _logger.warning("Monocular camera {} with tx, ty != 0.0! "
+                            "Forcing both values to be "
+                            "zero!".format(self._topic.rsplit('/', 1)[0]))
+            cal[:-1, -1] = [0.0, 0.0]
+        return cal
 
     def collect_image(self):
         """Read the most recent image message from the ROS topic and convert
@@ -90,8 +114,9 @@ class Camera(object):
                 # In simulation, the background has NaN depth values.
                 # We replace them with 0 m, similar to what the Kinect V1 did.
                 # See https://msdn.microsoft.com/en-us/library/jj131028.aspx.
-                rospy.logdebug("There was at least one NaN in the depth image. " +
-                               "I replaced all occurrences with 0.0 m.")
+                _logger.debug("{}: There was at least one NaN in the depth "
+                              "image. I replaced all occurrences with "
+                              "0.0 m.".format(self._topic.rsplit('/', 1)[0]))
                 img.flags.writeable = True
                 img[mask] = 0.0
                 # We now map the float values in meters to uint16 values in mm
@@ -138,8 +163,8 @@ class Camera(object):
         if isinstance(position, list) and len(position) == 3:
             hom = np.asarray(position + [1])
             u, v, w = np.dot(self._camera_matrix, hom)
-            px = float(u/w)
-            py = float(v/w)
+            px = float(u)/w
+            py = float(v)/w
             return px, py
         raise ValueError("'position' should be a list of length 3!")
 
