@@ -46,7 +46,7 @@ cfg.TEST.HAS_RPN = True
 
 # Set up logging
 _logger = logging.getLogger('frcnn')
-_logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 _default_loghandler = logging.StreamHandler()
 _default_loghandler.setLevel(logging.INFO)
 _default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))

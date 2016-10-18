@@ -25,11 +25,15 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import datetime
+import logging
+import os
+
 import rospkg
 import rospy
 from sensor_msgs.msg import Image
 
-from demo import PickAndPlace, settings
+from demo import PickAndPlace, settings, redirect_logger
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
@@ -88,7 +92,7 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
-        self._segmentation.init_model(warmup=False)
+        self._segmentation.init_model(warmup=True)
         self._demo.calibrate()
 
     def demonstrate(self):
@@ -101,40 +105,14 @@ if __name__ == '__main__':
     rospy.init_node('demo_module')
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
 
+    logfolder = os.path.join(ns, 'log')
+    if not os.path.exists(logfolder):
+        os.makedirs(logfolder)
+    filename = datetime.datetime.now().strftime(format="%Y%m%d_%H%M")
+    logfile = os.path.join(logfolder, '{}_demo.log'.format(filename))
+    redirect_logger(fname=logfile, level=logging.DEBUG)
+
     demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)
     rospy.on_shutdown(demo.shutdown_routine)
     demo.set_up()
     # demo.demonstrate()
-
-
-# TODO: clean up this mess
-# def main():
-#     from visual.image import imgmsg2img
-#     from vision.detection import ObjectDetector
-#     import cv2
-#     import logging
-#
-#     # forward faster RCNN object detection logger to ROS
-#     import rosgraph.roslogging as _rl
-#     logging.getLogger('frcnn').addHandler(_rl.RosStreamHandler())
-#     import rospy.impl.rosout as _ro
-#     logging.getLogger('frcnn').addHandler(_ro.RosOutHandler())
-
-#     od = ObjectDetector(root_dir=ns, classes=settings.object_ids)
-#     od.init_model(warmup=False)
-#     while not rospy.is_shutdown():
-#         imgmsg = demonstrator.robot._record_image()
-#         img = imgmsg2img(imgmsg)
-#         if img is not None:
-#             print img.shape
-#             cv2.imshow('raw', img)
-#             score, box = od.detect_object(img, 'person', 0.8)
-#             if box is not None:
-#                 od.draw_detection(img, 'person', score, box)
-#                 cv2.imshow('image', img)
-#         cv2.waitKey(1)
-#     cv2.destroyAllWindows()
-#
-#
-# if __name__ == '__main__':
-#     main()

@@ -32,7 +32,7 @@ from vision import mask_to_rroi, draw_rroi
 
 # Set up logging
 _logger = logging.getLogger('servo')
-_logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 _default_loghandler = logging.StreamHandler()
 _default_loghandler.setLevel(logging.INFO)
 _default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))

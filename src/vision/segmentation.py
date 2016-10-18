@@ -44,7 +44,7 @@ from utils.blob import prep_im_for_blob, im_list_to_blob
 
 # Set up logging
 _logger = logging.getLogger('mnc')
-_logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 _default_loghandler = logging.StreamHandler()
 _default_loghandler.setLevel(logging.INFO)
 _default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))

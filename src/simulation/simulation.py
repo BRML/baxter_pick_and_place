@@ -23,6 +23,8 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
+
 import rospy
 import roswtf
 
@@ -37,6 +39,9 @@ from geometry_msgs.msg import (
 from std_msgs.msg import Empty
 
 
+_logger = logging.getLogger('env')
+
+
 def sim_or_real():
     """ Find out whether we are in simulation mode or on the real robot. If
     called from a baxter shell in simulation mode, wait for Gazebo to
@@ -47,12 +52,12 @@ def sim_or_real():
     """
     sim = 'localhost' in roswtf.os.environ['ROS_MASTER_URI']
     if sim:
-        rospy.loginfo("We are running in simulation mode.")
+        _logger.info("We are running in simulation mode.")
         # Wait for the 'All Clear' from simulator startup
-        rospy.loginfo("Waiting for Gazebo to be fully started ...")
+        _logger.info("Waiting for Gazebo to be fully started ...")
         rospy.wait_for_message("/robot/sim/started", Empty)
     else:
-        rospy.loginfo("We are running on the real Baxter.")
+        _logger.info("We are running on the real Baxter.")
     return sim
 
 
@@ -61,7 +66,7 @@ def load_gazebo_model(urdf_path):
     :param urdf_path: The path to the URDF file describing the model.
     :return: The model XML as a string.
     """
-    rospy.logdebug("Loading model XML from file.")
+    _logger.debug("Loading model XML from file.")
     with open(urdf_path) as urdf_file:
         model_xml = urdf_file.read().replace('\n', '')
     return model_xml
@@ -82,20 +87,20 @@ def spawn_gazebo_model(model_xml, model_name, robot_namespace,
     """
     service_spawn = '/gazebo/spawn_urdf_model'
 
-    rospy.logdebug("Waiting for service {0}".format(service_spawn))
+    _logger.debug("Waiting for service {0}".format(service_spawn))
     rospy.wait_for_service(service_spawn)
     resp_urdf = tuple()
-    rospy.logdebug("Calling service {0}".format(service_spawn))
+    _logger.debug("Calling service {0}".format(service_spawn))
     try:
         spawn_urdf = rospy.ServiceProxy(service_spawn, SpawnModel)
-        rospy.logdebug("Spawning {0} model".format(model_name))
+        _logger.debug("Spawning {0} model".format(model_name))
         resp_urdf = spawn_urdf(model_name=model_name,
                                model_xml=model_xml,
                                robot_namespace=robot_namespace,
                                initial_pose=model_pose,
                                reference_frame=model_reference_frame)
     except rospy.ServiceException as e:
-        rospy.logerr("Spawn URDF service call failed:", e)
+        _logger.error("Spawn URDF service call failed:", e)
     return resp_urdf
 
 
@@ -111,13 +116,13 @@ def delete_gazebo_model(model):
     service_delete = '/gazebo/delete_model'
 
     resp_delete = tuple()
-    rospy.logdebug("Calling service {0}".format(service_delete))
+    _logger.debug("Calling service {0}".format(service_delete))
     try:
         delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
-        rospy.logdebug("Deleting {0} model".format(model))
+        _logger.debug("Deleting {0} model".format(model))
         resp_delete = delete_model(model)
     except rospy.ServiceException as e:
-        rospy.logerr("Delete model service call failed:", e)
+        _logger.error("Delete model service call failed:", e)
     return resp_delete
 
 
@@ -134,12 +139,12 @@ def delete_gazebo_models(models):
     if not isinstance(models, list):
         models = list(models)
     resp_deletes = list()
-    rospy.logdebug("Calling service {0}".format(service_delete))
+    _logger.debug("Calling service {0}".format(service_delete))
     try:
         delete_model = rospy.ServiceProxy(service_delete, DeleteModel)
         for model in reversed(models):
-            rospy.logdebug("Deleting {0} model".format(model))
+            _logger.debug("Deleting {0} model".format(model))
             resp_deletes.append(delete_model(model))
     except rospy.ServiceException as e:
-        rospy.logerr("Delete model service call failed:", e)
+        _logger.error("Delete model service call failed:", e)
     return resp_deletes

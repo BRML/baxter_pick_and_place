@@ -6,6 +6,8 @@ data/VGG16/*
 data/synthetic_demo_data/*
 !data/synthetic_demo_data/*_cascade.xml
 
+log/*
+
 *~
 
 # Byte-compiled / optimized / DLL files
