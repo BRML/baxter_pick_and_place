@@ -373,12 +373,11 @@ class Kinect(object):
             estimate['right'] = [a[self.joint_type_hand_right] for a in skeleton]
         return estimate
 
-    def estimate_object_position(self, img_rgb, bbox, img_depth):
+    def estimate_object_position(self, bbox, img_depth):
         """Estimate the approximate position of an object in 3d from a Kinect
         color and corresponding depth image, as well as the bounding box of
         the object detected in the color image.
 
-        :param img_rgb: A color image.
         :param bbox: The bounding box of the object we are interested in in
             the color image.
         :param img_depth: A depth image corresponding to the color image.
@@ -387,12 +386,17 @@ class Kinect(object):
         """
         if bbox is None:
             return None
-        # TODO: implement. But how?
-        # requires re-projecting the center of the bounding box to 3d and
-        # calibrating the color and depth images to find the proper depth value
+        # TODO: verify this works as expected
         # see https://github.com/OpenKinect/libfreenect2/issues/223
-        return [
-            (lims['x_max'] - lims['x_min'])*random_sample() + lims['x_min'],
-            (lims['y_max'] - lims['y_min'])*random_sample() + lims['y_min'],
-            0.2*random_sample() - 0.1 + lims['z_min']
-        ]
+        registered = np.zeros(self.color.image_size, dtype=np.uint16)
+        self.reg.register_depth(depth=img_depth, registered=registered)
+        reg_fx = self.color.camera_matrix[0, 0]
+        reg_fy = self.color.camera_matrix[1, 1]
+        reg_cx = self.color.camera_matrix[0, 2]
+        reg_cy = self.color.camera_matrix[1, 2]
+
+        px, py = bbox[0]
+        z_3d = registered[int(py), int(px)]
+        x_3d = (px - reg_cx)/reg_fx*z_3d
+        y_3d = (py - reg_cy)/reg_fy*z_3d
+        return [x_3d, y_3d, z_3d]
