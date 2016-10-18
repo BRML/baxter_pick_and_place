@@ -51,48 +51,56 @@ def remove_default_loghandler():
 
 
 class Camera(object):
-    def __init__(self, topic, cam_mat=None):
+    def __init__(self, topic, cam_pars=None):
         """Base class for a ROS camera.
         A camera should have at least
           - a method to read images from a ROS topic,
           - a method to project pixel coordinates to camera coordinates, and
           - a method to project camera coordinates to pixel coordinates.
+
+        :param topic: The ROS image topic to read camera images from.
+        :param cam_pars: An optional dictionary containing camera parameters.
+            If given it replaces the parameters read from the camera driver
+            via ROS and is required to contain
+                - a 3x3 camera matrix,
+                - the image size (height, width) and
+                - the camera distortion coefficients.
         """
         self._topic = topic
 
-        if cam_mat is None:
-            self._camera_matrix = self._get_calibration()
+        self._camera_matrix = None
+        self._image_size = None
+        self._distortion_coeff = None
+        if cam_pars is None:
+            self._get_ros_calibration()
         else:
-            if cam_mat.shape != (3, 4):
-                raise ValueError("Expected a 3x4 camera matrix, got "
-                                 "{}!".format(cam_mat.shape))
-            self._camera_matrix = cam_mat
+            self._camera_matrix = cam_pars['cam_mat']
+            self._image_size = cam_pars['size']
+            self._distortion_coeff = cam_pars['dist_coeff']
+        if self._camera_matrix.shape != (3, 3):
+            raise ValueError("Expected a 3x3 camera matrix, got "
+                             "{}!".format(self._camera_matrix.shape))
 
         self.meters_per_pixel = None
 
-    def _get_calibration(self):
-        """Read the calibration data of the camera from either a ROS topic or
-        a calibration file. For additional information see
+    def _get_ros_calibration(self):
+        """Read the calibration data of the camera from the ROS topic. For
+        additional information see
         http://docs.ros.org/indigo/api/sensor_msgs/html/msg/CameraInfo.html.
 
-        :return: The projection/camera matrix (a 3x4 numpy array).
+        :return:
         """
         topic = self._topic.rsplit('/', 1)[0] + '/camera_info'
+        _logger.info("Try to read camera info from {}.".format(topic))
         try:
             # try to read calibration from ROS camera info topic
             msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
                                          timeout=1.5)
-            cal = msg.P
+            self._camera_matrix = np.asarray(msg.K, dtype=np.float64).reshape((3, 3))
+            self._image_size = np.asarray([msg.height, msg.width], dtype=np.uint32)
+            self._distortion_coeff = np.asarray(msg.D, dtype=np.float64)
         except rospy.ROSException:
             raise RuntimeError("Unable to read camera info from ROS master!")
-        cal = np.asarray(cal).reshape((3, 4))
-        # all cameras used are monocular, make sure tx and ty are zero!
-        if cal[0, 3] != 0.0 or cal[1, 3] != 0.0:
-            _logger.warning("Monocular camera {} with tx, ty != 0.0! "
-                            "Forcing both values to be "
-                            "zero!".format(self._topic.rsplit('/', 1)[0]))
-            cal[:-1, -1] = [0.0, 0.0]
-        return cal
 
     def collect_image(self):
         """Read the most recent image message from the ROS topic and convert
@@ -161,8 +169,7 @@ class Camera(object):
         :return: The corresponding pixel coordinates (px, py).
         """
         if isinstance(position, list) and len(position) == 3:
-            hom = np.asarray(position + [1])
-            u, v, w = np.dot(self._camera_matrix, hom)
+            u, v, w = np.dot(self._camera_matrix, np.asarray(position))
             px = float(u)/w
             py = float(v)/w
             return px, py
