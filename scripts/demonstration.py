@@ -110,6 +110,7 @@ if __name__ == '__main__':
         os.makedirs(logfolder)
     filename = datetime.datetime.now().strftime(format="%Y%m%d_%H%M")
     logfile = os.path.join(logfolder, '{}_demo.log'.format(filename))
+    logfile = None
     redirect_logger(fname=logfile, level=logging.DEBUG)
 
     demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)

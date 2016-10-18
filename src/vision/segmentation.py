@@ -157,6 +157,7 @@ class ObjectSegmentation(object):
         self._net = caffe_mnc.Net(self._prototxt, self._caffemodel, caffe_mnc.TEST)
         _logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
+            _logger.debug('Warming up on dummy images.')
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for _ in xrange(2):
                 _, _, _ = self._im_detect(dummy)
