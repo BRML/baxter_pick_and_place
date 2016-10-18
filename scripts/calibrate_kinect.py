@@ -81,6 +81,49 @@ def get_params_from_msg(msg):
     return {'cam_mat': cm, 'size': size, 'dist_coeff': dist}
 
 
+def get_projection_from_yaml(filename):
+    """A somewhat ugly hack to parse the iai_kinect2 calib_pose.yaml
+    configuration file.
+
+    :param filename: The name of the yaml file to load.
+    :return: The rotation and translation between RGB and IR sensors.
+    """
+    data = dict()
+    needline = False
+    try:
+        with open(filename, 'r') as fp:
+            for line in fp:
+                if not line.startswith(' '):
+                    needline = False
+                    entry = line.split(':')[0]
+                    if entry not in data:
+                        data[entry] = list()
+                elif line.strip(' ').startswith('data'):
+                    needline = True
+                    data[entry].append(line.split(':')[1].replace('[', '').rstrip())
+                elif needline:
+                    data[entry].append(line.replace(']', '').rstrip())
+                    if line.strip(' ').endswith(']'):
+                        needline = False
+    except IOError:
+        _logger.error("{} not found! Did you copy the calibration file "
+                      "to the setup folder?".format(filename))
+        return None
+    filtered_data = dict()
+    for entry in ['rotation', 'translation']:
+        filtered_list = list()
+        for lst in data[entry]:
+            for l in lst.split(','):
+                s = l.strip()
+                if len(s) > 0:
+                    filtered_list.append(s)
+        filtered_data[entry] = np.array(filtered_list, dtype=np.float64)
+    return {
+        'rotation': filtered_data['rotation'].reshape((3, 3)),
+        'translation': filtered_data['translation']
+    }
+
+
 if __name__ == '__main__':
     """Get the camera parameters for the color and depth sensors in the
     Kinect V2.
@@ -98,7 +141,11 @@ if __name__ == '__main__':
     msg_color = get_camera_info(color=True)
     msg_depth = get_camera_info(color=False)
 
-    if msg_color is not None and msg_depth is not None:
+    _logger.info('Reading RGB to IR sensor relationship from file.')
+    fname = os.path.join(ns, 'data', 'setup', 'calib_pose.yaml')
+    proj = get_projection_from_yaml(filename=fname)
+
+    if msg_color is not None and msg_depth is not None and proj is not None:
         pars_color = get_params_from_msg(msg=msg_color)
         pars_depth = get_params_from_msg(msg=msg_depth)
         pars = {
@@ -107,7 +154,9 @@ if __name__ == '__main__':
             'dist_coeff_color': pars_color['dist_coeff'],
             'cam_mat_depth': pars_depth['cam_mat'],
             'size_depth': pars_depth['size'],
-            'dist_coeff_depth': pars_depth['dist_coeff']
+            'dist_coeff_depth': pars_depth['dist_coeff'],
+            'rotation': proj['rotation'],
+            'translation': proj['translation']
         }
         filename = os.path.join(ns, 'data', 'setup', 'kinect_params.npz')
         _logger.info("Write Kinect V2 color and depth camera matrices to {}.".format(filename))
