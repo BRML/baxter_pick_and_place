@@ -38,7 +38,8 @@ _logger = logging.getLogger('cal_k')
 _logger.setLevel(logging.INFO)
 _default_loghandler = logging.StreamHandler()
 _default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
+fmt = logging.Formatter('[%(name)s][%(levelname)s][%(asctime)-15s] %(message)s')
+_default_loghandler.setFormatter(fmt=fmt)
 _logger.addHandler(_default_loghandler)
 
 
@@ -61,38 +62,56 @@ def get_camera_info(color=True):
     return msg
 
 
-def camera_matrix_from_msg(msg):
-    """Extract the camera matrix from a ROS CameraInfo message.
-    The camera matrix is defined as
+def get_params_from_msg(msg):
+    """Extract the camera parameters from a ROS CameraInfo message.
+    1. The camera matrix is defined as
              [fx 0  cx tx]
         cm = [0  fy cy ty].
              [0  0  1  0 ]
+    2. The image _image_size given by [height, width].
+    3. The distortion coefficients, e.g., [k1, k2, t1, t2, k3].
 
     :param msg: A ROS CameraInfo message.
-    :return: The camera matrix as a 3x4 numpy array.
+    :return: The camera matrix as a 3x3 numpy array, the image _image_size as a 1x2
+        numpy array and the distortion coefficients as a 1xX numpy array.
     """
-    return np.asarray(msg.P, dtype=np.float32).reshape((3, 4))
+    cm = np.asarray(msg.K, dtype=np.float64).reshape((3, 3))
+    size = np.asarray([msg.height, msg.width], dtype=np.uint32)
+    dist = np.asarray(msg.D, dtype=np.float64)
+    return {'cam_mat': cm, 'size': size, 'dist_coeff': dist}
 
 
 if __name__ == '__main__':
-    """Get the camera matrices for the color and depth sensors in the Kinect V2.
+    """Get the camera parameters for the color and depth sensors in the
+    Kinect V2.
 
     Usage:
-        1. Plug Kinect V2 into USB 3.0 port of your machine.
+        1. Plug the Kinect V2 into an USB 3.0 port of your machine.
         2. From iai_kinect2 run 'roslaunch kinect2_bridge kinect2_bridge.launch'.
         3. Run 'rosrun baxter_pick_and_place calibrate_kinect.py'.
     """
-    _logger.info('Initializing node ...')
+    _logger.info('Initialize node.')
     rospy.init_node('calibrate_kinect_module')
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
 
     _logger.info('Query ROS for kinect2 camera info messages.')
     msg_color = get_camera_info(color=True)
     msg_depth = get_camera_info(color=False)
+
     if msg_color is not None and msg_depth is not None:
-        cm_color = camera_matrix_from_msg(msg=msg_color)
-        cm_depth = camera_matrix_from_msg(msg=msg_depth)
+        pars_color = get_params_from_msg(msg=msg_color)
+        pars_depth = get_params_from_msg(msg=msg_depth)
+        pars = {
+            'cam_mat_color': pars_color['cam_mat'],
+            'size_color': pars_color['size'],
+            'dist_coeff_color': pars_color['dist_coeff'],
+            'cam_mat_depth': pars_depth['cam_mat'],
+            'size_depth': pars_depth['size'],
+            'dist_coeff_depth': pars_depth['dist_coeff']
+        }
         filename = os.path.join(ns, 'data', 'setup', 'kinect_params.npz')
         _logger.info("Write Kinect V2 color and depth camera matrices to {}.".format(filename))
-        np.savez(filename, hd=cm_color, depth=cm_depth)
-    _logger.info('Done.')
+        np.savez(filename, **pars)
+        _logger.info('Done.')
+    else:
+        _logger.error('Something went wrong! Please try again.')
