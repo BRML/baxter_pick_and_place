@@ -40,6 +40,7 @@ import rospy
 from sensor_msgs.msg import CameraInfo
 
 from base import Camera
+from depth_registration import DepthRegistration
 from demo.settings import task_space_limits_m as lims
 
 
@@ -60,8 +61,9 @@ def remove_default_loghandler():
 
 class Kinect(object):
     def __init__(self, root_dir, host=None):
-        cm_color = None
-        cm_depth = None
+        pars_color = None
+        pars_depth = None
+        path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
         self._host = host
         self._socket = None
         self._native_ros = False
@@ -72,27 +74,41 @@ class Kinect(object):
                                        timeout=0.5)
             self._native_ros = True
         except rospy.ROSException:
-            _logger.info("Loading previously saved camera matrices for color "
+            _logger.info("Loading previously saved camera info for color "
                          "and depth sensors.")
             # Load previously stored camera matrices for color (1920x1080)
             # and depth (512x424) sensors. The values in kinect_params.npz
-            # are obtained by running
-            # $ roslaunch kinect2_bridge kinect2_bridge.launch
-            # $ rostopic echo -n 1 /kinect2/sd/camera_info (depth)
-            # $ rostopic echo -n 1 /kinect2/hd/camera_info (color with 1920x1080)
-            # $ rostopic echo -n 1 /kinect2/qhd/camera_info (color with 960x540)
-            # Note that qhd is scaled from hd by a factor of 1/2 in image size
-            # and in fx, fy, cx, cy. It therefore is sufficient to save the hd
-            # values.
-            path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
+            # are obtained using the 'calibrate_kinect.py' script.
             with np.load(path) as cal:
-                cm_color = cal['hd']
-                # ELTE KinectOverNetwork tool scales the color image by a
-                # factor of 1/2 (960x540).
-                cm_color /= 2.0
-                cm_depth = cal['depth']
-        self.depth = Camera(topic='/kinect2/sd/image_depth_rect', cam_mat=cm_depth)
-        self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
+                # The ELTE KinectOverNetwork tool scales the color image by a
+                # factor of 1/2 (to 960x540). We thus adapt the loaded camera
+                # matrix accordingly.
+                pars_color = {
+                    'cam_mat': cal['cam_mat_color']/2.0,
+                    'size': cal['size_color'],
+                    'dist_coeff': cal['dist_coeff_color']
+                }
+                pars_depth = {
+                    'cam_mat': cal['cam_mat_depth']/2.0,
+                    'size': cal['size_depth'],
+                    'dist_coeff': cal['dist_coeff_depth']
+                }
+        self.depth = Camera(topic='/kinect2/sd/image_depth_rect',
+                            cam_pars=pars_depth)
+        self.color = Camera(topic='/kinect2/hd/image_color_rect',
+                            cam_pars=pars_color)
+        with np.load(path) as cal:
+            rotation = cal['rotation']
+            translation = cal['translation']
+        self.reg = DepthRegistration(cam_mat_registered=self.color.camera_matrix,
+                                     size_registered=self.color.image_size,
+                                     cam_mat_depth=self.depth.camera_matrix,
+                                     size_depth=self.depth.image_size,
+                                     distortion_depth=self.depth.distortion_coeff,
+                                     rotation=rotation,
+                                     translation=translation,
+                                     z_near=0.5,
+                                     z_far=12.0)
 
         # index into the skeleton arrays
         self.joint_type_count = 13
@@ -102,7 +118,7 @@ class Kinect(object):
     def _receive_size(self):
         """Receive the number of bytes needed to read from the data stream.
 
-        :return: The size of the data to read (as an int).
+        :return: The _image_size of the data to read (as an int).
         """
         data = self._socket.recv(4)
         try:
@@ -110,7 +126,7 @@ class Kinect(object):
         except ValueError:
             size = -1
         finally:
-            # Sending ACK that we received the size
+            # Sending ACK that we received the _image_size
             self._socket.sendall("OK\n")
         return size
 
@@ -138,12 +154,12 @@ class Kinect(object):
 
     def _receive_color(self):
         """Receive a color image from the ELTE Kinect Windows tool and decode
-        it as a uint8, three-channel numpy array of size height x width.
+        it as a uint8, three-channel numpy array of _image_size height x width.
 
         :return: A (h, w, 3) numpy array holding the color image.
         """
         start = time.time()
-        # Reading the size of the data stream we want to read
+        # Reading the _image_size of the data stream we want to read
         n_bytes = self._receive_size()
         if n_bytes == -1:
             _logger.warning("Failed to receive color image data!")
@@ -181,7 +197,7 @@ class Kinect(object):
         :raise ValueError: If no depth map was received.
         """
         start = time.time()
-        # Reading the size of the data stream we want to read
+        # Reading the _image_size of the data stream we want to read
         n_bytes = self._receive_size()
         if n_bytes == -1:
             _logger.warning("Failed to receive depth map data!")
@@ -221,7 +237,7 @@ class Kinect(object):
         except ValueError:
             n_bodies = 0
         finally:
-            # Sending ACK that we received the size
+            # Sending ACK that we received the _image_size
             self._socket.sendall("OK\n")
 
         # Reading the data from the socket stream
@@ -243,7 +259,7 @@ class Kinect(object):
             coordinates in camera, color and depth space.
         """
         start = time.time()
-        # Reading the size of the data stream we want to read
+        # Reading the _image_size of the data stream we want to read
         n_bytes = self._receive_size()
         if n_bytes == -1:
             msg = "Failed to receive skeleton data!"
