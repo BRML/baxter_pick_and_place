@@ -68,18 +68,18 @@ class Camera(object):
         """
         self._topic = topic
 
-        self._camera_matrix = None
-        self._image_size = None
-        self._distortion_coeff = None
+        self.camera_matrix = None
+        self.image_size = None
+        self.distortion_coeff = None
         if cam_pars is None:
             self._get_ros_calibration()
         else:
-            self._camera_matrix = cam_pars['cam_mat']
-            self._image_size = cam_pars['size']
-            self._distortion_coeff = cam_pars['dist_coeff']
-        if self._camera_matrix.shape != (3, 3):
+            self.camera_matrix = cam_pars['cam_mat']
+            self.image_size = cam_pars['size']
+            self.distortion_coeff = cam_pars['dist_coeff']
+        if self.camera_matrix.shape != (3, 3):
             raise ValueError("Expected a 3x3 camera matrix, got "
-                             "{}!".format(self._camera_matrix.shape))
+                             "{}!".format(self.camera_matrix.shape))
 
         self.meters_per_pixel = None
 
@@ -96,9 +96,9 @@ class Camera(object):
             # try to read calibration from ROS camera info topic
             msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
                                          timeout=1.5)
-            self._camera_matrix = np.asarray(msg.K, dtype=np.float64).reshape((3, 3))
-            self._image_size = np.asarray([msg.height, msg.width], dtype=np.uint32)
-            self._distortion_coeff = np.asarray(msg.D, dtype=np.float64)
+            self.camera_matrix = np.asarray(msg.K, dtype=np.float64).reshape((3, 3))
+            self.image_size = np.asarray([msg.height, msg.width], dtype=np.uint32)
+            self.distortion_coeff = np.asarray(msg.D, dtype=np.float64)
         except rospy.ROSException:
             raise RuntimeError("Unable to read camera info from ROS master!")
 
@@ -155,8 +155,8 @@ class Camera(object):
             #   x = (u - cx*z)/fx,  u = px*w, and
             #   y = (v - cy*z)/fy,  v = py*w.
             u, v = [p*z for p in pixel]
-            x = (u - self._camera_matrix[0, 2]*z)/self._camera_matrix[0, 0]
-            y = (v - self._camera_matrix[1, 2]*z)/self._camera_matrix[1, 1]
+            x = (u - self.camera_matrix[0, 2] * z) / self.camera_matrix[0, 0]
+            y = (v - self.camera_matrix[1, 2] * z) / self.camera_matrix[1, 1]
             return [x, y, z]
         raise ValueError("'pixel' should be a tuple of length 2!")
 
@@ -169,7 +169,7 @@ class Camera(object):
         :return: The corresponding pixel coordinates (px, py).
         """
         if isinstance(position, list) and len(position) == 3:
-            u, v, w = np.dot(self._camera_matrix, np.asarray(position))
+            u, v, w = np.dot(self.camera_matrix, np.asarray(position))
             px = float(u)/w
             py = float(v)/w
             return px, py
