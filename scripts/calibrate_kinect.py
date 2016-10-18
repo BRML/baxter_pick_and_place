@@ -129,9 +129,12 @@ if __name__ == '__main__':
     Kinect V2.
 
     Usage:
-        1. Plug the Kinect V2 into an USB 3.0 port of your machine.
-        2. From iai_kinect2 run 'roslaunch kinect2_bridge kinect2_bridge.launch'.
-        3. Run 'rosrun baxter_pick_and_place calibrate_kinect.py'.
+        1. Perform iai_kinect2 calibration as detailed here:
+            https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration.
+        2. Copy the generated calib_pose.yaml file into the setup folder.
+        3. Plug the Kinect V2 into an USB 3.0 port of your machine.
+        4. From iai_kinect2 run 'roslaunch kinect2_bridge kinect2_bridge.launch'.
+        5. Run 'rosrun baxter_pick_and_place calibrate_kinect.py'.
     """
     _logger.info('Initialize node.')
     rospy.init_node('calibrate_kinect_module')
