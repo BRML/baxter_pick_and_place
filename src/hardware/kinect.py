@@ -45,9 +45,9 @@ from demo.settings import task_space_limits_m as lims
 
 # Set up logging
 _logger = logging.getLogger('kinect')
-_logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 _default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
+_default_loghandler.setLevel(logging.DEBUG)
 _default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
 _logger.addHandler(_default_loghandler)
 
@@ -72,6 +72,8 @@ class Kinect(object):
                                        timeout=0.5)
             self._native_ros = True
         except rospy.ROSException:
+            _logger.info("Loading previously saved camera matrices for color "
+                         "and depth sensors.")
             # Load previously stored camera matrices for color (1920x1080)
             # and depth (512x424) sensors. The values in kinect_params.npz
             # are obtained by running
@@ -93,30 +95,38 @@ class Kinect(object):
         self.color = Camera(topic='/kinect2/hd/image_color_rect', cam_mat=cm_color)
 
         # index into the skeleton arrays
+        self.joint_type_count = 13
         self.joint_type_hand_left = 7
         self.joint_type_hand_right = 11
 
-    def _receive_data(self):
+    def _receive_size(self):
+        """Receive the number of bytes needed to read from the data stream.
+
+        :return: The size of the data to read (as an int).
+        """
+        data = self._socket.recv(4)
+        try:
+            size = struct.unpack('<i', data)[0]  # we receive an int value
+        except ValueError:
+            size = -1
+        finally:
+            # Sending ACK that we received the size
+            self._socket.sendall("OK\n")
+        return size
+
+    def _receive_data(self, n_bytes):
         """Receive a given number of bytes from the data stream provided by
         the ELTE Kinect Windows tool.
 
+        :param n_bytes: The number of bytes to read from the data stream.
         :return: The received data.
         :raise ValueError: If the requested number of bytes was not received.
         """
-        start = time.time()
-        # Reading the size of the data stream we want to read
-        data = self._socket.recv(4)
-        n_bytes = struct.unpack("<I", data)[0]
-        _logger.debug("Need to receive {} bytes.".format(n_bytes))
-        # Sending ACK that we received the size
-        self._socket.sendall("OK\n")
         # Reading the socket stream to get every packet
         data = self._socket.recv(n_bytes)
         while len(data) < n_bytes:
             data += self._socket.recv(n_bytes - len(data))
-        _logger.info("Received {}/{} bytes in {:.3f} s.".format(len(data),
-                                                                n_bytes, time.time() - start)
-                     )
+        _logger.debug("Received {}/{} bytes.".format(len(data), n_bytes))
         if len(data) != n_bytes:
             msg = "Received {} but should have received {} bytes!".format(
                 len(data), n_bytes)
@@ -132,12 +142,31 @@ class Kinect(object):
 
         :return: A (h, w, 3) numpy array holding the color image.
         """
-        msg = self._receive_data()
-        barray = np.fromstring(msg, np.uint8)
+        start = time.time()
+        # Reading the size of the data stream we want to read
+        n_bytes = self._receive_size()
+        if n_bytes == -1:
+            _logger.warning("Failed to receive color image data!")
+            return None
+        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+
+        # Reading the data from the socket stream
+        try:
+            msg = self._receive_data(n_bytes=n_bytes)
+        except ValueError:
+            return None
+
+        # Convert received data into a numpy array
+        try:
+            barray = np.fromstring(msg, np.uint8)
+        except ValueError:
+            _logger.warning("Error when converting raw data to color image!")
+            return None
         img = cv2.imdecode(barray, cv2.IMREAD_COLOR)
-        _logger.debug("Received a {} {} color image (min={}, max={}).".format(
-            img.shape, img.dtype, img.min(), img.max())
-        )
+        _logger.info("Received a {} {} color image (min={}, max={}) "
+                     "in {:.3f} s.".format(img.shape, img.dtype,
+                                           img.min(), img.max(),
+                                           time.time() - start))
         return img
 
     def _receive_depth(self):
@@ -149,31 +178,58 @@ class Kinect(object):
         for more information.
 
         :return: A (h, w) numpy array holding the depth map.
+        :raise ValueError: If no depth map was received.
         """
-        msg = self._receive_data()
-        barray = np.fromstring(msg, np.uint16)
+        start = time.time()
+        # Reading the size of the data stream we want to read
+        n_bytes = self._receive_size()
+        if n_bytes == -1:
+            _logger.warning("Failed to receive depth map data!")
+            return None
+        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+
+        # Reading the data from the socket stream
+        try:
+            msg = self._receive_data(n_bytes=n_bytes)
+        except ValueError:
+            return None
+
+        # Convert received data into a numpy array
+        try:
+            barray = np.fromstring(msg, np.uint16)
+        except ValueError:
+            _logger.warning("Error when converting raw data to depth map!")
+            return None
         img = cv2.imdecode(barray, cv2.IMREAD_UNCHANGED)
-        _logger.debug("Received a {} {} depth image (min={}, max={}).".format(
-            img.shape, img.dtype, img.min(), img.max())
-        )
+        _logger.info("Received a {} {} depth map (min={}, max={}) "
+                     "in {:.3f} s.".format(img.shape, img.dtype,
+                                           img.min(), img.max(),
+                                           time.time() - start))
         return img
 
-    def _receive_skeleton_data(self):
+    def _receive_skeleton_data(self, n_bytes):
         """Receive skeleton data from the ELTE Kinect Windows tool.
 
+        :param n_bytes: The number of bytes to read from the data stream.
         :return: A tuple containing the number of bodies (skeletons) in the
             data and the received data.
         """
-        # Reading the number of bodies we want to read
+        # Reading the number of bodies we want to receive data for
         data = self._socket.recv(4)
-        if len(data) != 4:
-            # Kinect did not find a skeleton to track
-            return 0, None
-        n_bodies = struct.unpack("<I", data)[0]
-        # Sending ACK that we received the size
-        self._socket.sendall("OK\n")
-        data = self._receive_data()
-        return n_bodies, data
+        try:
+            n_bodies = struct.unpack("<I", data)[0]  # read unsigned int value
+        except ValueError:
+            n_bodies = 0
+        finally:
+            # Sending ACK that we received the size
+            self._socket.sendall("OK\n")
+
+        # Reading the data from the socket stream
+        try:
+            msg = self._receive_data(n_bytes=n_bytes)
+        except ValueError:
+            msg = None
+        return n_bodies, msg
 
     def _receive_skeleton(self):
         """Receive skeleton data from the ELTE Kinect Windows tool and decode
@@ -186,24 +242,41 @@ class Kinect(object):
         :return: A list holding n skeletons defined by three lists of joint
             coordinates in camera, color and depth space.
         """
-        n_bodies, msg = self._receive_skeleton_data()
-        if n_bodies == 0:
-            return None
-        barray = np.fromstring(msg, np.float32)
+        start = time.time()
+        # Reading the size of the data stream we want to read
+        n_bytes = self._receive_size()
+        if n_bytes == -1:
+            msg = "Failed to receive skeleton data!"
+            _logger.warning(msg)
+            return list()
+        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+
+        # Reading the data from the socket stream
+        try:
+            n_bodies, msg = self._receive_skeleton_data(n_bytes=n_bytes)
+        except ValueError:
+            return list()
+
+        # Convert received data into a list
+        try:
+            barray = np.fromstring(msg, np.float32)
+        except ValueError:
+            _logger.warning("Error when converting raw data to skeleton list!")
+            return list()
         bodies = list()
-        # TODO: does this work for n_bodies > 1?
-        for _ in range(n_bodies):
+        for body in range(n_bodies):
             cam_space_points = list()
             color_space_points = list()
             depth_space_points = list()
-            for i in range(0, barray.size, 7):
+            for i in range(body*self.joint_type_count*7,
+                           (body + 1)*self.joint_type_count*7, 7):
                 cam_space_points.append((barray[i], barray[i + 1], barray[i + 2]))
                 color_space_points.append((barray[i + 3], barray[i + 4]))
                 depth_space_points.append((barray[i + 5], barray[i + 6]))
             bodies.append((cam_space_points, color_space_points, depth_space_points))
-        _logger.debug("Received skeleton data for {} bod{}.".format(
-            len(bodies), 'y' if len(bodies) == 1 else 'ies')
-        )
+        _logger.info("Received skeleton data for {} bod{} in {:.3f} s.".format(
+            len(bodies), 'y' if len(bodies) == 1 else 'ies',
+            time.time() - start))
         return bodies
 
     def collect_data(self, color=False, depth=False, skeleton=False):
@@ -221,7 +294,7 @@ class Kinect(object):
         """
         img_color = None
         img_depth = None
-        data_skeleton = None
+        data_skeleton = list()
         if self._native_ros:
             # Kinect is connected to the Ubuntu machine, communicate via ROS
             if color:
@@ -229,7 +302,8 @@ class Kinect(object):
             if depth:
                 img_depth = self.depth.collect_image()
             if skeleton:
-                data_skeleton = None
+                # libfreenect2 does not provide skeleton data
+                pass
         else:
             # Kinect is connected to a Windows machine, communicate via
             # TCP/IP socket connection
@@ -254,10 +328,8 @@ class Kinect(object):
                     img_depth = self._receive_depth()
                 if skeleton:
                     data_skeleton = self._receive_skeleton()
-            except ValueError:
-                err = 'Problem when receiving the data!'
-                _logger.warning(err)
-                raise ValueError(err)
+            except socket.error as e:
+                _logger.error(str(e))
             finally:
                 _logger.info('Close socket.')
                 self._socket.close()
@@ -294,19 +366,17 @@ class Kinect(object):
         :param bbox: The bounding box of the object we are interested in in
             the color image.
         :param img_depth: A depth image corresponding to the color image.
-        :return: A list [x, y, z] representing the approximate hand position
-            in camera coordinates.
+        :return: A list [x, y, z] representing the approximate object position
+            in camera coordinates or None if the object was not detected.
         """
-        # if bbox is None:
-        #     return None
+        if bbox is None:
+            return None
         # TODO: implement. But how?
         # requires re-projecting the center of the bounding box to 3d and
         # calibrating the color and depth images to find the proper depth value
-        if random_sample() > 0.8:
-            return [
-                (lims['x_max'] - lims['x_min'])*random_sample() + lims['x_min'],
-                (lims['y_max'] - lims['y_min'])*random_sample() + lims['y_min'],
-                0.2*random_sample() - 0.1 + lims['z_min']
-            ]
-        else:
-            return None
+        # see https://github.com/OpenKinect/libfreenect2/issues/223
+        return [
+            (lims['x_max'] - lims['x_min'])*random_sample() + lims['x_min'],
+            (lims['y_max'] - lims['y_min'])*random_sample() + lims['y_min'],
+            0.2*random_sample() - 0.1 + lims['z_min']
+        ]
