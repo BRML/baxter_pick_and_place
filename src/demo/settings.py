@@ -24,10 +24,16 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 from numpy import pi
+import os
 
 
 # The name or IP of the host PC on which the ELTE Kinect Windows server runs.
 elte_kinect_win_host = 'pc-baxter'
+
+
+# The directory on the Ubuntu machine where the 'py-faster-rcnn' and 'mnc'
+# repositories are cloned.
+develop_dir = os.path.expanduser('~/software')
 
 
 # The top pose is the pose taken whenever the robot has completed a task

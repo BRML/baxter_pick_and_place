@@ -26,14 +26,12 @@
 import os
 import sys
 
+from demo.settings import develop_dir
+
 
 def add_path(path):
     if path not in sys.path:
         sys.path.insert(0, path)
-
-
-# TODO: set proper path
-develop_dir = os.path.expanduser('~/software')
 
 
 def set_up_faster_rcnn():
