@@ -264,6 +264,10 @@ class PickAndPlace(object):
         return trafo
 
     def calibrate(self):
+        """Perform the calibration of the demonstration setup.
+
+        :return:
+        """
         _logger.info("Perform / read calibration of demonstration setup.")
         # height of the table in robot coordinates
         self._robot.z_table = self._calibrate_table_height()
