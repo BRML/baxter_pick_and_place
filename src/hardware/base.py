@@ -126,7 +126,7 @@ class Camera(object):
                 # See https://msdn.microsoft.com/en-us/library/jj131028.aspx.
                 _logger.debug("{}: There was at least one NaN in the depth "
                               "image. I replaced all occurrences with "
-                              "0.0 m.".format(self._topic.rsplit('/', 1)[0]))
+                              "0.0 m.".format(self._topic))
                 img.flags.writeable = True
                 img[mask] = 0.0
                 # We now map the float values in meters to uint16 values in mm

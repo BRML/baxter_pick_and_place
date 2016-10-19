@@ -116,4 +116,4 @@ if __name__ == '__main__':
     demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)
     rospy.on_shutdown(demo.shutdown_routine)
     demo.set_up()
-    # demo.demonstrate()
+    demo.demonstrate()
