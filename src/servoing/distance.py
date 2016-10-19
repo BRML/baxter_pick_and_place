@@ -39,7 +39,6 @@ class ServoingDistance(Servoing):
         :param rroi: The rotated rectangle enclosing the segmented object,
             given by ((cx, cy), (w, h), alpha).
         :param arm: The arm <'left', 'right'> to control.
-        :return: The approximate distance from the camera to the object.
+        :return: The approximate distance from the gripper to the object.
         """
-        # TODO: should we compensate for offset camera--fingertips?
         return self._robot.endpoint_pose(arm=arm)[2] - self._robot.z_table
