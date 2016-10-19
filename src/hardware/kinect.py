@@ -63,7 +63,7 @@ class Kinect(object):
     def __init__(self, root_dir, host=None):
         pars_color = None
         pars_depth = None
-        path = os.path.join(root_dir, 'data', 'setup', 'kinect_params.npz')
+        path = os.path.join(root_dir, 'data', 'setup', 'kinect_parameters.npz')
         self._host = host
         self._socket = None
         self._native_ros = False
