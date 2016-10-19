@@ -372,8 +372,14 @@ class Kinect(object):
             estimate = None
         else:
             estimate = dict()
-            estimate['left'] = [a[self.joint_type_hand_left] for a in skeleton]
-            estimate['right'] = [a[self.joint_type_hand_right] for a in skeleton]
+
+            for arm, idx in zip(['left', 'right'],
+                                [self.joint_type_hand_left,
+                                 self.joint_type_hand_right]):
+                cam, color, depth = [a[idx] for a in skeleton]
+                # TODO: verify this works as expected
+                pos = np.dot(self.trafo, cam + [1])[:-1]
+                estimate[arm] = (pos, color, depth)
         return estimate
 
     def estimate_object_position(self, bbox, img_depth):

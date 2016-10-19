@@ -312,17 +312,18 @@ class PickAndPlace(object):
 
             _logger.info('Looking for {} and estimate its pose.'.format(obj_id))
             if obj_id == 'hand':
-                obj_pose = self._camera.estimate_hand_position()
-                while obj_pose is None:
+                estimate = self._camera.estimate_hand_position()
+                while estimate is None:
                     _logger.warning("No hand position estimate was found! "
                                     "Please relocate your hand holding the object.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
-                    obj_pose = self._camera.estimate_hand_position()
-                obj_pose += [0, 0, 0]
+                    estimate = self._camera.estimate_hand_position()
+                obj_pose = estimate[0] + [np.pi, 0, np.pi]
             else:
-                img_color = self._camera.color.collect_image()
-                img_depth = self._camera.depth.collect_image()
+                img_color, img_depth, _ = self._camera.collect_data(color=True,
+                                                                    depth=True,
+                                                                    skeleton=False)
                 det = self._segmentation.detect_object(image=img_color,
                                                        object_id=obj_id,
                                                        threshold=0.8)
