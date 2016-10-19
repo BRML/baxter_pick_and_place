@@ -87,7 +87,7 @@ class PickAndPlace(object):
             self._pub_vis.publish(img_to_imgmsg(table_img))
             _logger.warning("Is the area within the red rectangle devoid of objects?")
             s = raw_input('(yes/no) ')
-            if s.lower()[0] == 'y':
+            if len(s) > 0 and s.lower()[0] == 'y':
                 empty = True
 
     def _calibrate_table_height(self):
