@@ -115,6 +115,9 @@ class Kinect(object):
         self.joint_type_hand_left = 7
         self.joint_type_hand_right = 11
 
+        # affine transformation from camera to Baxter coordinates
+        self.trafo = None
+
     def _receive_size(self):
         """Receive the number of bytes needed to read from the data stream.
 
