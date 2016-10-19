@@ -68,3 +68,22 @@ def redirect_logger(fname=None, level=logging.INFO):
         file_handler.setFormatter(fmt=fmt)
         for handle in handles:
             logging.getLogger(handle).addHandler(file_handler)
+
+
+def get_default_handler(filename='', level=logging.INFO):
+    h = list()
+
+    sh = logging.StreamHandler()
+    sh.setLevel(level=level)
+    fmt = '[%(name)s][%(levelname)s] %(message)s'
+    sh.setFormatter(fmt=logging.Formatter(fmt=fmt))
+    h.append(sh)
+
+    if isinstance(filename, str) and len(filename) > 0:
+        fh = logging.FileHandler(filename=filename, mode='a')
+        fh.setLevel(level=level)
+        fmt = '[%(name)s][%(levelname)s][%(asctime)-15s] %(message)s'
+        fh.setFormatter(fmt=logging.Formatter(fmt=fmt))
+        h.append(fh)
+
+    return h

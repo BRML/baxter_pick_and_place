@@ -280,9 +280,8 @@ class PickAndPlace(object):
         self._table_poses = [list(pos) + [np.pi, 0, np.pi]
                              for pos in cfg['positions']]
 
-        # TODO: implement calibration routines
-        # external camera relative to Baxter coordinates
-        # trafo = self._load_external_calibration()
+        # affine transformation from external camera to Baxter coordinates
+        self._camera.trafo = self._load_external_calibration()
 
     def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some
