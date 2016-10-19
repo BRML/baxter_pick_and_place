@@ -495,7 +495,7 @@ class Baxter(object):
         rob_coord = np.dot(self._hom_camera_to_robot(arm=arm), hom_coord)
         rob_coord /= rob_coord[-1]
         delta = abs(abs(rob_coord[2]) - abs(self.z_table))
-        if delta > 1e-4:
+        if delta > 1e-3:
             _logger.warning("Estimated and measured z coordinate of the object "
-                            "(table) deviate by {} > 0.0001 mm!".format(delta))
+                            "(table) deviate by {} > 0.001 m!".format(delta))
         return [rob_coord[0], rob_coord[1], self.z_table]
