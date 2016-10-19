@@ -105,3 +105,7 @@ task_space_limits_m = {
     'z_min': -0.19,
     'z_max': 0.33,
 }
+
+# The robot's task space limits in hand camera pixel coordinates
+# (in an image taken with the limb in calibration_pose).
+table_limits = ((250, 175), (1030, 650))
