@@ -69,6 +69,11 @@ class PickAndPlace(object):
             _logger.info('Create setup directory at {}.'.format(self._setup_dir))
             os.makedirs(self._setup_dir)
 
+        # variables for table view calibration
+        self._table_image = dict()
+        self._table_patches = list()
+        self._table_poses = list()
+
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
@@ -82,7 +87,9 @@ class PickAndPlace(object):
         empty = False
         while not empty and not rospy.is_shutdown():
             table_img = self._robot.cameras[arm].collect_image()
-            cv2.rectangle(table_img, pt1=(250, 175), pt2=(1030, 650),
+            cv2.rectangle(table_img,
+                          pt1=settings.table_limits[0],
+                          pt2=settings.table_limits[1],
                           color=(0, 0, 255), thickness=3)
             self._pub_vis.publish(img_to_imgmsg(table_img))
             _logger.warning("Is the area within the red rectangle devoid of objects?")
@@ -147,27 +154,58 @@ class PickAndPlace(object):
             else:
                 height = h_max
             msg = 'Computed table height to be %.3f m. ' % height
-            msg += '(min: %.3f m, max: %.3f m, mean: %.3f m, std: %.3f m).' % (h_min, h_max, h_mean, h_std)
+            msg += '(min: {:.3f} m, max: {:.3f} m, mean: {:.3f} m, ' \
+                   'std: {:.3f} m).'.format(h_min, h_max, h_mean, h_std)
             _logger.info(msg)
             np.savez(setup_file, height=height)
             self._robot.move_to_neutral(arm=arm)
         return float(height)
 
     def _calibrate_table_view(self):
-        # images: two hand camera images <left, right>
-        # patches: patches <x, y, w, h> in both images
+        """Calibrate the left- and right hand camera view of the table.
+        After ensuring that the table has been cleared of objects the robot
+        records reference images of the empty table with the left and right
+        hand cameras and selects a number of adjacent patches on the table.
+
+        :return: A dictionary containing
+            - the left hand camera reference image (key: 'image_left'),
+            - the right hand camera reference image (key: 'image_right'),
+            - the selected patches as a (n_patches, 2, 2) numpy array, where
+                the first dimension holds the patches and the second dimension
+                holds the top left and bottom right points defining the patch,
+            - the corresponding 2D positions on the table as a (n_patches, 3)
+                numpy array.
+        """
         setup_file = os.path.join(self._setup_dir, 'table_view.npz')
         try:
             with np.load(setup_file) as setup:
-                image_left = setup['image_left']
-                image_right = setup['image_right']
-                patches = setup['patches']
+                data = {
+                    'image_left': setup['image_left'],
+                    'image_right': setup['image_right'],
+                    'patches': setup['patches'],
+                    'positions': setup['positions']
+                }
             _logger.info('Read table view from calibration file.')
         except IOError:
             _logger.info('Calibrate table view.')
             images = dict()
-            patches = None
-            for arm in ['left', 'right']:
+            # define patches
+            (xl, yl), (xh, yh) = settings.table_limits
+            grid_x = range(xl, xh + 1, 95)
+            grid_y = range(yl, yh + 1, 95)
+            patches = list()
+            centers = list()
+            for i in range(len(grid_x) - 1):
+                for j in range(len(grid_y) - 1):
+                    patches.append(((grid_x[i], grid_y[j]),
+                                    (grid_x[i + 1], grid_y[j + 1])))
+                    centers.append(((grid_x[i + 1] - grid_x[i])//2 + grid_x[i],
+                                    (grid_y[j + 1] - grid_y[j])//2 + grid_y[j]))
+            positions = np.empty((len(patches), 3, 2), dtype=np.float32)
+            # record images and compute positions corresponding to patches
+            for i, arm in enumerate(['left', 'right']):
+                if rospy.is_shutdown():
+                    break
                 try:
                     config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
                 except ValueError as e:
@@ -177,19 +215,43 @@ class PickAndPlace(object):
                 self._wait_for_clear_table(arm=arm)
                 images[arm] = self._robot.cameras[arm].collect_image()
                 self._pub_vis.publish(img_to_imgmsg(images[arm]))
-                # discretize table surface
-                #     draw a grid of poses on the table
-                #     compute corresponding configs
-                #     store corresponding patch of appropriate size
-                #         (depends on max object size in meters, mpp and the current distance)
+                # illustrate patches on the table
+                canvas = images[arm].copy()
+                for patch, center in zip(patches, centers):
+                    cv2.rectangle(canvas, pt1=patch[0], pt2=patch[1],
+                                  color=(0, 255, 0), thickness=1)
+                    cv2.circle(canvas, center=center, radius=3,
+                               color=(0, 255, 0), thickness=1)
+                self._pub_vis.publish(img_to_imgmsg(canvas))
+
+                for j, center in enumerate(centers):
+                    if rospy.is_shutdown():
+                        break
+                    positions[j, :, i] = self._robot.estimate_object_position(arm=arm, center=center)
+
                 self._robot.move_to_neutral(arm=arm)
-            image_left = images['left']
-            image_right = images['right']
-            # np.savez(setup_file, image_left=images['left'],
-            #          image_right=images['right'], patches=patches)
-        return image_left, image_right, patches
+            data = {
+                'image_left': images['left'],
+                'image_right': images['right'],
+                'patches': np.array(patches),
+                'positions': positions.mean(axis=-1)
+            }
+            max_xyz = positions.std(axis=-1).max(axis=0)
+            if max_xyz.max() > 1e-3:
+                _logger.warning("Estimated left and right 2D positions deviate "
+                                "by up to {:.4f} m in x and {:.4f} m in y, "
+                                "which is larger than 0.001 m!".format(
+                                    max_xyz[0], max_xyz[1]))
+            np.savez(setup_file, **data)
+        return data
 
     def _load_external_calibration(self):
+        """Load the previously saved external calibration of the demonstration
+        setup consisting of the Kinect V2 sensor and the Baxter research robot.
+
+        :return: The affine transformation matrix (a 4x4 numpy array) mapping
+            from (Kinect) camera coordinates to robot coordinates.
+        """
         setup_file = os.path.join(self._setup_dir, 'external_parameters.npz')
         try:
             with np.load(setup_file) as setup:
@@ -206,19 +268,19 @@ class PickAndPlace(object):
         # height of the table in robot coordinates
         self._robot.z_table = self._calibrate_table_height()
 
-        # TODO: implement calibration routines
-        # image patches corresponding to pre-selected poses / configurations on the
-        # table.
-        #   - patches: list of quadruples (xul, yul, xlr, ylr)
-        #   - poses: list of corresponding poses [x, y, z, roll, pitch, yaw]
-        #   - configs: list of corresponding configurations [{'left': {}, 'right':{}}]
+        # image patches on a table reference image
         # Needed for selecting empty spots on the table for placing objects.
-        # image_left, image_right, patches = self._calibrate_table_view()
-        # self._table_image = {'left': None, 'right': None}
-        # self._table_patches = []
-        # self._table_poses = []
-        # self._table_cfgs = []
+        cfg = self._calibrate_table_view()
+        self._table_image = {
+            'left': cfg['image_left'],
+            'right': cfg['image_right']
+        }
+        self._table_patches = [(tuple(patch[0]), tuple(patch[1]))
+                               for patch in cfg['patches']]
+        self._table_poses = [list(pos) + [np.pi, 0, np.pi]
+                             for pos in cfg['positions']]
 
+        # TODO: implement calibration routines
         # external camera relative to Baxter coordinates
         # trafo = self._load_external_calibration()
 
@@ -281,13 +343,15 @@ class PickAndPlace(object):
 
             if tgt_id == 'table':
                 _logger.info('Looking for a spot to put the object down.')
-                self._robot.move_to(config=settings.calibration_cfgs[arm])
+                self._robot.move_to(config=settings.calibration_pose)
                 table_img = self._robot.cameras[arm].collect_image()
                 idxs = range(len(self._table_patches))
                 random.shuffle(idxs)
                 tgt_pose = None
                 for idx in idxs:
-                    xul, yul, xlr, ylr = self._table_patches[idx]
+                    if rospy.is_shutdown():
+                        break
+                    (xul, yul), (xlr, ylr) = self._table_patches[idx]
                     table_patch = table_img[yul:ylr, xul: xlr]
                     ref_patch = self._table_image[arm][yul:ylr, xul: xlr]
                     diff, vis_patch = color_difference(image_1=table_patch,
@@ -296,7 +360,11 @@ class PickAndPlace(object):
                     # TODO: adapt this threshold
                     if diff.mean()*100.0 < 10.0:
                         tgt_pose = self._table_poses[idx]
-                        tgt_cfg = self._table_cfgs[idx][arm]
+                        try:
+                            tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
+                        except ValueError as e:
+                            # TODO: how to handle this case?
+                            raise e
                         break
                 if tgt_pose is None:
                     _logger.warning("Found no place to put the object down! "
