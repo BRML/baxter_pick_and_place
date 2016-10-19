@@ -114,7 +114,9 @@ class Camera(object):
                                          timeout=0.5)
             img = imgmsg_to_img(imgmsg=msg)
         except rospy.ROSException:
-            img = None
+            msg = "ROS error while reading image from {}.".format(self._topic)
+            _logger.error(msg)
+            raise RuntimeError(msg)
         if img.dtype == np.float32:
             # In simulation, depth map is a float32 image
             mask = np.isnan(img)
