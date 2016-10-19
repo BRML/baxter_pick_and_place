@@ -40,9 +40,10 @@ class ServoingSize(Servoing):
         :param rroi: The rotated rectangle enclosing the segmented object,
             given by ((cx, cy), (w, h), alpha).
         :param arm: The arm <'left', 'right'> to control.
-        :return: The approximate distance from the camera to the object.
+        :return: The approximate distance from the gripper to the object.
         """
         size_meters = self._object_size_meters[object_id]
         size_pixels = max(rroi[1])
 
-        return size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
+        dist_cam_obj = size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
+        return dist_cam_obj - abs(self._robot.cam_offset[2])

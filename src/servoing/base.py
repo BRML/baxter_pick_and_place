@@ -104,7 +104,7 @@ class Servoing(object):
         :param rroi: The rotated rectangle enclosing the segmented object,
             given by ((cx, cy), (w, h), alpha).
         :param arm: The arm <'left', 'right'> to control.
-        :return: The approximate distance from the camera to the object.
+        :return: The approximate distance from the gripper to the object.
         """
         raise NotImplementedError()
 
