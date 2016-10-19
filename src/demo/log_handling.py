@@ -36,7 +36,7 @@ from simulation import env_remove_default_loghandler
 from vision import mnc_remove_default_loghandler
 
 
-def redirect_logger(fname=None, level=logging.INFO):
+def redirect_logger(fname='', level=logging.INFO):
     """Redirect logging output of all modules to a common stream handler and
     optional file handler with common format and log level.
 
@@ -51,23 +51,10 @@ def redirect_logger(fname=None, level=logging.INFO):
     for handle in handles:
         eval('{}_remove_default_loghandler()'.format(handle))
 
-    # define format
-    fmt = logging.Formatter('[%(name)s][%(levelname)s][%(asctime)-15s] %(message)s')
-
-    # define and attach new stream handler to use
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(level=level)
-    stream_handler.setFormatter(fmt=fmt)
-    for handle in handles:
-        logging.getLogger(handle).addHandler(stream_handler)
-
-    if fname is not None:
-        # define and attach file handler to use
-        file_handler = logging.FileHandler(filename=fname, mode='a')
-        file_handler.setLevel(level=level)
-        file_handler.setFormatter(fmt=fmt)
+    handlers = get_default_handler(filename=fname, level=level)
+    for handler in handlers:
         for handle in handles:
-            logging.getLogger(handle).addHandler(file_handler)
+            logging.getLogger(handle).addHandler(hdlr=handler)
 
 
 def get_default_handler(filename='', level=logging.INFO):
