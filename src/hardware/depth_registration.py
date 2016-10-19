@@ -163,32 +163,33 @@ class DepthRegistration(object):
         return True
 
 
-reg = np.array([1.0556223863649359e+03, 0., 9.5417339830340200e+02, 0.,
-                1.0550357564529666e+03, 5.3003553108782205e+02, 0., 0., 1.]).reshape((3, 3))
-sreg = (1080//2, 1920//2)
-dep = np.array([3.6441717090792264e+02, 0., 2.4976446015643833e+02, 0.,
-                3.6432176899325952e+02, 2.0868139387945234e+02, 0., 0., 1.]).reshape((3, 3))
-sdep = (424, 512)
-dist_dep = np.array([1.0814451687857619e-01, -3.4092997612470310e-01,
-                     1.8635310483513959e-03, 8.2329335500367794e-04,
-                     1.7735068907380566e-01])
-rot = np.array([9.9997280609829253e-01, 4.6300753995816308e-03,
-                -5.7401625151890772e-03, -4.6266789480935190e-03,
-                9.9998911394748591e-01, 6.0483752638133749e-04,
-                5.7429004708301392e-03, -5.7826318942143142e-04,
-                9.9998334221419205e-01]).reshape((3, 3))
-trans = np.array([-4.9143118506968717e-02, 3.1501251792413907e-05, 1.5600404762627028e-03])
-dr = DepthRegistration(reg, sreg, dep, sdep,
-                       dist_dep, rot, trans,
-                       0.5, 12.0)
-d = np.random.randint(0, 12000, sdep)
-print 'outside, depth:', d.shape, d.dtype, d.min(), d.max()
-cv2.imshow('depth', d)
-cv2.waitKey(0)
-r = np.zeros(sreg, dtype=np.uint16)
-print 'outside, before, registered:', r.shape, r.dtype, r.min(), r.max()
-dr.register_depth(d, r)
-print 'outside, after, registered:', r.shape, r.dtype, r.min(), r.max()
-cv2.imshow('registered', r)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+if __name__ == '__main__':
+    reg = np.array([1.0556223863649359e+03, 0., 9.5417339830340200e+02, 0.,
+                    1.0550357564529666e+03, 5.3003553108782205e+02, 0., 0., 1.]).reshape((3, 3))
+    sreg = (1080//2, 1920//2)
+    dep = np.array([3.6441717090792264e+02, 0., 2.4976446015643833e+02, 0.,
+                    3.6432176899325952e+02, 2.0868139387945234e+02, 0., 0., 1.]).reshape((3, 3))
+    sdep = (424, 512)
+    dist_dep = np.array([1.0814451687857619e-01, -3.4092997612470310e-01,
+                         1.8635310483513959e-03, 8.2329335500367794e-04,
+                         1.7735068907380566e-01])
+    rot = np.array([9.9997280609829253e-01, 4.6300753995816308e-03,
+                    -5.7401625151890772e-03, -4.6266789480935190e-03,
+                    9.9998911394748591e-01, 6.0483752638133749e-04,
+                    5.7429004708301392e-03, -5.7826318942143142e-04,
+                    9.9998334221419205e-01]).reshape((3, 3))
+    trans = np.array([-4.9143118506968717e-02, 3.1501251792413907e-05, 1.5600404762627028e-03])
+    dr = DepthRegistration(reg, sreg, dep, sdep,
+                           dist_dep, rot, trans,
+                           0.5, 12.0)
+    d = np.random.randint(0, 12000, sdep)
+    print 'outside, depth:', d.shape, d.dtype, d.min(), d.max()
+    cv2.imshow('depth', d)
+    cv2.waitKey(0)
+    r = np.zeros(sreg, dtype=np.uint16)
+    print 'outside, before, registered:', r.shape, r.dtype, r.min(), r.max()
+    dr.register_depth(d, r)
+    print 'outside, after, registered:', r.shape, r.dtype, r.min(), r.max()
+    cv2.imshow('registered', r)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()

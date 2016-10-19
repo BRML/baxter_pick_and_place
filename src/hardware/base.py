@@ -75,7 +75,7 @@ class Camera(object):
             self._get_ros_calibration()
         else:
             self.camera_matrix = cam_pars['cam_mat']
-            self.image_size = cam_pars['size']
+            self.image_size = tuple(cam_pars['size'])
             self.distortion_coeff = cam_pars['dist_coeff']
         if self.camera_matrix.shape != (3, 3):
             raise ValueError("Expected a 3x3 camera matrix, got "
@@ -97,7 +97,7 @@ class Camera(object):
             msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
                                          timeout=1.5)
             self.camera_matrix = np.asarray(msg.K, dtype=np.float64).reshape((3, 3))
-            self.image_size = np.asarray([msg.height, msg.width], dtype=np.uint32)
+            self.image_size = (int(msg.height), int(msg.width))
             self.distortion_coeff = np.asarray(msg.D, dtype=np.float64)
         except rospy.ROSException:
             raise RuntimeError("Unable to read camera info from ROS master!")
