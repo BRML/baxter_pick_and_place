@@ -39,7 +39,7 @@ from geometry_msgs.msg import (
 from std_msgs.msg import Empty
 
 
-_logger = logging.getLogger('env')
+_logger = logging.getLogger('main.env')
 
 
 def sim_or_real():

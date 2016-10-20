@@ -47,21 +47,6 @@ import demo.settings as settings
 from demo.settings import task_space_limits_m as lims
 
 
-# Set up logging
-_logger = logging.getLogger('baxter')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.DEBUG)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'baxter'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class Baxter(object):
     def __init__(self, sim=False):
         """Hardware abstraction of the Baxter robot using the BaxterSDK
@@ -69,6 +54,8 @@ class Baxter(object):
 
         :param sim: Whether in Gazebo (True) or on real Baxter (False).
         """
+        name = 'main.baxter'
+        self._logger = logging.getLogger(name)
         self._arms = ['left', 'right']
         self._limbs = {a: baxter_interface.Limb(a)
                        for a in self._arms}
@@ -93,7 +80,8 @@ class Baxter(object):
             self.cameras[arm].fps = 14.0
         # We don't need the CameraControllers any more. Our own module will
         # do the remaining camera handling for us.
-        self.cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a))
+        self.cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a),
+                                  prefix=name)
                         for a in self._arms}
         self._planner = SimplePlanner()
 
@@ -124,16 +112,16 @@ class Baxter(object):
 
         :return:
         """
-        _logger.info("Getting robot state.")
+        self._logger.info("Getting robot state.")
         self._rs = baxter_interface.RobotEnable(baxter_interface.CHECK_VERSION)
         self._init_state = self._rs.state().enabled
-        _logger.info("Enabling robot.")
+        self._logger.info("Enabling robot.")
         self._rs.enable()
 
-        _logger.info("Getting camera offset.")
+        self._logger.info("Getting camera offset.")
         self.cam_offset = self._get_cam_offset()
 
-        _logger.info("Moving limbs to neutral configuration and calibrate grippers.")
+        self._logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
             self._limbs[arm].move_to_neutral()
             self._grippers[arm].set_parameters(parameters=self._grippers_pars)
@@ -147,17 +135,16 @@ class Baxter(object):
 
         :return:
         """
-        _logger.info("Initiating safe shut-down")
-        _logger.info("Moving limbs to neutral configuration")
+        self._logger.info("Initiating safe shut-down")
+        self._logger.info("Moving limbs to neutral configuration")
         for arm in self._arms:
             self._grippers[arm].open()
             self._limbs[arm].move_to_neutral()
         if not self._init_state:
-            _logger.info("Disabling robot")
+            self._logger.info("Disabling robot")
             self._rs.disable()
 
-    @staticmethod
-    def _stamp_pose(pose, target_frame='base'):
+    def _stamp_pose(self, pose, target_frame='base'):
         """Create a stamped pose ROS message.
 
         :param pose: The pose to stamp. One of
@@ -173,7 +160,7 @@ class Baxter(object):
             try:
                 msg = list_to_pose_msg(pose)
             except ValueError as e:
-                _logger.error(str(e))
+                self._logger.error(str(e))
                 raise e
         pose_msg = PoseStamped()
         pose_msg.pose = msg
@@ -236,7 +223,7 @@ class Baxter(object):
             rospy.wait_for_service(node, 5.0)
             ik_response = ik_service(ik_request)
         except (rospy.ServiceException, rospy.ROSException), error_message:
-            _logger.error("Service request failed: %r" % (error_message,))
+            self._logger.error("Service request failed: %r" % (error_message,))
             raise
 
         if ik_response.isValid[0]:
@@ -246,7 +233,7 @@ class Baxter(object):
         else:
             s = "No valid configuration found for " \
                 "pose {} with {} arm!".format(pose, arm)
-            _logger.debug(s)
+            self._logger.debug(s)
             raise ValueError(s)
 
     def ik_either_limb(self, pose):
@@ -274,7 +261,7 @@ class Baxter(object):
             except ValueError:
                 # no valid configuration found for right arm
                 s = "No valid configuration found for pose {} with either arm!".format(pose)
-                _logger.warning(s)
+                self._logger.warning(s)
                 raise ValueError(s)
         return arm, cfg
 
@@ -383,10 +370,10 @@ class Baxter(object):
                 dists = [abs(x - size) for x in gr]
                 min_dist = min(dists)
                 if min_dist > 0.0:
-                    _logger.debug("{} gripper is suitable to grasp object "
-                                  "(offset={:.3f} m).".format(
-                                      a.capitalize(), min_dist)
-                                  )
+                    self._logger.debug("{} gripper is suitable to grasp object "
+                                       "(offset={:.3f} m).".format(
+                                            a.capitalize(), min_dist)
+                                       )
                     if min_dist > dist:
                         dist = min_dist
                         if gr[0] > min_width:
@@ -407,9 +394,9 @@ class Baxter(object):
                        self._gripper_ranges_meters()[settings.gripper_settings['right']][0],
                        self._gripper_ranges_meters()[settings.gripper_settings['right']][1])
                    )
-            _logger.error(msg)
+            self._logger.error(msg)
             raise ValueError(msg)
-        _logger.info("Selected {} limb to grasp object.".format(arm))
+        self._logger.info("Selected {} limb to grasp object.".format(arm))
         return arm
 
     def grasp(self, arm):
@@ -496,6 +483,6 @@ class Baxter(object):
         rob_coord /= rob_coord[-1]
         delta = abs(abs(rob_coord[2]) - abs(self.z_table))
         if delta > 1e-3:
-            _logger.warning("Estimated and measured z coordinate of the object "
-                            "(table) deviate by {} > 0.001 m!".format(delta))
+            self._logger.warning("Estimated and measured z coordinate of the object "
+                                 "(table) deviate by {} > 0.001 m!".format(delta))
         return [rob_coord[0], rob_coord[1], self.z_table]

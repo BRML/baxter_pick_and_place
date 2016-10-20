@@ -42,21 +42,6 @@ from transform.bbox_transform import clip_boxes
 from utils.blob import prep_im_for_blob, im_list_to_blob
 
 
-# Set up logging
-_logger = logging.getLogger('mnc')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'mnc'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class ObjectSegmentation(object):
     def __init__(self, root_dir, object_ids):
         """Instantiates a 'faster R-CNN' object detector and segmentation object.
@@ -67,6 +52,9 @@ class ObjectSegmentation(object):
             [background, object 1, object 2, ..., object N].
         """
         self._classes = object_ids
+
+        self._logger = logging.getLogger('main.mnc')
+
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
                                       'mnc_5stage_test.pt')
@@ -155,9 +143,9 @@ class ObjectSegmentation(object):
         cfg.GPU_ID = gpu_id
 
         self._net = caffe_mnc.Net(self._prototxt, self._caffemodel, caffe_mnc.TEST)
-        _logger.info('Loaded network %s.' % self._caffemodel)
+        self._logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
-            _logger.debug('Warming up on dummy images.')
+            self._logger.debug('Warming up on dummy images.')
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for _ in xrange(2):
                 _, _, _ = self._im_detect(dummy)
@@ -181,7 +169,7 @@ class ObjectSegmentation(object):
                              "with shape (h, w, 3)!")
         start = time.time()
         scores, boxes, masks = self._im_detect(image)
-        _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
+        self._logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
         return scores, boxes, masks
@@ -254,7 +242,7 @@ class ObjectSegmentation(object):
         best_mask = self._mask_image_from_mask(mask=masks[best_idx][0],
                                                box=best_box,
                                                image_size=image.shape[:2])
-        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -292,7 +280,7 @@ class ObjectSegmentation(object):
                                                image_size=image.shape[:2])
         best_object = self._classes[best_class]
 
-        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             best_object,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -306,7 +294,7 @@ class ObjectSegmentation(object):
 if __name__ == '__main__':
     from visualization_utils import draw_detection
     path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
-    _logger.info('started')
+    print 'started'
     classes = ('__background__',
                'aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
@@ -328,4 +316,4 @@ if __name__ == '__main__':
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
-    _logger.info('ended')
+    print 'ended'

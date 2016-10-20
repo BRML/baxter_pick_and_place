@@ -30,21 +30,6 @@ from hardware import img_to_imgmsg
 from vision import mask_to_rroi, draw_rroi
 
 
-# Set up logging
-_logger = logging.getLogger('servo')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'servo'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class Servoing(object):
     def __init__(self, robot, segmentation, pub_vis, object_size, tolerance):
         """Base class for visual servoing. Can be used to position the end
@@ -67,6 +52,8 @@ class Servoing(object):
         self._object_size_meters = object_size
         self._tolerance = tolerance
 
+        self._logger = logging.getLogger('main.servo')
+
     def _find_rotated_enclosing_rect(self, image, object_id):
         """Find the rectangle with arbitrary orientation that encloses the
         segmented object in the given image with minimum area.
@@ -87,7 +74,7 @@ class Servoing(object):
                                                    threshold=0.8)
         handstring = ' in hand' if object_id is 'hand' else ''
         if det['mask'] is not None:
-            _logger.info("Segmented {}{}.".format(det['id'], handstring))
+            self._logger.info("Segmented {}{}.".format(det['id'], handstring))
             rroi = mask_to_rroi(mask=det['mask'])
         else:
             raise ValueError("Segmentation of {}{} failed!".format(det['id'],
@@ -181,7 +168,7 @@ class Servoing(object):
                                            object_id=object_id, rroi=rroi,
                                            arm=arm)
             except ValueError as e:
-                _logger.error(e)
+                self._logger.error(e)
         return rroi, camera_error
 
     def servo(self, arm, object_id):
@@ -197,12 +184,12 @@ class Servoing(object):
             rroi = self._find_rotated_enclosing_rect(image=img,
                                                      object_id=object_id)
         except ValueError as e:
-            _logger.error(e)
+            self._logger.error(e)
             return False
         camera_error = 2*self._tolerance
         it = 1
         while camera_error > self._tolerance:
-            _logger.debug("Iteration {} finished".format(it))
+            self._logger.debug("Iteration {} finished".format(it))
             it += 1
             rroi, camera_error = self._iterate(arm=arm, object_id=object_id,
                                                rroi=rroi)

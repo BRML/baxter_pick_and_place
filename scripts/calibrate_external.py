@@ -27,15 +27,15 @@
 
 import datetime
 import logging
-import numpy as np
 import os
-
 import rospkg
+
+import numpy as np
 import rospy
 import tf
 from tf import transformations
 
-from demo.log_handling import get_default_handler
+from core import get_default_handler
 
 
 class ExternalCalibration(object):
