@@ -241,9 +241,9 @@ class PickAndPlace(object):
             max_xyz = positions.std(axis=-1).max(axis=0)
             if max_xyz.max() > 1e-3:
                 self._logger.warning("Estimated left and right 2D positions deviate "
-                                "by up to {:.4f} m in x and {:.4f} m in y, "
-                                "which is larger than 0.001 m!".format(
-                                    max_xyz[0], max_xyz[1]))
+                                     "by up to {:.4f} m in x and {:.4f} m in y, "
+                                     "which is larger than 0.001 m!".format(
+                                         max_xyz[0], max_xyz[1]))
             np.savez(setup_file, **data)
             self.publish_vis(image=255*np.ones((800, 1280, 3), dtype=np.uint8))
         return data
@@ -262,7 +262,7 @@ class PickAndPlace(object):
             self._logger.info('Read external camera parameters from calibration file.')
         except IOError:
             self._logger.warning('No external calibration found! Please run the '
-                            'external calibration routine and try again.')
+                                 'external calibration routine and try again.')
             raise IOError('No external calibration found!')
         return trafo
 
@@ -318,7 +318,7 @@ class PickAndPlace(object):
                 estimate = self._camera.estimate_hand_position()
                 while estimate is None:
                     self._logger.warning("No hand position estimate was found! "
-                                    "Please relocate your hand holding the object.")
+                                         "Please relocate your hand holding the object.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
                     estimate = self._camera.estimate_hand_position()
@@ -377,7 +377,7 @@ class PickAndPlace(object):
                         tgt_pose = self._table_poses[idx]
                 if tgt_pose is None:
                     self._logger.warning("Found no place to put the object down! "
-                                    "I abort this task. Please start over.")
+                                         "I abort this task. Please start over.")
                     instr = client.wait_for_instruction()
                     continue
 
@@ -414,7 +414,7 @@ class PickAndPlace(object):
                 tgt_pose = self._camera.estimate_hand_position()
                 while tgt_pose is None:
                     self._logger.warning("No hand position estimate was found! "
-                                    "Please relocate your hand.")
+                                         "Please relocate your hand.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
                     tgt_pose = self._camera.estimate_hand_position()
