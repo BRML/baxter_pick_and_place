@@ -98,13 +98,28 @@ def mask_to_rroi(mask):
     :return: The minimum enclosing rectangle, defined by
         <(cx, cy), (w, h), alpha>, where w and h are the width and height of
         the rectangle centered around cx and cy and rotated by alpha degrees.
+        Note: Alpha is defined *clockwise* starting from the positive x axis
+        and is forced to point along the shorter dimension of the rotated
+        rectangle.
     """
     contours, _ = cv2.findContours(image=mask, mode=cv2.RETR_LIST,
                                    method=cv2.CHAIN_APPROX_SIMPLE)
     if len(contours) > 1:
         raise ValueError("Expected to find exactly one contour!")
-    # TODO: why does alpha not always point along the longer axis?
-    return cv2.minAreaRect(contours[0])
+    center, (w, h), alpha = cv2.minAreaRect(contours[0])
+    # make sure alpha always points along the shorter dimension of the mask
+    # (this is the dimension along which we want to grasp the object)
+    if w > h:
+        temp = h
+        h = w
+        w = temp
+        alpha = (alpha + 90.0) % 360.0
+    elif h == w:
+        alpha = min(alpha, (alpha + 90.0) % 360.0)
+    else:
+        # h > w, no need to do anything
+        pass
+    return center, (w, h), alpha
 
 
 def draw_rroi(image, rroi):
