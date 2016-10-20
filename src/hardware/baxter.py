@@ -178,7 +178,17 @@ class Baxter(object):
         return pose_dict_to_list(self._limbs[arm].endpoint_pose())
 
     @staticmethod
-    def sample_task_space_pose(clip_z=False):
+    def sample_pose(lim):
+        return [
+            (lim['x_max'] - lim['x_min'])*np.random.random_sample() + lim['x_min'],
+            (lim['y_max'] - lim['y_min'])*np.random.random_sample() + lim['y_min'],
+            (lim['z_max'] - lim['z_min'])*np.random.random_sample() + lim['z_min'],
+            (lim['roll_max'] - lim['roll_min'])*np.random.random_sample() + lim['roll_min'],
+            (lim['pitch_max'] - lim['pitch_min'])*np.random.random_sample() + lim['pitch_min'],
+            (lim['yaw_max'] - lim['yaw_min'])*np.random.random_sample() + lim['yaw_min']
+        ]
+
+    def sample_task_space_pose(self, clip_z=False):
         """Sample a random pose from within the robot's task space.
         Note: The orientation is held fixed!
 
@@ -187,20 +197,15 @@ class Baxter(object):
             the distance sensor.
         :return: The random pose as a list [x, y, z, roll, pitch, yaw].
         """
+        borders = settings.task_space_limits_m
         if clip_z:
-            z_max = 0.0
-        else:
-            z_max = lims['z_max']
-        return [
-            (lims['x_max'] - lims['x_min'])*np.random.random_sample() + lims['x_min'],
-            (lims['y_max'] - lims['y_min'])*np.random.random_sample() + lims['y_min'],
-            (z_max - lims['z_min'])*np.random.random_sample() + lims['z_min'],
-            np.pi,
-            0.0,
-            np.pi
-        ]
+            borders['z_max'] = 0.0
+        borders['roll_max'] = borders['roll_min'] = np.pi
+        borders['pitch_max'] = borders['pitch_min'] = 0.0
+        borders['yaw_max'] = borders['yaw_min'] = np.pi
+        return self.sample_pose(lim=borders)
 
-    def inverse_kinematics(self, arm, pose=None):
+    def ik(self, arm, pose=None):
         """Solve inverse kinematics for one limb at given pose.
 
         :param arm: The arm <'left', 'right'> to control.
@@ -252,12 +257,12 @@ class Baxter(object):
         """
         arm = 'left'
         try:
-            cfg = self.inverse_kinematics(arm, pose)
+            cfg = self.ik(arm, pose)
         except ValueError:
             # no valid configuration found for left arm
             arm = 'right'
             try:
-                cfg = self.inverse_kinematics(arm, pose)
+                cfg = self.ik(arm, pose)
             except ValueError:
                 # no valid configuration found for right arm
                 s = "No valid configuration found for pose {} with either arm!".format(pose)
@@ -299,14 +304,23 @@ class Baxter(object):
         self._planner.plan(start=start, end=target)
         return self._planner
 
-    def move_to(self, config=None, pose=None):
+    def move_to_config(self, config):
         """Shortcut for planning a trajectory to the target configuration
-        and executing the trajectory. If a target pose is specified,
-        compute the corresponding target configuration using the inverse
-        kinematics solver before planning and executing the trajectory.
-        Note: Only *one* of <config, pose> can be specified at a time.
+        and executing the trajectory.
 
         :param config: Dictionary of joint name keys to target joint angles.
+        :return:
+        """
+        trajectory = self.plan(target=config)
+        self.control(trajectory=trajectory)
+
+    def move_to_pose(self, arm, pose):
+        """Shortcut for planning a trajectory to the target pose
+        and executing the trajectory. Compute the corresponding target
+        configuration using the inverse kinematics solver before planning and
+        executing the trajectory.
+
+        :param arm: The arm <'left', 'right'> to control.
         :param pose: The pose to stamp. One of
             - None, in which case the current set of joint angles is returned,
             - a ROS Pose,
@@ -314,13 +328,11 @@ class Baxter(object):
             - a list of length 7 [x, y, z, qx, qy, qz, qw].
         :return:
         """
-        inpt = [False if x is None else True for x in [config, pose]]
-        if sum(inpt) == 0 or sum(inpt) == 2:
-            raise ValueError("Need to provide either target config or pose!")
-        if pose is not None:
-            _, config = self.ik_either_limb(pose=pose)
-        trajectory = self.plan(target=config)
-        self.control(trajectory=trajectory)
+        try:
+            config = self.ik(arm=arm, pose=pose)
+        except ValueError as e:
+            raise e
+        self.move_to_config(config=config)
 
     def move_to_neutral(self, arm=None):
         """Move the lift, right or both limbs to their neutral configuration.

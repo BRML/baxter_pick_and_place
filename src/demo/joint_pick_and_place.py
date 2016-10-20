@@ -97,6 +97,63 @@ class PickAndPlace(object):
             if len(s) > 0 and s.lower()[0] == 'y':
                 empty = True
 
+    def _move_to_pose_or_raise(self, arm, pose):
+        """Shortcut to move the robots' specified limb to the given pose. If
+        the pose was not reached, raise an exception.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param pose: The pose to move to. One of
+            - a ROS Pose,
+            - a list of length 6 [x, y, z, roll, pitch, yaw] or
+            - a list of length 7 [x, y, z, qx, qy, qz, qw].
+        :return:
+        :raise: ValueError if inverse kinematics failed.
+        """
+        try:
+            config = self._robot.ik(arm=arm, pose=pose)
+        except ValueError as e:
+            self._logger.error("This should not have happened! Abort.")
+            raise e
+        self._robot.move_to_config(config=config)
+
+    def _move_to_pose_or_dither(self, arm, pose, fix_z=False):
+        """Shortcut to move the robots' specified limb to the given pose. If
+        the pose was not reached, modify the pose slightly and try again.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param pose: The pose to move to. One of
+            - a ROS Pose,
+            - a list of length 6 [x, y, z, roll, pitch, yaw] or
+            - a list of length 7 [x, y, z, qx, qy, qz, qw].
+        :param fix_z: Whether to keep the z coordinate fixed.
+        :return: The achieved configuration, a dictionary of joint name keys
+            to joint angle values.
+        """
+        borders = {
+            'x_min': pose[0] - 0.025,
+            'x_max': pose[0] + 0.025,
+            'y_min': pose[1] - 0.025,
+            'y_max': pose[1] + 0.025,
+            'z_min': pose[2],
+            'z_max': pose[2] + (0.025 if not fix_z else 0.0),
+            'roll_min': pose[3],
+            'roll_max': pose[3],
+            'pitch_min': pose[4],
+            'pitch_max': pose[4],
+            'yaw_min': pose[5] - np.deg2rad(5.0),
+            'yaw_max': pose[5] + np.deg2rad(5.0)
+        }
+        config = None
+        while config is None and not rospy.is_shutdown():
+            try:
+                config = self._robot.ik(arm=arm, pose=pose)
+            except ValueError:
+                self._logger.debug('Computing IK for pose {} with {} arm '
+                                   'failed!'.format(pose, arm))
+                pose = self._robot.sample_pose(lim=borders)
+        self._robot.move_to_config(config=config)
+        return config
+
     def _calibrate_table_height(self):
         """Calibrate the height of the table in the robot's task coordinates.
         After ensuring that the table has been cleared of objects the robot
@@ -116,12 +173,7 @@ class PickAndPlace(object):
             self._logger.info('Calibrate table height.')
             arm = 'left'
             n_samples = 10
-            try:
-                config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
-            except ValueError as e:
-                self._logger.error("This should not have happened! Abort.")
-                raise e
-            self._robot.move_to(config=config)
+            self._move_to_pose_or_raise(arm=arm, pose=settings.calibration_pose)
             self._wait_for_clear_table(arm=arm)
             heights = list()
             for n in range(n_samples):
@@ -133,10 +185,10 @@ class PickAndPlace(object):
                         break
                     random_pose = self._robot.sample_task_space_pose(clip_z=True)
                     try:
-                        config = self._robot.inverse_kinematics(arm=arm, pose=random_pose)
+                        config = self._robot.ik(arm=arm, pose=random_pose)
                     except ValueError:
                         pass
-                self._robot.move_to(config=config)
+                self._robot.move_to_config(config=config)
                 self.publish_vis(image=self._robot.cameras[arm].collect_image())
                 distances = list()
                 while len(distances) < 10:
@@ -208,12 +260,7 @@ class PickAndPlace(object):
             for i, arm in enumerate(['left', 'right']):
                 if rospy.is_shutdown():
                     break
-                try:
-                    config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
-                except ValueError as e:
-                    self._logger.error("This should not have happened! Abort.")
-                    raise e
-                self._robot.move_to(config=config)
+                self._move_to_pose_or_raise(arm=arm, pose=settings.calibration_pose)
                 self._wait_for_clear_table(arm=arm)
                 images[arm] = self._robot.cameras[arm].collect_image()
                 self.publish_vis(image=images[arm])
@@ -350,12 +397,7 @@ class PickAndPlace(object):
 
             if tgt_id == 'table':
                 self._logger.info('Looking for a spot to put the object down.')
-                try:
-                    cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
-                except ValueError as e:
-                    self._logger.error("This should not have happened! Abort.")
-                    raise e
-                self._robot.move_to(config=cfg)
+                self._move_to_pose_or_raise(arm=arm, pose=settings.calibration_pose)
                 table_img = self._robot.cameras[arm].collect_image()
                 idxs = range(len(self._table_patches))
                 random.shuffle(idxs)
@@ -385,7 +427,7 @@ class PickAndPlace(object):
             self._logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
             while not success:
-                self._robot.move_to(config=appr_cfg)
+                self._robot.move_to_config(config=appr_cfg)
                 self._logger.info('Using visual servoing to grasp object.')
                 if obj_id == 'hand':
                     self._servo['hand'].servo(arm=arm, object_id=obj_id)
@@ -396,20 +438,15 @@ class PickAndPlace(object):
                 else:
                     self._logger.info('Something went wrong. I will try again.')
                     self._robot.release(arm)
-            self._robot.move_to(pose=settings.top_pose)
+            self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
 
             self._logger.info('Placing the object.')
             if tgt_id == 'table':
                 appr_pose = self._get_approach_pose(pose=tgt_pose)
-                try:
-                    appr_cfg = self._robot.inverse_kinematics(arm=arm, pose=appr_pose)
-                except ValueError as e:
-                    # TODO: how to handle this case?
-                    raise e
-                self._robot.move_to(config=appr_cfg)
-                self._robot.move_to(config=tgt_cfg)
+                appr_cfg = self._move_to_pose_or_dither(arm=arm, pose=appr_pose)
+                self._move_to_pose_or_dither(arm=arm, pose=tgt_pose, fix_z=True)
                 self._robot.release()
-                self._robot.move_to(config=appr_cfg)
+                self._robot.move_to_config(config=appr_cfg)
             else:
                 tgt_pose = self._camera.estimate_hand_position()
                 while tgt_pose is None:
@@ -418,23 +455,13 @@ class PickAndPlace(object):
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
                     tgt_pose = self._camera.estimate_hand_position()
-                tgt_pose += [0, 0, 0]
-                try:
-                    tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
-                except ValueError as e:
-                    # TODO: handle this case similar to above
-                    raise e
-                self._robot.move_to(config=tgt_cfg)
+                tgt_pose += [np.pi, 0.0, np.pi]
+                self._move_to_pose_or_dither(arm=arm, pose=tgt_pose, fix_z=True)
                 self._logger.info('Please take the object from me.')
                 while self._robot.is_gripping(arm):
                     rospy.sleep(0.5)
                 self._robot.release()
-            try:
-                cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.top_pose)
-            except ValueError as e:
-                self._logger.error("This should not have happened! Abort.")
-                raise e
-            self._robot.move_to(config=cfg)
+            self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
             self._robot.move_to_neutral(arm=arm)
             self._logger.info('I finished my task.')
 
