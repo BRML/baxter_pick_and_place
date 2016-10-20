@@ -121,6 +121,7 @@ if __name__ == '__main__':
     # logfile = ''
 
     logger = logging.getLogger('main')
+    logger.setLevel(logging.DEBUG)
     hdlr = get_default_handler(filename=logfile, level=logging.DEBUG)
     for h in hdlr:
         logger.addHandler(hdlr=h)
