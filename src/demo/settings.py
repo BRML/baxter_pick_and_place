@@ -93,8 +93,16 @@ object_ids = tuple(['__background__'] + sorted(object_size_meters.keys()))
 # Needed for comparing the position error computed in visual servoing.
 servo_tolerance_meters = 0.005
 
+
+# TODO: adapt this threshold
+# The threshold for the color change in a table view image patch in percent.
+# Needed to detect empty spots on the table.
+color_change_threshold = 4.0
+
+
 # The topic on which debugging image output is visualized
 topic_visualization = '/visualization/image'
+# topic_visualization = '/robot/xdisplay'
 
 # The robot's task space limits in meter
 task_space_limits_m = {

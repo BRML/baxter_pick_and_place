@@ -158,7 +158,4 @@ def color_difference(image_1, image_2):
                         for img in [image_1, image_2]]
     # compute the delta E color difference per pixel
     delta_e = np.sqrt(np.sum((image_2 - image_1)**2, axis=-1)/3.)
-    print 'pixels (total):', delta_e.size
-    print 'pixels changed:', np.count_nonzero(delta_e)
-    print 'image changed (%):', delta_e.mean()*100.0
     return delta_e, np.asarray(255.*delta_e, dtype=np.uint8)

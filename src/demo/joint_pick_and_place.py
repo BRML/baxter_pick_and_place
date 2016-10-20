@@ -77,6 +77,19 @@ class PickAndPlace(object):
         # safety offset when approaching a pose [x, y, z, r, p, y]
         self._approach_offset = [0, 0, 0.1, 0, 0, 0]
 
+    def publish_vis(self, image):
+        """Publish an image to the ROS topic defined in
+        settings.topic_visualization.
+
+        :param image: The image (numpy array) to publish.
+        :return:
+        """
+        if settings.topic_visualization == '/robot/xdisplay':
+            xsize = (1024, 600)
+            if any([(a > b) for a, b in zip(image.shape[:2], xsize)]):
+                image = cv2.resize(src=image, dsize=xsize)
+        self._pub_vis.publish(img_to_imgmsg(img=image))
+
     def _wait_for_clear_table(self, arm):
         """Busy wait until the user has cleared the region indicated in the
         published image to be cleared entirely of objects.
@@ -91,7 +104,7 @@ class PickAndPlace(object):
                           pt1=settings.table_limits[0],
                           pt2=settings.table_limits[1],
                           color=(0, 0, 255), thickness=3)
-            self._pub_vis.publish(img_to_imgmsg(table_img))
+            self.publish_vis(image=table_img)
             _logger.warning("Is the area within the red rectangle devoid of objects?")
             s = raw_input('(yes/no) ')
             if len(s) > 0 and s.lower()[0] == 'y':
@@ -137,6 +150,7 @@ class PickAndPlace(object):
                     except ValueError:
                         pass
                 self._robot.move_to(config=config)
+                self.publish_vis(image=self._robot.cameras[arm].collect_image())
                 distances = list()
                 while len(distances) < 10:
                     d = self._robot.measure_distance(arm=arm)
@@ -159,6 +173,7 @@ class PickAndPlace(object):
             _logger.info(msg)
             np.savez(setup_file, height=height)
             self._robot.move_to_neutral(arm=arm)
+            self.publish_vis(image=255*np.ones((800, 1280, 3), dtype=np.uint8))
         return float(height)
 
     def _calibrate_table_view(self):
@@ -214,7 +229,7 @@ class PickAndPlace(object):
                 self._robot.move_to(config=config)
                 self._wait_for_clear_table(arm=arm)
                 images[arm] = self._robot.cameras[arm].collect_image()
-                self._pub_vis.publish(img_to_imgmsg(images[arm]))
+                self.publish_vis(image=images[arm])
                 # illustrate patches on the table
                 canvas = images[arm].copy()
                 for patch, center in zip(patches, centers):
@@ -222,7 +237,7 @@ class PickAndPlace(object):
                                   color=(0, 255, 0), thickness=1)
                     cv2.circle(canvas, center=center, radius=3,
                                color=(0, 255, 0), thickness=1)
-                self._pub_vis.publish(img_to_imgmsg(canvas))
+                self.publish_vis(image=canvas)
 
                 for j, center in enumerate(centers):
                     if rospy.is_shutdown():
@@ -243,6 +258,7 @@ class PickAndPlace(object):
                                 "which is larger than 0.001 m!".format(
                                     max_xyz[0], max_xyz[1]))
             np.savez(setup_file, **data)
+            self.publish_vis(image=255*np.ones((800, 1280, 3), dtype=np.uint8))
         return data
 
     def _load_external_calibration(self):
@@ -281,7 +297,7 @@ class PickAndPlace(object):
         }
         self._table_patches = [(tuple(patch[0]), tuple(patch[1]))
                                for patch in cfg['patches']]
-        self._table_poses = [list(pos) + [np.pi, 0, np.pi]
+        self._table_poses = [list(pos) + [np.pi, 0.0, np.pi]
                              for pos in cfg['positions']]
 
         # affine transformation from external camera to Baxter coordinates
@@ -319,7 +335,7 @@ class PickAndPlace(object):
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
                     estimate = self._camera.estimate_hand_position()
-                obj_pose = estimate[0] + [np.pi, 0, np.pi]
+                obj_pose = estimate[0] + [np.pi, 0.0, np.pi]
             else:
                 img_color, img_depth, _ = self._camera.collect_data(color=True,
                                                                     depth=True,
@@ -347,29 +363,31 @@ class PickAndPlace(object):
 
             if tgt_id == 'table':
                 _logger.info('Looking for a spot to put the object down.')
-                self._robot.move_to(config=settings.calibration_pose)
+                try:
+                    cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
+                except ValueError as e:
+                    _logger.error("This should not have happened! Abort.")
+                    raise e
+                self._robot.move_to(config=cfg)
                 table_img = self._robot.cameras[arm].collect_image()
                 idxs = range(len(self._table_patches))
                 random.shuffle(idxs)
                 tgt_pose = None
                 for idx in idxs:
-                    if rospy.is_shutdown():
+                    if rospy.is_shutdown() or tgt_pose is not None:
                         break
                     (xul, yul), (xlr, ylr) = self._table_patches[idx]
                     table_patch = table_img[yul:ylr, xul: xlr]
                     ref_patch = self._table_image[arm][yul:ylr, xul: xlr]
                     diff, vis_patch = color_difference(image_1=table_patch,
                                                        image_2=ref_patch)
-                    self._pub_vis.publish(img_to_imgmsg(vis_patch))
-                    # TODO: adapt this threshold
-                    if diff.mean()*100.0 < 10.0:
+                    self.publish_vis(image=vis_patch)
+                    change = diff.mean()*100.0
+                    accepted = change <= settings.color_change_threshold
+                    _logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
+                        idx, change, '<' if accepted else '>', settings.color_change_threshold))
+                    if diff.mean()*100.0 < 4.0:
                         tgt_pose = self._table_poses[idx]
-                        try:
-                            tgt_cfg = self._robot.inverse_kinematics(arm=arm, pose=tgt_pose)
-                        except ValueError as e:
-                            # TODO: how to handle this case?
-                            raise e
-                        break
                 if tgt_pose is None:
                     _logger.warning("Found no place to put the object down! "
                                     "I abort this task. Please start over.")
@@ -424,7 +442,12 @@ class PickAndPlace(object):
                 while self._robot.is_gripping(arm):
                     rospy.sleep(0.5)
                 self._robot.release()
-            self._robot.move_to(pose=settings.top_pose)
+            try:
+                cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.top_pose)
+            except ValueError as e:
+                _logger.error("This should not have happened! Abort.")
+                raise e
+            self._robot.move_to(config=cfg)
             self._robot.move_to_neutral(arm=arm)
             _logger.info('I finished my task.')
 
