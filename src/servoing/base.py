@@ -160,7 +160,7 @@ class Servoing(object):
             # TODO: verify this update works as expected
             pose = [a + b for a, b in zip(pose, [dx, dy, 0, 0, 0, rroi[2]])]
             try:
-                cfg = self._robot.inverse_kinematics(arm=arm, pose=pose)
+                cfg = self._robot.ik(arm=arm, pose=pose)
                 self._robot.move_to(config=cfg)
                 rroi = self._find_rotated_enclosing_rect(image=img,
                                                          object_id=object_id)
