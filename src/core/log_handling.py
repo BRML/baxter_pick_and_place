@@ -25,37 +25,6 @@
 
 import logging
 
-from demo import demo_remove_default_loghandler
-from hardware import (
-    cam_remove_default_loghandler,
-    baxter_remove_default_loghandler,
-    kinect_remove_default_loghandler
-)
-from servoing import servo_remove_default_loghandler
-from simulation import env_remove_default_loghandler
-from vision import mnc_remove_default_loghandler
-
-
-def redirect_logger(fname='', level=logging.INFO):
-    """Redirect logging output of all modules to a common stream handler and
-    optional file handler with common format and log level.
-
-    :param fname: The file name for the optional log file handler. If None,
-        no file handler is created.
-    :param level: The log level to use.
-    :return:
-    """
-    handles = ['demo', 'cam', 'baxter', 'kinect', 'servo', 'env', 'mnc']
-
-    # remove default log handlers
-    for handle in handles:
-        eval('{}_remove_default_loghandler()'.format(handle))
-
-    handlers = get_default_handler(filename=fname, level=level)
-    for handler in handlers:
-        for handle in handles:
-            logging.getLogger(handle).addHandler(hdlr=handler)
-
 
 def get_default_handler(filename='', level=logging.INFO):
     h = list()

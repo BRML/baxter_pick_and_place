@@ -28,7 +28,6 @@
 
 import logging
 import numpy as np
-from numpy.random import random_sample
 import os
 import socket
 import struct
@@ -41,26 +40,13 @@ from sensor_msgs.msg import CameraInfo
 
 from base import Camera
 from depth_registration import DepthRegistration
-from demo.settings import task_space_limits_m as lims
-
-
-# Set up logging
-_logger = logging.getLogger('kinect')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.DEBUG)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'kinect'."""
-    _logger.removeHandler(_default_loghandler)
 
 
 class Kinect(object):
     def __init__(self, root_dir, host=None):
+        name = 'main.kinect'
+        self._logger = logging.getLogger(name)
+
         pars_color = None
         pars_depth = None
         path = os.path.join(root_dir, 'data', 'setup', 'kinect_parameters.npz')
@@ -74,8 +60,8 @@ class Kinect(object):
                                        timeout=0.5)
             self._native_ros = True
         except rospy.ROSException:
-            _logger.info("Loading previously saved camera info for color "
-                         "and depth sensors.")
+            self._logger.info("Loading previously saved camera info for color "
+                              "and depth sensors.")
             # Load previously stored camera matrices for color (1920x1080)
             # and depth (512x424) sensors. The values in kinect_params.npz
             # are obtained using the 'calibrate_kinect.py' script.
@@ -94,9 +80,9 @@ class Kinect(object):
                     'dist_coeff': cal['dist_coeff_depth']
                 }
         self.depth = Camera(topic='/kinect2/sd/image_depth_rect',
-                            cam_pars=pars_depth)
+                            prefix=name, cam_pars=pars_depth)
         self.color = Camera(topic='/kinect2/hd/image_color_rect',
-                            cam_pars=pars_color)
+                            prefix=name, cam_pars=pars_color)
         with np.load(path) as cal:
             rotation = cal['rotation']
             translation = cal['translation']
@@ -145,11 +131,11 @@ class Kinect(object):
         data = self._socket.recv(n_bytes)
         while len(data) < n_bytes:
             data += self._socket.recv(n_bytes - len(data))
-        _logger.debug("Received {}/{} bytes.".format(len(data), n_bytes))
+        self._logger.debug("Received {}/{} bytes.".format(len(data), n_bytes))
         if len(data) != n_bytes:
             msg = "Received {} but should have received {} bytes!".format(
                 len(data), n_bytes)
-            _logger.error(msg)
+            self._logger.error(msg)
             raise ValueError(msg)
         # Sending ACK that we received the data
         self._socket.sendall("OK2\n")
@@ -165,9 +151,9 @@ class Kinect(object):
         # Reading the _image_size of the data stream we want to read
         n_bytes = self._receive_size()
         if n_bytes == -1:
-            _logger.warning("Failed to receive color image data!")
+            self._logger.warning("Failed to receive color image data!")
             return None
-        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+        self._logger.debug("Need to receive {} bytes.".format(n_bytes))
 
         # Reading the data from the socket stream
         try:
@@ -179,13 +165,13 @@ class Kinect(object):
         try:
             barray = np.fromstring(msg, np.uint8)
         except ValueError:
-            _logger.warning("Error when converting raw data to color image!")
+            self._logger.warning("Error when converting raw data to color image!")
             return None
         img = cv2.imdecode(barray, cv2.IMREAD_COLOR)
-        _logger.info("Received a {} {} color image (min={}, max={}) "
-                     "in {:.3f} s.".format(img.shape, img.dtype,
-                                           img.min(), img.max(),
-                                           time.time() - start))
+        self._logger.info("Received a {} {} color image (min={}, max={}) "
+                          "in {:.3f} s.".format(img.shape, img.dtype,
+                                                img.min(), img.max(),
+                                                time.time() - start))
         return img
 
     def _receive_depth(self):
@@ -203,9 +189,9 @@ class Kinect(object):
         # Reading the _image_size of the data stream we want to read
         n_bytes = self._receive_size()
         if n_bytes == -1:
-            _logger.warning("Failed to receive depth map data!")
+            self._logger.warning("Failed to receive depth map data!")
             return None
-        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+        self._logger.debug("Need to receive {} bytes.".format(n_bytes))
 
         # Reading the data from the socket stream
         try:
@@ -217,13 +203,13 @@ class Kinect(object):
         try:
             barray = np.fromstring(msg, np.uint16)
         except ValueError:
-            _logger.warning("Error when converting raw data to depth map!")
+            self._logger.warning("Error when converting raw data to depth map!")
             return None
         img = cv2.imdecode(barray, cv2.IMREAD_UNCHANGED)
-        _logger.info("Received a {} {} depth map (min={}, max={}) "
-                     "in {:.3f} s.".format(img.shape, img.dtype,
-                                           img.min(), img.max(),
-                                           time.time() - start))
+        self._logger.info("Received a {} {} depth map (min={}, max={}) "
+                          "in {:.3f} s.".format(img.shape, img.dtype,
+                                                img.min(), img.max(),
+                                                time.time() - start))
         return img
 
     def _receive_skeleton_data(self, n_bytes):
@@ -266,9 +252,9 @@ class Kinect(object):
         n_bytes = self._receive_size()
         if n_bytes == -1:
             msg = "Failed to receive skeleton data!"
-            _logger.warning(msg)
+            self._logger.warning(msg)
             return list()
-        _logger.debug("Need to receive {} bytes.".format(n_bytes))
+        self._logger.debug("Need to receive {} bytes.".format(n_bytes))
 
         # Reading the data from the socket stream
         try:
@@ -280,7 +266,7 @@ class Kinect(object):
         try:
             barray = np.fromstring(msg, np.float32)
         except ValueError:
-            _logger.warning("Error when converting raw data to skeleton list!")
+            self._logger.warning("Error when converting raw data to skeleton list!")
             return list()
         bodies = list()
         for body in range(n_bodies):
@@ -293,7 +279,7 @@ class Kinect(object):
                 color_space_points.append((barray[i + 3], barray[i + 4]))
                 depth_space_points.append((barray[i + 5], barray[i + 6]))
             bodies.append((cam_space_points, color_space_points, depth_space_points))
-        _logger.info("Received skeleton data for {} bod{} in {:.3f} s.".format(
+        self._logger.info("Received skeleton data for {} bod{} in {:.3f} s.".format(
             len(bodies), 'y' if len(bodies) == 1 else 'ies',
             time.time() - start))
         return bodies
@@ -328,14 +314,14 @@ class Kinect(object):
             # TCP/IP socket connection
             if not self._host:
                 msg = "No host name for ELTE Kinect Windows tool provided!"
-                _logger.error(msg)
+                self._logger.error(msg)
                 raise ValueError(msg)
             # Create a TCP/IP socket
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # Connect the socket to the host and port where the server listens
             server = self._host, 9999
-            _logger.info('Connect to {} on port {}.'.format(server[0].upper(),
-                                                            server[1]))
+            self._logger.info('Connect to {} on port {}.'.format(server[0].upper(),
+                                                                 server[1]))
             self._socket.connect(server)
             try:
                 msg = '{}{}{}\n'.format(*[1 if x else 0
@@ -348,9 +334,9 @@ class Kinect(object):
                 if skeleton:
                     data_skeleton = self._receive_skeleton()
             except socket.error as e:
-                _logger.error(str(e))
+                self._logger.error(str(e))
             finally:
-                _logger.info('Close socket.')
+                self._logger.info('Close socket.')
                 self._socket.close()
             self._socket = None
         return img_color, img_depth, data_skeleton

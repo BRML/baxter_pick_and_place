@@ -33,7 +33,8 @@ import rospkg
 import rospy
 from sensor_msgs.msg import Image
 
-from demo import PickAndPlace, settings, redirect_logger
+from core import get_default_handler
+from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
@@ -49,6 +50,8 @@ class Demonstration(object):
         :param object_set: The list of object identifiers comprising the set
             of objects, prepended by a background class.
         """
+        self._logger = logging.getLogger('main')
+
         self._sim = sim_or_real()
         self._environment = Environment(root_dir=ros_ws,
                                         # TODO replace with object_set[1:],
@@ -59,6 +62,9 @@ class Demonstration(object):
         self._detection = None
         self._segmentation = ObjectSegmentation(root_dir=ros_ws,
                                                 object_ids=object_set)
+
+        self._logger.info("Will publish visualization images to topic "
+                          "'{}'.".format(settings.topic_visualization))
         pub_vis = rospy.Publisher(settings.topic_visualization, Image,
                                   queue_size=10, latch=True)
         self._servo = {
@@ -83,12 +89,14 @@ class Demonstration(object):
 
     def shutdown_routine(self):
         """Clean up everything that needs cleaning up before ROS is shutdown."""
+        self._logger.info('Shut down the demonstration framework.')
         self._robot.clean_up()
         if self._sim:
             self._environment.clean_up()
 
     def set_up(self):
         """Prepare all the components of the demonstration."""
+        self._logger.info('Set up the demonstration framework.')
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
@@ -97,12 +105,12 @@ class Demonstration(object):
 
     def demonstrate(self):
         """Perform the demonstration."""
+        self._logger.info('Perform the demonstration.')
         self._demo.perform()
+        self._logger.info('Done.')
 
 
 if __name__ == '__main__':
-    print 'Initializing node ...'
-    rospy.init_node('demo_module')
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
 
     logfolder = os.path.join(ns, 'log')
@@ -110,9 +118,16 @@ if __name__ == '__main__':
         os.makedirs(logfolder)
     filename = datetime.datetime.now().strftime(format="%Y%m%d_%H%M")
     logfile = os.path.join(logfolder, '{}_demo.log'.format(filename))
-    logfile = ''
-    redirect_logger(fname=logfile, level=logging.DEBUG)
+    # logfile = ''
 
+    logger = logging.getLogger('main')
+    hdlr = get_default_handler(filename=logfile, level=logging.DEBUG)
+    for h in hdlr:
+        logger.addHandler(hdlr=h)
+
+    print 'Initialize ROS node.'
+    rospy.init_node('demo_module')
+    logger.info('Initialize demonstration framework.')
     demo = Demonstration(ros_ws=ns, object_set=settings.object_ids)
     rospy.on_shutdown(demo.shutdown_routine)
     demo.set_up()

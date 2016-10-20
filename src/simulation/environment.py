@@ -37,21 +37,6 @@ from simulation import (
 )
 
 
-# Set up logging
-_logger = logging.getLogger('env')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'env'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class Environment(object):
     def __init__(self, root_dir, object_ids, ws_limits):
         """Handling the virtual demonstration environment in Gazebo.
@@ -66,6 +51,8 @@ class Environment(object):
         self._ws = os.path.join(root_dir, 'models')
         self._object_ids = object_ids
         self._lim = ws_limits
+
+        self._logger = logging.getLogger('main.env')
 
         self._models = list()
 
@@ -101,7 +88,7 @@ class Environment(object):
                            model_pose=list_to_pose_msg(pose),
                            model_reference_frame=frame)
         self._models.append(model)
-        _logger.info("Successfully spawned {}.".format(model))
+        self._logger.info("Successfully spawned {}.".format(model))
 
     def remove_model(self, model):
         """Remove a model from Gazebo (if it exists).
@@ -111,11 +98,11 @@ class Environment(object):
         """
         if model in self._models:
             delete_gazebo_model(model=model)
-            _logger.info("Successfully removed {}.".format(model))
+            self._logger.info("Successfully removed {}.".format(model))
 
     def set_up(self):
         """Place a table in front of Baxter and scatter objects on it."""
-        _logger.info("Setting up Gazebo environment.")
+        self._logger.info("Setting up Gazebo environment.")
         # place table in front of Baxter
         self.add_model(model='table',
                        pose=[0.7, 0, 0, 0, 0, 0],
@@ -130,5 +117,5 @@ class Environment(object):
 
     def clean_up(self):
         """Delete all spawned Gazebo models."""
-        _logger.info("Cleaning up Gazebo environment.")
+        self._logger.info("Cleaning up Gazebo environment.")
         delete_gazebo_models(self._models)

@@ -35,23 +35,8 @@ from sensor_msgs.msg import (
 )
 
 
-# Set up logging
-_logger = logging.getLogger('cam')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.DEBUG)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'cam'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class Camera(object):
-    def __init__(self, topic, cam_pars=None):
+    def __init__(self, topic, prefix, cam_pars=None):
         """Base class for a ROS camera.
         A camera should have at least
           - a method to read images from a ROS topic,
@@ -59,6 +44,7 @@ class Camera(object):
           - a method to project camera coordinates to pixel coordinates.
 
         :param topic: The ROS image topic to read camera images from.
+        :param prefix: The prefix for the logger name to use.
         :param cam_pars: An optional dictionary containing camera parameters.
             If given it replaces the parameters read from the camera driver
             via ROS and is required to contain
@@ -67,6 +53,8 @@ class Camera(object):
                 - the camera distortion coefficients.
         """
         self._topic = topic
+
+        self._logger = logging.getLogger('{}.cam'.format(prefix))
 
         self.camera_matrix = None
         self.image_size = None
@@ -91,7 +79,7 @@ class Camera(object):
         :return:
         """
         topic = self._topic.rsplit('/', 1)[0] + '/camera_info'
-        _logger.info("Try to read camera info from {}.".format(topic))
+        self._logger.info("Try to read camera info from {}.".format(topic))
         try:
             # try to read calibration from ROS camera info topic
             msg = rospy.wait_for_message(topic=topic, topic_type=CameraInfo,
@@ -115,7 +103,7 @@ class Camera(object):
             img = imgmsg_to_img(imgmsg=msg)
         except rospy.ROSException:
             msg = "ROS error while reading image from {}.".format(self._topic)
-            _logger.error(msg)
+            self._logger.error(msg)
             raise RuntimeError(msg)
         if img.dtype == np.float32:
             # In simulation, depth map is a float32 image
@@ -124,9 +112,9 @@ class Camera(object):
                 # In simulation, the background has NaN depth values.
                 # We replace them with 0 m, similar to what the Kinect V1 did.
                 # See https://msdn.microsoft.com/en-us/library/jj131028.aspx.
-                _logger.debug("{}: There was at least one NaN in the depth "
-                              "image. I replaced all occurrences with "
-                              "0.0 m.".format(self._topic))
+                self._logger.debug("{}: There was at least one NaN in the depth "
+                                   "image. I replaced all occurrences with "
+                                   "0.0 m.".format(self._topic))
                 img.flags.writeable = True
                 img[mask] = 0.0
                 # We now map the float values in meters to uint16 values in mm

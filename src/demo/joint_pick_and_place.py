@@ -39,21 +39,6 @@ from instruction import client
 from vision import color_difference
 
 
-# Set up logging
-_logger = logging.getLogger('demo')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'demo'."""
-    _logger.removeHandler(_default_loghandler)
-
-
 class PickAndPlace(object):
     def __init__(self, robot, servo, camera, detection, segmentation, pub_vis, root_dir):
         self._robot = robot
@@ -64,9 +49,11 @@ class PickAndPlace(object):
         self._pub_vis = pub_vis
         self._root = root_dir
 
+        self._logger = logging.getLogger('main.demo')
+
         self._setup_dir = os.path.join(self._root, 'data', 'setup')
         if not os.path.exists(self._setup_dir):
-            _logger.info('Create setup directory at {}.'.format(self._setup_dir))
+            self._logger.info('Create setup directory at {}.'.format(self._setup_dir))
             os.makedirs(self._setup_dir)
 
         # variables for table view calibration
@@ -105,7 +92,7 @@ class PickAndPlace(object):
                           pt2=settings.table_limits[1],
                           color=(0, 0, 255), thickness=3)
             self.publish_vis(image=table_img)
-            _logger.warning("Is the area within the red rectangle devoid of objects?")
+            self._logger.warning("Is the area within the red rectangle devoid of objects?")
             s = raw_input('(yes/no) ')
             if len(s) > 0 and s.lower()[0] == 'y':
                 empty = True
@@ -124,15 +111,15 @@ class PickAndPlace(object):
         try:
             with np.load(setup_file) as setup:
                 height = setup['height']
-            _logger.info('Read table height %.3f m from calibration file.' % height)
+            self._logger.info('Read table height %.3f m from calibration file.' % height)
         except IOError:
-            _logger.info('Calibrate table height.')
+            self._logger.info('Calibrate table height.')
             arm = 'left'
             n_samples = 10
             try:
                 config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
             except ValueError as e:
-                _logger.error("This should not have happened! Abort.")
+                self._logger.error("This should not have happened! Abort.")
                 raise e
             self._robot.move_to(config=config)
             self._wait_for_clear_table(arm=arm)
@@ -170,7 +157,7 @@ class PickAndPlace(object):
             msg = 'Computed table height to be %.3f m. ' % height
             msg += '(min: {:.3f} m, max: {:.3f} m, mean: {:.3f} m, ' \
                    'std: {:.3f} m).'.format(h_min, h_max, h_mean, h_std)
-            _logger.info(msg)
+            self._logger.info(msg)
             np.savez(setup_file, height=height)
             self._robot.move_to_neutral(arm=arm)
             self.publish_vis(image=255*np.ones((800, 1280, 3), dtype=np.uint8))
@@ -200,9 +187,9 @@ class PickAndPlace(object):
                     'patches': setup['patches'],
                     'positions': setup['positions']
                 }
-            _logger.info('Read table view from calibration file.')
+            self._logger.info('Read table view from calibration file.')
         except IOError:
-            _logger.info('Calibrate table view.')
+            self._logger.info('Calibrate table view.')
             images = dict()
             # define patches
             (xl, yl), (xh, yh) = settings.table_limits
@@ -224,7 +211,7 @@ class PickAndPlace(object):
                 try:
                     config = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
                 except ValueError as e:
-                    _logger.error("This should not have happened! Abort.")
+                    self._logger.error("This should not have happened! Abort.")
                     raise e
                 self._robot.move_to(config=config)
                 self._wait_for_clear_table(arm=arm)
@@ -253,7 +240,7 @@ class PickAndPlace(object):
             }
             max_xyz = positions.std(axis=-1).max(axis=0)
             if max_xyz.max() > 1e-3:
-                _logger.warning("Estimated left and right 2D positions deviate "
+                self._logger.warning("Estimated left and right 2D positions deviate "
                                 "by up to {:.4f} m in x and {:.4f} m in y, "
                                 "which is larger than 0.001 m!".format(
                                     max_xyz[0], max_xyz[1]))
@@ -272,9 +259,9 @@ class PickAndPlace(object):
         try:
             with np.load(setup_file) as setup:
                 trafo = setup['trafo']
-            _logger.info('Read external camera parameters from calibration file.')
+            self._logger.info('Read external camera parameters from calibration file.')
         except IOError:
-            _logger.warning('No external calibration found! Please run the '
+            self._logger.warning('No external calibration found! Please run the '
                             'external calibration routine and try again.')
             raise IOError('No external calibration found!')
         return trafo
@@ -284,7 +271,7 @@ class PickAndPlace(object):
 
         :return:
         """
-        _logger.info("Perform / read calibration of demonstration setup.")
+        self._logger.info("Perform / read calibration of demonstration setup.")
         # height of the table in robot coordinates
         self._robot.z_table = self._calibrate_table_height()
 
@@ -317,20 +304,20 @@ class PickAndPlace(object):
 
         :return:
         """
-        _logger.info('Starting pick and place demonstration.')
+        self._logger.info('Starting pick and place demonstration.')
         instr = client.wait_for_instruction()
         while not rospy.is_shutdown() and instr != 'exit':
             obj_id, tgt_id = instr.split(' ')
-            _logger.info('Instructed to take {} and {}.'.format(
+            self._logger.info('Instructed to take {} and {}.'.format(
                 'the {}'.format(obj_id) if obj_id != 'hand' else "'it'",
                 'give it to you' if tgt_id == 'hand' else 'put it on the table')
             )
 
-            _logger.info('Looking for {} and estimate its pose.'.format(obj_id))
+            self._logger.info('Looking for {} and estimate its pose.'.format(obj_id))
             if obj_id == 'hand':
                 estimate = self._camera.estimate_hand_position()
                 while estimate is None:
-                    _logger.warning("No hand position estimate was found! "
+                    self._logger.warning("No hand position estimate was found! "
                                     "Please relocate your hand holding the object.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
@@ -347,7 +334,7 @@ class PickAndPlace(object):
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
                 while obj_pose is None:
-                    _logger.info("I did not find the {}!".format(obj_id))
+                    self._logger.info("I did not find the {}!".format(obj_id))
                     # TODO: implement looking for the object
                     # move hand camera along pre-defined trajectory over the table
                     # apply object detection until object found or failure
@@ -357,16 +344,16 @@ class PickAndPlace(object):
             try:
                 arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
             except ValueError:
-                _logger.warning("I abort this task! Please start over.")
+                self._logger.warning("I abort this task! Please start over.")
                 instr = client.wait_for_instruction()
                 continue
 
             if tgt_id == 'table':
-                _logger.info('Looking for a spot to put the object down.')
+                self._logger.info('Looking for a spot to put the object down.')
                 try:
                     cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.calibration_pose)
                 except ValueError as e:
-                    _logger.error("This should not have happened! Abort.")
+                    self._logger.error("This should not have happened! Abort.")
                     raise e
                 self._robot.move_to(config=cfg)
                 table_img = self._robot.cameras[arm].collect_image()
@@ -384,22 +371,22 @@ class PickAndPlace(object):
                     self.publish_vis(image=vis_patch)
                     change = diff.mean()*100.0
                     accepted = change <= settings.color_change_threshold
-                    _logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
+                    self._logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
                         idx, change, '<' if accepted else '>', settings.color_change_threshold))
                     if diff.mean()*100.0 < 4.0:
                         tgt_pose = self._table_poses[idx]
                 if tgt_pose is None:
-                    _logger.warning("Found no place to put the object down! "
+                    self._logger.warning("Found no place to put the object down! "
                                     "I abort this task. Please start over.")
                     instr = client.wait_for_instruction()
                     continue
 
-            _logger.info('Picking up the object.')
-            _logger.info('Attempting to grasp object with {} limb.'.format(arm))
+            self._logger.info('Picking up the object.')
+            self._logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
             while not success:
                 self._robot.move_to(config=appr_cfg)
-                _logger.info('Using visual servoing to grasp object.')
+                self._logger.info('Using visual servoing to grasp object.')
                 if obj_id == 'hand':
                     self._servo['hand'].servo(arm=arm, object_id=obj_id)
                 else:
@@ -407,11 +394,11 @@ class PickAndPlace(object):
                 if self._robot.grasp(arm):
                     success = True
                 else:
-                    _logger.info('Something went wrong. I will try again.')
+                    self._logger.info('Something went wrong. I will try again.')
                     self._robot.release(arm)
             self._robot.move_to(pose=settings.top_pose)
 
-            _logger.info('Placing the object.')
+            self._logger.info('Placing the object.')
             if tgt_id == 'table':
                 appr_pose = self._get_approach_pose(pose=tgt_pose)
                 try:
@@ -426,7 +413,7 @@ class PickAndPlace(object):
             else:
                 tgt_pose = self._camera.estimate_hand_position()
                 while tgt_pose is None:
-                    _logger.warning("No hand position estimate was found! "
+                    self._logger.warning("No hand position estimate was found! "
                                     "Please relocate your hand.")
                     # TODO: adapt this sleep time
                     rospy.sleep(1.0)
@@ -438,18 +425,20 @@ class PickAndPlace(object):
                     # TODO: handle this case similar to above
                     raise e
                 self._robot.move_to(config=tgt_cfg)
-                _logger.info('Please take the object from me.')
+                self._logger.info('Please take the object from me.')
                 while self._robot.is_gripping(arm):
                     rospy.sleep(0.5)
                 self._robot.release()
             try:
                 cfg = self._robot.inverse_kinematics(arm=arm, pose=settings.top_pose)
             except ValueError as e:
-                _logger.error("This should not have happened! Abort.")
+                self._logger.error("This should not have happened! Abort.")
                 raise e
             self._robot.move_to(config=cfg)
             self._robot.move_to_neutral(arm=arm)
-            _logger.info('I finished my task.')
+            self._logger.info('I finished my task.')
 
             instr = client.wait_for_instruction()
-        _logger.info('Exiting pick and place demonstration.')
+        if instr == 'exit':
+            self._logger.info('Instructed to exit the demonstration.')
+        self._logger.info('Exiting pick and place demonstration.')

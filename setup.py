@@ -8,7 +8,7 @@ from catkin_pkg.python_setup import generate_distutils_setup
 
 
 d = generate_distutils_setup()
-d['packages'] = ['demo', 'hardware', 'instruction', 'motion_planning', 'servoing', 'simulation', 'vision']
+d['packages'] = ['core', 'demo', 'hardware', 'instruction', 'motion_planning', 'servoing', 'simulation', 'vision']
 d['package_dir'] = {'': 'src'}
 d['requires'] = ['rospy', 'roswtf', 'tf',
                  'geometry_msgs', 'std_msgs', 'std_srvs', 'gazebo_msgs',

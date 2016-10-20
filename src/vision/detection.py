@@ -44,20 +44,6 @@ from fast_rcnn.test import im_detect
 # Use RPN for proposals
 cfg.TEST.HAS_RPN = True
 
-# Set up logging
-_logger = logging.getLogger('frcnn')
-_logger.setLevel(logging.DEBUG)
-_default_loghandler = logging.StreamHandler()
-_default_loghandler.setLevel(logging.INFO)
-_default_loghandler.setFormatter(logging.Formatter('[%(name)s][%(levelname)s] %(message)s'))
-_logger.addHandler(_default_loghandler)
-
-
-def remove_default_loghandler():
-    """Call this to mute this library or to prevent duplicate messages
-    when adding another log handler to the logger named 'frcnn'."""
-    _logger.removeHandler(_default_loghandler)
-
 
 class ObjectDetection(object):
     def __init__(self, root_dir, object_ids):
@@ -69,6 +55,9 @@ class ObjectDetection(object):
             [background, object 1, object 2, ..., object N].
         """
         self._classes = object_ids
+
+        self._logger = logging.getLogger('main.frcnn')
+
         self._net = None
         self._prototxt = os.path.join(root_dir, 'models', 'VGG16',
                                       'faster_rcnn_test.pt')
@@ -93,7 +82,7 @@ class ObjectDetection(object):
         cfg.GPU_ID = gpu_id
 
         self._net = caffe_frcnn.Net(self._prototxt, self._caffemodel, caffe_frcnn.TEST)
-        _logger.info('Loaded network %s.' % self._caffemodel)
+        self._logger.info('Loaded network %s.' % self._caffemodel)
         if warmup:
             dummy = 128 * np.ones((300, 500, 3), dtype=np.uint8)
             for _ in xrange(2):
@@ -116,7 +105,7 @@ class ObjectDetection(object):
                              "with shape (h, w, 3)!")
         start = time.time()
         scores, boxes = im_detect(self._net, image)
-        _logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
+        self._logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
         return scores, boxes
@@ -149,7 +138,7 @@ class ObjectDetection(object):
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
         best_box = cls_boxes[best_idx]
-        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -181,7 +170,7 @@ class ObjectDetection(object):
         best_box = boxes[best_proposal, 4*best_class:4*(best_class + 1)]
         best_object = self._classes[best_class]
 
-        _logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             best_object,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -195,7 +184,7 @@ class ObjectDetection(object):
 if __name__ == '__main__':
     from visualization_utils import draw_detection
     path = '/home/mludersdorfer/software/ws_baxter_pnp/src/baxter_pick_and_place'
-    _logger.info('started')
+    print 'started'
     classes = ('__background__',
                'aeroplane', 'bicycle', 'bird', 'boat',
                'bottle', 'bus', 'car', 'cat', 'chair',
@@ -216,4 +205,4 @@ if __name__ == '__main__':
                 cv2.imshow('image', img)
                 cv2.waitKey(0)
     cv2.destroyAllWindows()
-    _logger.info('ended')
+    print 'ended'

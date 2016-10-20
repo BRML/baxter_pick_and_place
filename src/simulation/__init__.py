@@ -7,7 +7,4 @@ demonstration in the Gazebo physics simulation environment.
 
 from simulation import sim_or_real
 
-from environment import (
-    Environment,
-    remove_default_loghandler as env_remove_default_loghandler
-)
+from environment import Environment
