@@ -71,11 +71,11 @@ class Kinect(object):
                 # matrix accordingly.
                 pars_color = {
                     'cam_mat': cal['cam_mat_color']/2.0,
-                    'size': cal['size_color'],
+                    'size': cal['size_color']//2,
                     'dist_coeff': cal['dist_coeff_color']
                 }
                 pars_depth = {
-                    'cam_mat': cal['cam_mat_depth']/2.0,
+                    'cam_mat': cal['cam_mat_depth'],
                     'size': cal['size_depth'],
                     'dist_coeff': cal['dist_coeff_depth']
                 }
