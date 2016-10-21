@@ -383,8 +383,7 @@ class Kinect(object):
             return None
         # TODO: verify this works as expected
         # see https://github.com/OpenKinect/libfreenect2/issues/223
-        registered = np.zeros(self.color.image_size, dtype=np.uint16)
-        self.reg.register_depth(depth=img_depth, registered=registered)
+        registered = self.reg.register_depth(depth=img_depth)
         reg_fx = self.color.camera_matrix[0, 0]
         reg_fy = self.color.camera_matrix[1, 1]
         reg_cx = self.color.camera_matrix[0, 2]
