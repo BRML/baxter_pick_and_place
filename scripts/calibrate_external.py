@@ -35,17 +35,21 @@ import rospy
 import tf
 from tf import transformations
 
+from calibration import perform_external_calibration
 from core import get_default_handler
+from simulation.simulation import load_gazebo_model, spawn_gazebo_model, delete_gazebo_model
 
 
 class ExternalCalibration(object):
-    def __init__(self, log_filename='', log_level=logging.INFO):
+    def __init__(self, root_dir, log_filename='', log_level=logging.INFO):
         """Perform the external calibration of the demonstration setup
         consisting of a Kinect V2 camera and a Baxter research robot.
 
+        :param root_dir: Where the baxter_pick_and_place package resides.
         :param log_filename: The optional file name for the log file.
         :param log_level: The log level to use.
         """
+        self._root_dir = root_dir
         self._logger = logging.getLogger('cal_ext')
         self._logger.setLevel(level=logging.DEBUG)
         handlers = get_default_handler(filename=log_filename, level=log_level)
@@ -77,7 +81,7 @@ class ExternalCalibration(object):
                 tf.ExtrapolationException):
             msg = 'Could not find transform from {} to {} on the ' \
                   'ROS master!'.format(from_frame, to_frame)
-            self._logger.warning(msg)
+            # self._logger.warning(msg)
             raise ValueError(msg)
         return trans, rot
 
@@ -100,12 +104,18 @@ class ExternalCalibration(object):
 
         :return:
         """
-        try:
-            self._logger.info("Try to read external calibration from ROS master.")
-            trafo = self._check_ros()
-        except ValueError:
+        # try:
+        #     self._logger.info("Try to read external calibration from ROS master.")
+        #     trafo = self._check_ros()
+        #     raise ValueError
+        # except ValueError:
+        if True:
             self._logger.info("Perform external calibration.")
-            trafo = None
+            # urdf = load_gazebo_model(os.path.join(self._root_dir, 'models', 'pattern', 'model.urdf'))
+            # success = spawn_gazebo_model(urdf, 'acircles', 'object')
+            # print success
+            trafo = perform_external_calibration(arm='left', n1=3, n2=1,
+                                                 root_dir=self._root_dir)
 
         if trafo is None:
             self._logger.error("Something went wrong! Please try again.")
@@ -114,6 +124,11 @@ class ExternalCalibration(object):
             self._logger.info("Write external parameters to {}.".format(filename))
             np.savez(filename, trafo=trafo)
             self._logger.info("Done.")
+
+
+def on_shutdown():
+    # delete_gazebo_model('acircles')
+    pass
 
 
 if __name__ == '__main__':
@@ -130,6 +145,7 @@ if __name__ == '__main__':
     """
     print 'Initialize node.'
     rospy.init_node('calibrate_external_module')
+    rospy.on_shutdown(on_shutdown)
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
 
     logfolder = os.path.join(ns, 'log')
@@ -139,5 +155,6 @@ if __name__ == '__main__':
     logfile = os.path.join(logfolder, '{}_cal_ext.log'.format(logfile))
     logfile = ''
 
-    cal = ExternalCalibration(log_filename=logfile, log_level=logging.INFO)
+    cal = ExternalCalibration(root_dir=ns,
+                              log_filename=logfile, log_level=logging.DEBUG)
     cal.calibrate()
