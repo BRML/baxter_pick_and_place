@@ -454,6 +454,16 @@ class Baxter(object):
             return distance/1000.0
         return None
 
+    def hom_gripper_to_robot(self, arm):
+        """Get the homogeneous transformation matrix {}^R\mat{T}_{G} relating
+        gripper coordinates to robot coordinates.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: The homogeneous transformation matrix (a 4x4 numpy array).
+        """
+        ee_pose = self._limbs[arm].endpoint_pose()
+        return pose_dict_to_hom(pose=ee_pose)
+
     def _hom_camera_to_robot(self, arm):
         """Get the homogeneous transformation matrix {}^R\mat{T}_{C} relating
         camera coordinates to robot coordinates.
@@ -461,8 +471,7 @@ class Baxter(object):
         :param arm: The arm <'left', 'right'> to control.
         :return: The homogeneous transformation matrix (a 4x4 numpy array).
         """
-        ee_pose = self._limbs[arm].endpoint_pose()
-        hom_grip_in_rob = pose_dict_to_hom(pose=ee_pose)
+        hom_grip_in_rob = self.hom_gripper_to_robot(arm=arm)
         hom_cam_in_grip = np.eye(4)
         hom_cam_in_grip[:-1, -1] = self.cam_offset
         hom_cam_in_rob = np.dot(hom_grip_in_rob, hom_cam_in_grip)
