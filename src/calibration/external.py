@@ -58,6 +58,9 @@ class External(object):
         self._lim['yaw_max'] = np.pi
         self._lim['yaw_min'] = -np.pi
 
+        # This should go into the README:
+        # Download the 4x11 asymmetric circle grid from
+        # http://docs.opencv.org/2.4.13/_downloads/acircles_pattern.png
         self._patternsize = (4, 11)
         self._pattern = 0.017*np.array(
             [[x, y if x % 2 == 0 else y + 1, 0]
