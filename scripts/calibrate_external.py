@@ -37,7 +37,6 @@ from tf import transformations
 
 from calibration import perform_external_calibration
 from core import get_default_handler
-from simulation.simulation import load_gazebo_model, spawn_gazebo_model, delete_gazebo_model
 
 
 class ExternalCalibration(object):
@@ -81,7 +80,7 @@ class ExternalCalibration(object):
                 tf.ExtrapolationException):
             msg = 'Could not find transform from {} to {} on the ' \
                   'ROS master!'.format(from_frame, to_frame)
-            # self._logger.warning(msg)
+            self._logger.warning(msg)
             raise ValueError(msg)
         return trans, rot
 
@@ -104,16 +103,11 @@ class ExternalCalibration(object):
 
         :return:
         """
-        # try:
-        #     self._logger.info("Try to read external calibration from ROS master.")
-        #     trafo = self._check_ros()
-        #     raise ValueError
-        # except ValueError:
-        if True:
+        try:
+            self._logger.info("Try to read external calibration from ROS master.")
+            trafo = self._check_ros()
+        except ValueError:
             self._logger.info("Perform external calibration.")
-            # urdf = load_gazebo_model(os.path.join(self._root_dir, 'models', 'pattern', 'model.urdf'))
-            # success = spawn_gazebo_model(urdf, 'acircles', 'object')
-            # print success
             trafo = perform_external_calibration(arm='left', n1=3, n2=1,
                                                  root_dir=self._root_dir)
 
@@ -125,10 +119,8 @@ class ExternalCalibration(object):
             np.savez(filename, trafo=trafo)
             self._logger.info("Done.")
 
-
-def on_shutdown():
-    # delete_gazebo_model('acircles')
-    pass
+    def on_shutdown(self):
+        pass
 
 
 if __name__ == '__main__':
@@ -145,7 +137,6 @@ if __name__ == '__main__':
     """
     print 'Initialize node.'
     rospy.init_node('calibrate_external_module')
-    rospy.on_shutdown(on_shutdown)
     ns = rospkg.RosPack().get_path('baxter_pick_and_place')
 
     logfolder = os.path.join(ns, 'log')
@@ -157,4 +148,5 @@ if __name__ == '__main__':
 
     cal = ExternalCalibration(root_dir=ns,
                               log_filename=logfile, log_level=logging.DEBUG)
+    rospy.on_shutdown(cal.on_shutdown)
     cal.calibrate()
