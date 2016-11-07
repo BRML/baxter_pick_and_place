@@ -380,12 +380,18 @@ class PickAndPlace(object):
                 obj_pose = self._camera.estimate_object_position(img_color=img_color,
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
-                while obj_pose is None:
+                if obj_pose is None:
                     self._logger.info("I did not find the {}!".format(obj_id))
+                    self._logger.info('I resort to searching with the robot.')
                     # TODO: implement looking for the object
                     # move hand camera along pre-defined trajectory over the table
                     # apply object detection until object found or failure
                     # compute 3d coordinates from detection and known height of table
+                if obj_pose is None:
+                    self._logger.warning("I abort this task! Please start over.")
+                    instr = client.wait_for_instruction()
+                    continue
+
                 obj_pose += [np.pi, 0.0, np.pi]
             appr_pose = self._get_approach_pose(pose=obj_pose)
             try:
