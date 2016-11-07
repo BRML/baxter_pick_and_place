@@ -61,26 +61,14 @@ gripper_settings = {
 # plane) in meters.
 # Needed for estimating the distance to the object in visual servoing.
 object_size_meters = {
-    'aeroplane': 50,
-    'bicycle': 1.5,
-    'bird': 0.15,
-    'boat': 5,
-    'bottle': 0.055,
-    'bus': 12,
-    'car': 3.8,
-    'cat': 0.27,
-    'chair': 0.45,
-    'cow': 1.6,
-    'diningtable': 1.6,
-    'dog': 0.6,
-    'horse': 2.2,
-    'motorbike': 1.8,
-    'person': 0.6,
-    'pottedplant': 0.3,
-    'sheep': 0.9,
-    'sofa': 2.5,
-    'train': 12,
-    'tvmonitor': 1.2
+    '_person_': 999.99,
+    '_bench_': 999.99,
+    'bottle': 0.072,
+    'cup': 0.086,
+    '_apple_': 999.99,
+    '_orange_': 999.99,
+    'remote': 0.054,
+    '_book_': 999.99
 }
 # The set of objects we know about and Baxter should be able to grasp.
 # Needed for the object detection and object segmentation algorithms as well
