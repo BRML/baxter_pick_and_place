@@ -46,6 +46,18 @@ def set_up_faster_rcnn():
     add_path(lib_path)
 
 
+def set_up_rfcn():
+    """Set up python paths for region-based fully convolutional networks."""
+    # Add Caffe to PYTHONPATH
+    caffe_path = os.path.join(develop_dir,
+                              'py-R-FCN', 'caffe', 'python')
+    add_path(caffe_path)
+
+    # Add lib to PYTHONPATH
+    lib_path = os.path.join(develop_dir, 'py-R-FCN', 'lib')
+    add_path(lib_path)
+
+
 def set_up_mnc():
     """Set up python paths for MNC."""
     # Add Caffe to PYTHONPATH

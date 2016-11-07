@@ -2,11 +2,15 @@
 
 """Module for computer vision related software components."""
 
-# There is a conflict when both versions of Caffe are on the path---circumvent
-# it by not loading/using the faster R-CNN at all.
+# There is a conflict when multiple versions of Caffe are on the path!
+# We circumvent this conflict by only loading/using the module we actually are
+# going to use.
+# Faster Region-based Convolutional Networks for object detection
 # from detection import ObjectDetection
-
-from segmentation import ObjectSegmentation
+# Fully convolutional networks for object detection
+from detection2 import ObjectDetection
+# Instance-aware Semantic Segmentation via Multi-task Network Cascades
+# from segmentation import ObjectSegmentation
 
 from visualization_utils import (
     draw_rroi,
