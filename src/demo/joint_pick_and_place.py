@@ -374,10 +374,10 @@ class PickAndPlace(object):
                 img_color, img_depth, _ = self._camera.collect_data(color=True,
                                                                     depth=True,
                                                                     skeleton=False)
-                det = self._segmentation.detect_object(image=img_color,
-                                                       object_id=obj_id,
-                                                       threshold=0.8)
-                obj_pose = self._camera.estimate_object_position(img_rgb=img_color,
+                det = self._detection.detect_object(image=img_color,
+                                                    object_id=obj_id,
+                                                    threshold=0.8)
+                obj_pose = self._camera.estimate_object_position(img_color=img_color,
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
                 while obj_pose is None:
@@ -386,7 +386,7 @@ class PickAndPlace(object):
                     # move hand camera along pre-defined trajectory over the table
                     # apply object detection until object found or failure
                     # compute 3d coordinates from detection and known height of table
-                obj_pose += [0, 0, 0]
+                obj_pose += [np.pi, 0.0, np.pi]
             appr_pose = self._get_approach_pose(pose=obj_pose)
             try:
                 arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)

@@ -56,7 +56,7 @@ class Demonstration(object):
         self._environment = Environment(root_dir=ros_ws,
                                         # TODO replace with object_set[1:],
                                         object_ids=['duplo_brick', 'robot'],
-                                        ws_limits=settings.task_space_limits_m)
+                                        ws_limits=settings.world_space_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect(root_dir=ros_ws, host=settings.elte_kinect_win_host)
         self._detection = ObjectDetection(root_dir=ros_ws,
@@ -100,7 +100,7 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
-        self._segmentation.init_model(warmup=True)
+        self._detection.init_model(warmup=True)
         self._demo.calibrate()
         if self._sim:
             self._environment.scatter_objects()
