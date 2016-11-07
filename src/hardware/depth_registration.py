@@ -87,50 +87,70 @@ class DepthRegistration(object):
         if x_l < 0 or y_l < 0 or x_h >= img.shape[1] or y_h >= img.shape[0]:
             return 0
 
-        p_lt = img[y_l, x_l]
-        p_rt = img[y_l, x_h]
-        p_lb = img[y_h, x_l]
-        p_rb = img[y_h, x_h]
-        v_lt = p_lt > 0
-        v_rt = p_rt > 0
-        v_lb = p_lb > 0
-        v_rb = p_rb > 0
-        count = sum([1 if v else 0 for v in [v_lt, v_rt, v_lb, v_rb]])
-        if count < 3:
+        depth = np.array([img[y_l, x_l], img[y_l, x_h], img[y_h, x_l], img[y_h, x_h]])
+        gtz = depth > 0
+        if gtz.sum() < 3:
             return 0
-
-        avg = (p_lt + p_rt + p_lb + p_rb)/count
+        avg = depth.mean()
         thres = 0.01*avg
-        v_lt, v_rt, v_lb, v_rb = [abs(x - avg) < thres
-                                  for x in [p_lt, p_rt, p_lb, p_rb]]
-        count = sum([1 if v else 0 for v in [v_lt, v_rt, v_lb, v_rb]])
-        if count < 3:
+        stt = np.abs(depth - avg) < thres
+        if stt.sum() < 3:
             return 0
 
         dist_xl = x - x_l
         dist_xh = 1.0 - dist_xl
         dist_yl = y - y_l
         dist_yh = 1.0 - dist_yl
-        dist_xl, dist_xh, dist_yl, dist_yh = \
-            [x**2 for x in [dist_xl, dist_xh, dist_yl, dist_yh]]
-        tmp = np.sqrt(2.0)
-        f_lt = tmp - np.sqrt(dist_xl + dist_yl) if v_lt else 0
-        f_rt = tmp - np.sqrt(dist_xh + dist_yl) if v_rt else 0
-        f_lb = tmp - np.sqrt(dist_xl + dist_yh) if v_lb else 0
-        f_rb = tmp - np.sqrt(dist_xh + dist_yh) if v_rb else 0
-        denominator = f_lt + f_rt + f_lb + f_rb
-        return ((p_lt*f_lt + p_rt*f_rt + p_lb*f_lb + p_rb*f_rb)/denominator) + 0.5
+
+        dist_x = np.array([dist_xl, dist_xh, dist_xl, dist_xh])**2
+        dist_y = np.array([dist_yl, dist_yl, dist_yh, dist_yh])**2
+        f = np.where(stt, np.sqrt(2) - np.sqrt(dist_x + dist_y), 0)
+        return np.dot(depth, f)/f.sum() + 0.5
+
+        # p_lt = img[y_l, x_l]
+        # p_rt = img[y_l, x_h]
+        # p_lb = img[y_h, x_l]
+        # p_rb = img[y_h, x_h]
+        # v_lt = p_lt > 0
+        # v_rt = p_rt > 0
+        # v_lb = p_lb > 0
+        # v_rb = p_rb > 0
+        # count = sum([1 if v else 0 for v in [v_lt, v_rt, v_lb, v_rb]])
+        # if count < 3:
+        #     return 0
+        #
+        # avg = (p_lt + p_rt + p_lb + p_rb)/count
+        # thres = 0.01*avg
+        # v_lt, v_rt, v_lb, v_rb = [abs(x - avg) < thres
+        #                           for x in [p_lt, p_rt, p_lb, p_rb]]
+        # count = sum([1 if v else 0 for v in [v_lt, v_rt, v_lb, v_rb]])
+        # if count < 3:
+        #     return 0
+        #
+        # dist_xl = x - x_l
+        # dist_xh = 1.0 - dist_xl
+        # dist_yl = y - y_l
+        # dist_yh = 1.0 - dist_yl
+        # dist_xl, dist_xh, dist_yl, dist_yh = \
+        #     [x**2 for x in [dist_xl, dist_xh, dist_yl, dist_yh]]
+        # tmp = np.sqrt(2.0)
+        # f_lt = tmp - np.sqrt(dist_xl + dist_yl) if v_lt else 0
+        # f_rt = tmp - np.sqrt(dist_xh + dist_yl) if v_rt else 0
+        # f_lb = tmp - np.sqrt(dist_xl + dist_yh) if v_lb else 0
+        # f_rb = tmp - np.sqrt(dist_xh + dist_yh) if v_rb else 0
+        # denominator = f_lt + f_rt + f_lb + f_rb
+        # return ((p_lt*f_lt + p_rt*f_rt + p_lb*f_lb + p_rb*f_rb)/denominator) + 0.5
 
     def _remap_depth(self, depth):
         # map given depth image to a rescaled version;
         # interpolate the new depth values
-        scaled = cv2.resize(depth, self._size_registered[::-1])
-        # scaled = np.empty(self._size_registered, dtype=np.uint16)
-        # for row in xrange(scaled.shape[0]):
-        #     for col in xrange(scaled.shape[1]):
-        #         scaled[row, col] = self._interpolate(img=depth,
-        #                                              x=self._map_x[row, col],
-        #                                              y=self._map_y[row, col])
+        # scaled = cv2.resize(depth, self._size_registered[::-1])
+        scaled = np.empty(self._size_registered, dtype=np.uint16)
+        for row in xrange(scaled.shape[0]):
+            for col in xrange(scaled.shape[1]):
+                scaled[row, col] = self._interpolate(img=depth,
+                                                     x=self._map_x[row, col],
+                                                     y=self._map_y[row, col])
         return scaled
 
     def _project_depth(self, scaled):
@@ -160,6 +180,7 @@ class DepthRegistration(object):
     def register_depth(self, depth):
         # registered: np.zeros((h, w), dtype=np.uint16)
         # modifies the given registered image in place
+        # scaled = cv2.remap(src=depth, map1=self._map_y, map2=self._map_x, interpolation=cv2.INTER_CUBIC)
         scaled = self._remap_depth(depth=depth)
         print 'scaled:', scaled.shape, scaled.dtype, scaled.min(), scaled.max()
         cv2.imshow('scaled', scaled)
@@ -174,7 +195,7 @@ if __name__ == '__main__':
 
     reg = np.array([1.0556223863649359e+03, 0., 9.5417339830340200e+02, 0.,
                     1.0550357564529666e+03, 5.3003553108782205e+02, 0., 0., 1.]).reshape((3, 3))/2.0
-    sreg = (1080//2, 1920//2)
+    sreg = (1080, 1920)
     dep = np.array([3.6441717090792264e+02, 0., 2.4976446015643833e+02, 0.,
                     3.6432176899325952e+02, 2.0868139387945234e+02, 0., 0., 1.]).reshape((3, 3))
     sdep = (424, 512)
@@ -201,6 +222,17 @@ if __name__ == '__main__':
     start = time.time()
     r = dr.register_depth(d)
     print 'outside, after, registered:', r.shape, r.dtype, r.min(), r.max()
+    # scaled = cv2.resize(src=d, dsize=c.shape[:2], interpolation=cv2.INTER_CUBIC)
+    # reg_fx = reg[0, 0]
+    # reg_fy = reg[1, 1]
+    # reg_cx = reg[0, 2]
+    # reg_cy = reg[1, 2]
+    #
+    # px, py = 123, 123
+    # z_3d = scaled[int(py), int(px)]
+    # x_3d = (px - reg_cx)/reg_fx*z_3d
+    # y_3d = (py - reg_cy)/reg_fy*z_3d
+    # print (x_3d, y_3d, z_3d)
     print 'took {:.3f} s to compute.'.format(time.time() - start)
     cv2.imshow('registered', r)
     cv2.waitKey(0)

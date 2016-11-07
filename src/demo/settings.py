@@ -113,6 +113,9 @@ task_space_limits_m = {
     'z_min': -0.19,
     'z_max': 0.33,
 }
+world_space_limits_m = task_space_limits_m
+world_space_limits_m['z_min'] += 0.92
+world_space_limits_m['z_max'] += 0.92
 
 # The robot's task space limits in hand camera pixel coordinates
 # (in an image taken with the limb in calibration_pose).

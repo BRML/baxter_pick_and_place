@@ -102,6 +102,8 @@ class Demonstration(object):
             self._environment.set_up()
         self._segmentation.init_model(warmup=True)
         self._demo.calibrate()
+        if self._sim:
+            self._environment.scatter_objects()
 
     def demonstrate(self):
         """Perform the demonstration."""

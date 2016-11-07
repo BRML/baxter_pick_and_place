@@ -1,11 +1,17 @@
-# The Baxter pick-and-place demonstration
-Pick &amp; place demonstration with the baxter research robot in collaboration 
-with DFKI Saarbruecken.
+# The Baxter pick-and-place demonstration framework
+This repository contains BRML's Baxter pick &amp; place demonstration
+framework. It was implemented as part of the [EIT CPS for Smart Factories
+project](http://dfki.de/smartfactories/), in collaboration with the [Neural
+Information Processing Group](http://nipg.inf.elte.hu/) at ELTE, Budapest,
+Hungary and [DFKI](http://dfki.de/web) Saarbruecken, Germany.
+
 The framework heavily builds upon the 
 [Baxter SDK](https://github.com/RethinkRobotics) and depends on customized 
 versions of [baxter_interface](https://github.com/BRML/baxter_interface.git)
 and [baxter_common](https://github.com/BRML/baxter_common.git) from Rethink
-Robotics.
+Robotics. For the simulation in Gazebo, the
+[depth_sensors](https://github.com/BRML/depth_sensors.git) package is
+utilized.
 
 
 ## Description of demonstration
