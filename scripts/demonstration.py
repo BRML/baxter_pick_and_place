@@ -38,7 +38,7 @@ from demo import PickAndPlace, settings
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
 from simulation import sim_or_real, Environment
-from vision import ObjectSegmentation
+from vision import ObjectDetection
 
 
 class Demonstration(object):
@@ -59,9 +59,9 @@ class Demonstration(object):
                                         ws_limits=settings.task_space_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect(root_dir=ros_ws, host=settings.elte_kinect_win_host)
-        self._detection = None
-        self._segmentation = ObjectSegmentation(root_dir=ros_ws,
-                                                object_ids=object_set)
+        self._detection = ObjectDetection(root_dir=ros_ws,
+                                          object_ids=object_set)
+        self._segmentation = None
 
         self._logger.info("Will publish visualization images to topic "
                           "'{}'.".format(settings.topic_visualization))
