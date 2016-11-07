@@ -368,7 +368,7 @@ class Kinect(object):
                 estimate[arm] = (pos, color, depth)
         return estimate
 
-    def estimate_object_position(self, bbox, img_depth):
+    def estimate_object_position(self, img_color, bbox, img_depth):
         """Estimate the approximate position of an object in 3d from a Kinect
         color and corresponding depth image, as well as the bounding box of
         the object detected in the color image.
@@ -383,14 +383,15 @@ class Kinect(object):
             return None
         # TODO: verify this works as expected
         # see https://github.com/OpenKinect/libfreenect2/issues/223
-        registered = self.reg.register_depth(depth=img_depth)
+        # registered = self.reg.register_depth(depth=img_depth)
+        scaled = cv2.resize(src=img_depth, dsize=img_color.shape[:2], interpolation=cv2.INTER_CUBIC)
         reg_fx = self.color.camera_matrix[0, 0]
         reg_fy = self.color.camera_matrix[1, 1]
         reg_cx = self.color.camera_matrix[0, 2]
         reg_cy = self.color.camera_matrix[1, 2]
 
         px, py = bbox[0]
-        z_3d = registered[int(py), int(px)]
+        z_3d = scaled[int(py), int(px)]
         x_3d = (px - reg_cx)/reg_fx*z_3d
         y_3d = (py - reg_cy)/reg_fy*z_3d
         return [x_3d, y_3d, z_3d]

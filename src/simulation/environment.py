@@ -101,14 +101,16 @@ class Environment(object):
             self._logger.info("Successfully removed {}.".format(model))
 
     def set_up(self):
-        """Place a table in front of Baxter and scatter objects on it."""
+        """Place a table in front of Baxter."""
         self._logger.info("Setting up Gazebo environment.")
-        # place table in front of Baxter
         self.add_model(model='table',
                        pose=[0.7, 0, 0, 0, 0, 0],
                        ns='/objects',
                        frame='world')
-        # randomly scatter objects on table
+
+    def scatter_objects(self):
+        """Randomly scatter objects on the table."""
+        self._logger.info("Placing objects on table.")
         for oid in self._object_ids:
             self.add_model(model=oid,
                            pose=self._sample_object_pose(),
