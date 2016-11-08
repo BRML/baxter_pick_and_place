@@ -13,7 +13,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   std_srvs
-  kinect2_registration
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +107,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
 #  INCLUDE_DIRS include
   LIBRARIES baxter_pick-and-place
-  CATKIN_DEPENDS baxter_core_msgs dynamic_reconfigure geometry_msgs rospy roscpp sensor_msgs std_msgs std_srvs kinect2_registration
+  CATKIN_DEPENDS baxter_core_msgs dynamic_reconfigure geometry_msgs rospy roscpp sensor_msgs std_msgs std_srvs
 #  DEPENDS system_lib
 )
 
@@ -134,17 +133,17 @@ include_directories(
 # add_dependencies(baxter_pick-and-place ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(demo_depth_registration_module scripts/register.cpp)
+#     add_executable(demo_depth_registration_module scripts/register.cpp)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
-add_dependencies(demo_depth_registration_module ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+#      add_dependencies(demo_depth_registration_module ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(demo_depth_registration_module
-  ${catkin_LIBRARIES}
-  kinect2_registration
-)
+#   target_link_libraries(demo_depth_registration_module
+#  ${catkin_LIBRARIES}
+#   kinect2_registration
+# )
 
 #############
 ## Install ##
