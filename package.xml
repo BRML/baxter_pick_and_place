@@ -24,7 +24,6 @@
   <build_depend>sensor_msgs</build_depend>
   <build_depend>std_msgs</build_depend>
   <build_depend>std_srvs</build_depend>
-  <build_depend>kinect2_registration</build_depend>
 
   <run_depend>baxter_core_msgs</run_depend>
   <run_depend>dynamic_reconfigure</run_depend>
@@ -36,5 +35,4 @@
   <run_depend>sensor_msgs</run_depend>
   <run_depend>std_msgs</run_depend>
   <run_depend>std_srvs</run_depend>
-  <run_depend>kinect2_registration</run_depend>
 </package>
