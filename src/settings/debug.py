@@ -23,48 +23,12 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-import os
-import sys
 
-from settings.settings import develop_dir
+# The topic on which debugging image output is visualized
+topic_visualization = '/visualization/image'
+# topic_visualization = '/robot/xdisplay'
 
-
-def add_path(path):
-    if path not in sys.path:
-        sys.path.insert(0, path)
-
-
-def set_up_faster_rcnn():
-    """Set up python paths for faster R-CNN."""
-    # Add Caffe to PYTHONPATH
-    caffe_path = os.path.join(develop_dir,
-                              'py-faster-rcnn', 'caffe-fast-rcnn', 'python')
-    add_path(caffe_path)
-
-    # Add lib to PYTHONPATH
-    lib_path = os.path.join(develop_dir, 'py-faster-rcnn', 'lib')
-    add_path(lib_path)
-
-
-def set_up_rfcn():
-    """Set up python paths for region-based fully convolutional networks."""
-    # Add Caffe to PYTHONPATH
-    caffe_path = os.path.join(develop_dir,
-                              'py-R-FCN', 'caffe', 'python')
-    add_path(caffe_path)
-
-    # Add lib to PYTHONPATH
-    lib_path = os.path.join(develop_dir, 'py-R-FCN', 'lib')
-    add_path(lib_path)
-
-
-def set_up_mnc():
-    """Set up python paths for MNC."""
-    # Add Caffe to PYTHONPATH
-    caffe_path = os.path.join(develop_dir,
-                              'mnc', 'caffe-mnc', 'python')
-    add_path(caffe_path)
-
-    # Add lib to PYTHONPATH
-    lib_path = os.path.join(develop_dir, 'mnc', 'lib')
-    add_path(lib_path)
+topic_img1 = '/cameras/left_hand_camera/image'
+topic_img2 = '/cameras/right_hand_camera/image'
+topic_img3 = '/kinect2/hd/image_color_rect'
+topic_img4 = 'visualization/img4'
