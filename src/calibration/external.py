@@ -24,16 +24,15 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
-import numpy as np
 import os
 
 import cv2
-
+import numpy as np
 import rospy
 
 from axxa import tsai_lenz_89
-from demo import settings
 from hardware import Baxter, Kinect
+from settings import settings
 from simulation import sim_or_real
 
 

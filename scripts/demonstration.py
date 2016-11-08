@@ -28,15 +28,17 @@
 import datetime
 import logging
 import os
-
 import rospkg
+
 import rospy
 from sensor_msgs.msg import Image
 
 from core import get_default_handler
-from demo import PickAndPlace, settings
+from demo import PickAndPlace
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
+from settings import settings
+from settings.debug import topic_img4
 from simulation import sim_or_real, Environment
 from vision import ObjectDetection
 
@@ -63,9 +65,7 @@ class Demonstration(object):
                                           object_ids=object_set)
         self._segmentation = None
 
-        self._logger.info("Will publish visualization images to topic "
-                          "'{}'.".format(settings.topic_visualization))
-        pub_vis = rospy.Publisher(settings.topic_visualization, Image,
+        pub_vis = rospy.Publisher(topic_img4, Image,
                                   queue_size=10, latch=True)
         self._servo = {
             'table': ServoingDistance(robot=self._robot,

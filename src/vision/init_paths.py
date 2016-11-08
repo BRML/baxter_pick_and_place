@@ -26,7 +26,7 @@
 import os
 import sys
 
-from demo.settings import develop_dir
+from settings.settings import develop_dir
 
 
 def add_path(path):

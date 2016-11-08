@@ -88,10 +88,6 @@ servo_tolerance_meters = 0.005
 color_change_threshold = 4.0
 
 
-# The topic on which debugging image output is visualized
-topic_visualization = '/visualization/image'
-# topic_visualization = '/robot/xdisplay'
-
 # The robot's task space limits in meter
 task_space_limits_m = {
     'x_min': 0.35,

@@ -25,17 +25,16 @@
 
 
 import logging
-import numpy as np
 import os
 import random
 
 import cv2
-
+import numpy as np
 import rospy
 
-import settings
 from hardware import img_to_imgmsg
 from instruction import client
+from settings import settings
 from vision import color_difference
 
 
@@ -66,15 +65,11 @@ class PickAndPlace(object):
 
     def publish_vis(self, image):
         """Publish an image to the ROS topic defined in
-        settings.topic_visualization.
+        settings.debug.topic_img4.
 
         :param image: The image (numpy array) to publish.
         :return:
         """
-        if settings.topic_visualization == '/robot/xdisplay':
-            xsize = (1024, 600)
-            if any([(a > b) for a, b in zip(image.shape[:2], xsize)]):
-                image = cv2.resize(src=image, dsize=xsize)
         self._pub_vis.publish(img_to_imgmsg(img=image))
 
     def _wait_for_clear_table(self, arm):

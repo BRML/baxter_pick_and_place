@@ -2,10 +2,7 @@
 
 <launch>
     <arg name="gazebo" default="false"/>
-    <arg name="kinect" default="false"/>
-
-    <arg name="arm" default="left"/>
-    <arg name="number" default="0"/>
+    <arg name="kinect" default="true"/>
 
     <!-- Fire up simulator and load Baxter model -->
     <include if="$(arg gazebo)"
@@ -13,17 +10,13 @@
         <arg name="depth_external" value="$(arg kinect)"/>
     </include>
 
-    <!-- View the hand camera used for finding objects -->
-    <node name="hand_camera" pkg="image_view" type="image_view">
-        <remap from="image" to="/cameras/$(arg arm)_hand_camera/image"/>
+    <!-- Collect and visualize debugging images -->
+    <node name="inspection_image_assembly"
+          pkg="baxter_pick_and_place" type="inspection.py"/>
+    <node name="inspection_image_vis"
+          pkg="image_view" type="image_view">
+        <remap from="image" to="/visualization/image"/>
     </node>
-
-    <!-- View the Kinect camera used for finding objects -->
-    <group if="$(arg kinect)">
-        <node name="kinect_camera" pkg="image_view" type="image_view">
-            <remap from="image" to="/kinect2/hd/image_color_rect"/>
-        </node>
-    </group>
 
     <!-- Run demonstration -->
     <node name="demonstration"

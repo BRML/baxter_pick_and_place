@@ -24,27 +24,25 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 import logging
-import numpy as np
 
+import baxter_interface
+import numpy as np
 import rospy
+from baxter_core_msgs.srv import (
+    SolvePositionIK,
+    SolvePositionIKRequest
+)
 from geometry_msgs.msg import (
     Pose,
     PoseStamped
 )
 
-import baxter_interface
-from baxter_core_msgs.srv import (
-    SolvePositionIK,
-    SolvePositionIKRequest
-)
-
 from base import Camera
-from motion_planning.base import MotionPlanner
 from motion_planning import SimplePlanner
+from motion_planning.base import MotionPlanner
+from settings import settings
 from utils import list_to_pose_msg, pose_dict_to_list
 from utils import pose_dict_to_hom, hom_to_list
-import demo.settings as settings
-from demo.settings import task_space_limits_m as lims
 
 
 class Baxter(object):
