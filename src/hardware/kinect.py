@@ -39,7 +39,7 @@ import rospy
 from sensor_msgs.msg import CameraInfo
 
 from base import Camera
-from depth_registration import DepthRegistration
+from depth_registration import get_depth
 
 
 class Kinect(object):
@@ -84,18 +84,6 @@ class Kinect(object):
                             prefix=name, cam_pars=pars_depth)
         self.color = Camera(topic='/kinect2/hd/image_color_rect',
                             prefix=name, cam_pars=pars_color)
-        with np.load(path) as cal:
-            rotation = cal['rotation']
-            translation = cal['translation']
-        self.reg = DepthRegistration(cam_mat_registered=self.color.camera_matrix,
-                                     size_registered=self.color.image_size,
-                                     cam_mat_depth=self.depth.camera_matrix,
-                                     size_depth=self.depth.image_size,
-                                     distortion_depth=self.depth.distortion_coeff,
-                                     rotation=rotation,
-                                     translation=translation,
-                                     z_near=0.5,
-                                     z_far=12.0)
 
         # index into the skeleton arrays
         self.joint_type_count = 13
@@ -374,6 +362,7 @@ class Kinect(object):
         color and corresponding depth image, as well as the bounding box of
         the object detected in the color image.
 
+        :param img_color: A color image.
         :param bbox: The bounding box of the object we are interested in in
             the color image.
         :param img_depth: A depth image corresponding to the color image.
@@ -383,16 +372,13 @@ class Kinect(object):
         if bbox is None:
             return None
         # TODO: verify this works as expected
-        # see https://github.com/OpenKinect/libfreenect2/issues/223
-        # registered = self.reg.register_depth(depth=img_depth)
-        scaled = cv2.resize(src=img_depth, dsize=img_color.shape[:2], interpolation=cv2.INTER_CUBIC)
         reg_fx = self.color.camera_matrix[0, 0]
         reg_fy = self.color.camera_matrix[1, 1]
         reg_cx = self.color.camera_matrix[0, 2]
         reg_cy = self.color.camera_matrix[1, 2]
 
         px, py = bbox[0]
-        z_3d = scaled[int(py), int(px)]
+        z_3d = get_depth(img_depth, img_color.shape[:2], bbox[0])
         x_3d = (px - reg_cx)/reg_fx*z_3d
         y_3d = (py - reg_cy)/reg_fy*z_3d
         return [x_3d, y_3d, z_3d]
