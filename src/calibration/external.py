@@ -29,10 +29,12 @@ import os
 import cv2
 import numpy as np
 import rospy
+from sensor_msgs.msg import Image
 
 from axxa import tsai_lenz_89
-from hardware import Baxter, Kinect
+from hardware import Baxter, Kinect, img_to_imgmsg
 from settings import settings
+from settings.debug import topic_img4
 from simulation import sim_or_real
 
 
@@ -40,8 +42,11 @@ class External(object):
     def __init__(self, root_dir):
         self.logger = logging.getLogger('cal_ext')
         self._robot = Baxter(sim=sim_or_real())
+        self._robot.set_up(gripper=False)
         self._kinect = Kinect(root_dir=root_dir,
                               host=settings.elte_kinect_win_host)
+        self._pub_vis = rospy.Publisher(topic_img4, Image,
+                                        queue_size=10, latch=True)
         self._sink = os.path.join(root_dir, 'data', 'setup', 'external')
         if not os.path.exists(self._sink):
             self.logger.info('Creating folder {} to store calibration '
@@ -50,12 +55,12 @@ class External(object):
 
         self._lim = settings.task_space_limits_m
         # TODO: tune rotation limits such that Kinect is able to detect pattern
-        self._lim['roll_max'] = np.pi
-        self._lim['roll_min'] = -np.pi
-        self._lim['pitch_max'] = np.pi
-        self._lim['pitch_min'] = -np.pi
-        self._lim['yaw_max'] = np.pi
-        self._lim['yaw_min'] = -np.pi
+        self._lim['roll_max'] = np.deg2rad(90.0)
+        self._lim['roll_min'] = -np.deg2rad(90.0)
+        self._lim['pitch_max'] = np.pi/2 + np.deg2rad(50.0)
+        self._lim['pitch_min'] = np.pi/2 - np.deg2rad(5.0)
+        self._lim['yaw_max'] = np.deg2rad(50.0)
+        self._lim['yaw_min'] = -np.deg2rad(50.0)
 
         # This should go into the README:
         # Download the 4x11 asymmetric circle grid from
@@ -75,12 +80,14 @@ class External(object):
             pose = self._robot.sample_pose(lim=self._lim)
             try:
                 self._robot.move_to_pose(arm=arm, pose=pose)
+                print pose
             except ValueError:
                 continue
             bttn = self._robot.hom_gripper_to_robot(arm=arm)
 
             color, _, _ = self._kinect.collect_data(color=True, depth=False,
                                                     skeleton=False)
+            self._pub_vis.publish(img_to_imgmsg(img=color))
             patternfound, centers = cv2.findCirclesGridDefault(image=color,
                                                                patternSize=self._patternsize,
                                                                flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
@@ -103,6 +110,7 @@ class External(object):
             cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
                                       corners=centers, patternWasFound=patternfound)
             cv2.imwrite(fname + '_det.jpg', color)
+            self._pub_vis.publish(img_to_imgmsg(img=color))
 
             btt.append(bttn)
             fname = os.path.join(self._sink, '1_btt_{}.npz'.format(len(btt)))
@@ -138,6 +146,7 @@ class External(object):
 
             color, _, _ = self._kinect.collect_data(color=True, depth=False,
                                                     skeleton=False)
+            self._pub_vis.publish(img_to_imgmsg(img=color))
             patternfound, centers = cv2.findCirclesGridDefault(image=color,
                                                                patternSize=self._patternsize,
                                                                flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
@@ -160,6 +169,7 @@ class External(object):
             cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
                                       corners=centers, patternWasFound=patternfound)
             cv2.imwrite(fname + '_det.jpg', color)
+            self._pub_vis.publish(img_to_imgmsg(img=color))
 
             bto.append(np.dot(np.dot(bttn, tto), hom_pattern))
             fname = os.path.join(self._sink, '2_bto_{}.npz'.format(len(bto)))
@@ -194,4 +204,5 @@ def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
     tto = cal.estimate_hand_trafo(n=n1, arm=arm)
     cal.logger.info('Second, estimate trafo from camera to robot base ...')
     btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
+    cal._robot.clean_up()
     return btc

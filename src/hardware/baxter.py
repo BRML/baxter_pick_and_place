@@ -104,10 +104,11 @@ class Baxter(object):
         """
         return [0.03828, 0.012, -0.142345]
 
-    def set_up(self):
+    def set_up(self, gripper=True):
         """Enable the robot, move both limbs to neutral configuration and
         calibrate both grippers.
 
+        :param gripper: Whether to calibrate grippers (default) or not.
         :return:
         """
         self._logger.info("Getting robot state.")
@@ -122,8 +123,9 @@ class Baxter(object):
         self._logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
             self._limbs[arm].move_to_neutral()
-            self._grippers[arm].set_parameters(parameters=self._grippers_pars)
-            self._grippers[arm].calibrate()
+            if gripper:
+                self._grippers[arm].set_parameters(parameters=self._grippers_pars)
+                self._grippers[arm].calibrate()
             # Measured meters per pixel @ 1 m distance
             self.cameras[arm].meters_per_pixel = 0.0025
 
