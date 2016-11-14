@@ -13,6 +13,7 @@ from detection2 import ObjectDetection
 # from segmentation import ObjectSegmentation
 
 from visualization_utils import (
+    draw_detection,
     draw_rroi,
     mask_to_rroi,
     color_difference
