@@ -35,7 +35,7 @@ import rospy
 from hardware import img_to_imgmsg
 from instruction import client
 from settings import settings
-from vision import color_difference
+from vision import color_difference, draw_detection
 
 
 class PickAndPlace(object):
@@ -358,6 +358,7 @@ class PickAndPlace(object):
             self._logger.info('Looking for {} and estimate its pose.'.format(obj_id))
             if obj_id == 'hand':
                 estimate = self._camera.estimate_hand_position()
+                # TODO: visualize, but how?
                 while estimate is None:
                     self._logger.warning("No hand position estimate was found! "
                                          "Please relocate your hand holding the object.")
@@ -372,6 +373,8 @@ class PickAndPlace(object):
                 det = self._detection.detect_object(image=img_color,
                                                     object_id=obj_id,
                                                     threshold=0.8)
+                draw_detection(image=img_color, detections=det)
+                self.publish_vis(image=img_color)
                 obj_pose = self._camera.estimate_object_position(img_color=img_color,
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
