@@ -377,8 +377,6 @@ class PickAndPlace(object):
                 obj_pose = self._camera.estimate_object_position(img_color=img_color,
                                                                  bbox=det['box'],
                                                                  img_depth=img_depth)
-                obj_pose = np.dot(self._camera.trafo, obj_pose + [1])
-                obj_pose = list(obj_pose[:-1])
                 if obj_pose is None:
                     self._logger.info("I did not find the {}!".format(obj_id))
                     self._logger.info('I resort to searching with the robot.')

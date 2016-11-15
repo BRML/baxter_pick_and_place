@@ -383,11 +383,6 @@ class Kinect(object):
         """
         if bbox is None:
             return None
-        # TODO: verify this works as expected
-        reg_fx = self.color.camera_matrix[0, 0]
-        reg_fy = self.color.camera_matrix[1, 1]
-        reg_cx = self.color.camera_matrix[0, 2]
-        reg_cy = self.color.camera_matrix[1, 2]
 
         if len(bbox) == 3:
             # smallest enclosing rectangle
@@ -398,6 +393,7 @@ class Kinect(object):
         else:
             raise ValueError("Expected rroi or bounding box, got {}!".format(bbox))
         z_3d = get_depth(img_depth, img_color.shape[:2], (px, py))
-        x_3d = (px - reg_cx)/reg_fx*z_3d
-        y_3d = (py - reg_cy)/reg_fy*z_3d
-        return [x_3d, y_3d, z_3d]
+        pos_cam = self.color.projection_pixel_to_camera(pixel=(px, py), z=z_3d)
+        # TODO: verify this works as expected
+        pos_rob = np.dot(self.trafo, pos_cam + [1])[:-1]
+        return list(pos_rob)
