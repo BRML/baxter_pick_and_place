@@ -36,10 +36,11 @@ import time
 import cv2
 
 import rospy
-from sensor_msgs.msg import CameraInfo
+from sensor_msgs.msg import CameraInfo, Image
 
-from base import Camera
+from base import Camera, img_to_imgmsg
 from depth_registration import get_depth
+from settings.debug import topic_img4
 
 
 class Kinect(object):
@@ -50,6 +51,8 @@ class Kinect(object):
         pars_color = None
         pars_depth = None
         path = os.path.join(root_dir, 'data', 'setup', 'kinect_parameters.npz')
+        self._pub_vis = rospy.Publisher(topic_img4, Image,
+                                        queue_size=10, latch=True)
         self._host = host
         self._socket = None
         self._native_ros = False
@@ -311,7 +314,11 @@ class Kinect(object):
             server = self._host, 9999
             self._logger.info('Connect to {} on port {}.'.format(server[0].upper(),
                                                                  server[1]))
-            self._socket.connect(server)
+            try:
+                self._socket.connect(server)
+            except socket.gaierror:
+                raise RuntimeError("Failed to connect to {}!".format(server[0].upper()) +
+                                   " Check your network connection.")
             try:
                 msg = '{}{}{}\n'.format(*[1 if x else 0
                                           for x in [color, depth, skeleton]])
@@ -339,7 +346,7 @@ class Kinect(object):
               color and depth space coordinates) for the left and right hands.
             - None if no skeleton estimate is computed by the Kinect.
         """
-        _, _, skeletons = self.collect_data(skeleton=True)
+        img, _, skeletons = self.collect_data(color=True, skeleton=True)
         if len(skeletons) != 1:
             raise ValueError("Need to track exactly one person!")
         skeleton = skeletons[0]
@@ -347,14 +354,19 @@ class Kinect(object):
             estimate = None
         else:
             estimate = dict()
-
             for arm, idx in zip(['left', 'right'],
                                 [self.joint_type_hand_left,
                                  self.joint_type_hand_right]):
                 cam, color, depth = [a[idx] for a in skeleton]
                 # TODO: verify this works as expected
-                pos = np.dot(self.trafo, cam + [1])[:-1]
+                pos = tuple(np.dot(self.trafo, list(cam) + [1])[:-1])
                 estimate[arm] = (pos, color, depth)
+                # visualize estimate
+                ctr = tuple(int(x/2.0 if not self._native_ros else x) for x in color)
+                cv2.circle(img, center=ctr, radius=5, color=[255, 0, 0], thickness=3)
+                # ctr2 = tuple(int(x) for x in self.color.projection_camera_to_pixel(position=list(cam)))
+                # cv2.circle(img, center=ctr2, radius=2, color=[0, 0, 255], thickness=3)
+            self._pub_vis.publish(img_to_imgmsg(img=img))
         return estimate
 
     def estimate_object_position(self, img_color, bbox, img_depth):

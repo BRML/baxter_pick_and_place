@@ -358,7 +358,6 @@ class PickAndPlace(object):
             self._logger.info('Looking for {} and estimate its pose.'.format(obj_id))
             if obj_id == 'hand':
                 estimate = self._camera.estimate_hand_position()
-                # TODO: visualize, but how?
                 while estimate is None:
                     self._logger.warning("No hand position estimate was found! "
                                          "Please relocate your hand holding the object.")

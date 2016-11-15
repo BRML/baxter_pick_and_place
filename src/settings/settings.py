@@ -28,7 +28,7 @@ import os
 
 
 # The name or IP of the host PC on which the ELTE Kinect Windows server runs.
-elte_kinect_win_host = 'pc-baxter'
+elte_kinect_win_host = '10.162.85.173'
 
 
 # The directory on the Ubuntu machine where the 'py-faster-rcnn' and 'mnc'
