@@ -173,6 +173,11 @@ class ObjectDetection(object):
         """
         scores, boxes = self.detect(image=image)
 
+        # get rid of scores for unwanted classes
+        for idx, object_id in enumerate(self._classes):
+            if object_id.startswith('_'):
+                scores[:, idx] = 0.0
+
         # find best score among all classes (except background)
         best_proposal, best_class = np.unravel_index(scores[:, 1:].argmax(),
                                                      scores[:, 1:].shape)
