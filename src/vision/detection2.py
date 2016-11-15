@@ -144,11 +144,11 @@ class ObjectDetection(object):
         # Find scores for requested object class
         cls_idx = self._classes.index(object_id)
         cls_scores = scores[:, cls_idx]
-        cls_boxes = boxes[:, 4*cls_idx:4*(cls_idx + 1)]
 
         best_idx = np.argmax(cls_scores)
         best_score = cls_scores[best_idx]
-        best_box = cls_boxes[best_idx]
+        best_box = boxes[best_idx, 4:8]
+
         self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
@@ -178,7 +178,7 @@ class ObjectDetection(object):
                                                      scores[:, 1:].shape)
         best_class += 1  # compensate for background
         best_score = scores[best_proposal, best_class]
-        best_box = boxes[best_proposal, 4*best_class:4*(best_class + 1)]
+        best_box = boxes[best_proposal, 4:8]
         best_object = self._classes[best_class]
 
         self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(

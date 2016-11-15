@@ -74,7 +74,19 @@ object_size_meters = {
 # Needed for the object detection and object segmentation algorithms as well
 # as setting up the simulation environment (stripped of the background class)
 # if we are working in Gazebo.
-object_ids = tuple(['__background__'] + sorted(object_size_meters.keys()))
+# The order needs to be consistent with the order used to train the detection
+# and segmentation models!
+object_ids = tuple([
+    '__background__',
+    '_person_',
+    '_bench_',
+    'bottle',
+    'cup',
+    '_apple_',
+    '_orange_',
+    'remote',
+    '_book_'
+])
 
 # The tolerance for the offset from the segmented objects center to the image
 # center in meters.
