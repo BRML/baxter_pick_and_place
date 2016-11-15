@@ -54,13 +54,16 @@ class External(object):
             os.makedirs(self._sink)
 
         self._lim = settings.task_space_limits_m
-        # TODO: tune rotation limits such that Kinect is able to detect pattern
-        self._lim['roll_max'] = np.deg2rad(90.0)
-        self._lim['roll_min'] = -np.deg2rad(90.0)
+        self._lim['roll_max'] = np.deg2rad(20.0)
+        self._lim['roll_min'] = -np.deg2rad(20.0)
         self._lim['pitch_max'] = np.pi/2 + np.deg2rad(50.0)
         self._lim['pitch_min'] = np.pi/2 - np.deg2rad(5.0)
         self._lim['yaw_max'] = np.deg2rad(50.0)
         self._lim['yaw_min'] = -np.deg2rad(50.0)
+        self.logger.info("Using task space limits")
+        for c in ['x', 'y', 'z', 'roll', 'pitch', 'yaw']:
+            self.logger.info("{: .3f} <= {} <= {: .3f}".format(
+                self._lim['%s_min' % c], c, self._lim['%s_max' % c]))
 
         # This should go into the README:
         # Download the 4x11 asymmetric circle grid from
@@ -80,7 +83,12 @@ class External(object):
             pose = self._robot.sample_pose(lim=self._lim)
             try:
                 self._robot.move_to_pose(arm=arm, pose=pose)
-                print pose
+                print 'x: {} < {} < {}'.format(self._lim['x_min'], pose[0], self._lim['x_max'])
+                print 'y: {} < {} < {}'.format(self._lim['y_min'], pose[1], self._lim['y_max'])
+                print 'z: {} < {} < {}'.format(self._lim['z_min'], pose[2], self._lim['z_max'])
+                print 'r: {} < {} < {}'.format(self._lim['roll_min'], pose[3], self._lim['roll_max'])
+                print 'p: {} < {} < {}'.format(self._lim['pitch_min'], pose[4], self._lim['pitch_max'])
+                print 'y: {} < {} < {}'.format(self._lim['yaw_min'], pose[5], self._lim['yaw_max'])
             except ValueError:
                 continue
             bttn = self._robot.hom_gripper_to_robot(arm=arm)
