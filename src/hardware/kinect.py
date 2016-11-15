@@ -377,8 +377,15 @@ class Kinect(object):
         reg_cx = self.color.camera_matrix[0, 2]
         reg_cy = self.color.camera_matrix[1, 2]
 
-        px, py = bbox[0]
-        z_3d = get_depth(img_depth, img_color.shape[:2], bbox[0])
+        if len(bbox) == 3:
+            # smallest enclosing rectangle
+            px, py = bbox[0]
+        elif len(bbox) == 4:
+            # bounding box
+            px, py = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        else:
+            raise ValueError("Expected rroi or bounding box, got {}!".format(bbox))
+        z_3d = get_depth(img_depth, img_color.shape[:2], (px, py))
         x_3d = (px - reg_cx)/reg_fx*z_3d
         y_3d = (py - reg_cy)/reg_fy*z_3d
         return [x_3d, y_3d, z_3d]
