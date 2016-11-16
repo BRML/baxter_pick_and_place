@@ -360,12 +360,18 @@ class Kinect(object):
                                 [self.joint_type_hand_left,
                                  self.joint_type_hand_right]):
                 cam, color, depth = [a[idx] for a in skeleton]
+                # The ELTE KinectOverNetwork tool scales the color image by a
+                # factor of 1/2 (to 960x540). We thus adapt the estimated pixel
+                # coordinates accordingly.
+                color = tuple(x/2.0 if not self._native_ros else x for x in color)
+
                 # TODO: verify this works as expected
                 pos = tuple(np.dot(self.trafo, list(cam) + [1])[:-1])
                 estimate[arm] = (pos, color, depth)
                 # visualize estimate
-                ctr = tuple(int(x/2.0 if not self._native_ros else x) for x in color)
+                ctr = tuple(int(x) for x in color)
                 cv2.circle(img, center=ctr, radius=5, color=[255, 0, 0], thickness=3)
+
                 # # validate projection cam 2 pixel
                 # ctr2 = tuple(int(x) for x in self.color.projection_camera_to_pixel(position=list(cam)))
                 # print ctr, ctr2
@@ -373,9 +379,6 @@ class Kinect(object):
                 # # validate projection pixel 2 cam
                 # print 'kinect:', cam
                 # z = get_depth(dpth, img.shape[:2], ctr)
-                # # reg = register_depth(dpth, img.shape[:2])
-                # # print reg.shape, ctr
-                # # print 'rgstrd:', reg[ctr[1], ctr[0]]/1000.0
                 # print 'projct:', self.color.projection_pixel_to_camera(color, z)
             self._pub_vis.publish(img_to_imgmsg(img=img))
         return estimate
