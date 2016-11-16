@@ -144,9 +144,8 @@ class Camera(object):
             #   w = z,
             #   x = (u - cx*z)/fx,  u = px*w, and
             #   y = (v - cy*z)/fy,  v = py*w.
-            u, v = [p*z for p in pixel]
-            x = (u - self.camera_matrix[0, 2] * z) / self.camera_matrix[0, 0]
-            y = (v - self.camera_matrix[1, 2] * z) / self.camera_matrix[1, 1]
+            x = z * (pixel[0] - self.camera_matrix[0, 2]) / self.camera_matrix[0, 0]
+            y = z * (pixel[1] - self.camera_matrix[1, 2]) / self.camera_matrix[1, 1]
             return [x, y, z]
         raise ValueError("'pixel' should be a tuple of length 2!")
 
