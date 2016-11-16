@@ -161,7 +161,8 @@ class Camera(object):
             u, v, w = np.dot(self.camera_matrix, np.asarray(position))
             px = float(u)/w
             py = float(v)/w
-            return px, py
+            # flip image in y direction
+            return px, self.image_size[0] - py
         raise ValueError("'position' should be a list of length 3!")
 
 
