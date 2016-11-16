@@ -39,7 +39,7 @@ import rospy
 from sensor_msgs.msg import CameraInfo, Image
 
 from base import Camera, img_to_imgmsg
-from depth_registration import get_depth, register_depth
+from depth_registration import get_depth
 from settings.debug import topic_img4
 
 
