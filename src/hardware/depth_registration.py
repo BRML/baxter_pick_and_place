@@ -41,8 +41,8 @@ import cv2
 
 
 def register_depth(img_depth, size_color):
-    if size_color == (540, 940):
-        # magic factors for matching the depth image to the 940x540 color image
+    if size_color == (540, 960):
+        # magic factors for matching the depth image to the 960x540 color image
         scale_factor = 1.45
         x_shift = 115
         y_shift = -38
@@ -75,8 +75,8 @@ def register_depth(img_depth, size_color):
 
 
 def get_depth(img_depth, size_color, pixel_color):
-    if size_color == (540, 940):
-        # magic factors for matching the depth image to the 940x540 color image
+    if size_color == (540, 960):
+        # magic factors for matching the depth image to the 960x540 color image
         scale_factor = 1.45
         x_shift = 115
         y_shift = -38
