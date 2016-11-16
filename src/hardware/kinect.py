@@ -39,7 +39,7 @@ import rospy
 from sensor_msgs.msg import CameraInfo, Image
 
 from base import Camera, img_to_imgmsg
-from depth_registration import get_depth
+from depth_registration import get_depth, register_depth
 from settings.debug import topic_img4
 
 
@@ -346,7 +346,9 @@ class Kinect(object):
               color and depth space coordinates) for the left and right hands.
             - None if no skeleton estimate is computed by the Kinect.
         """
-        img, _, skeletons = self.collect_data(color=True, skeleton=True)
+        img, dpth, skeletons = self.collect_data(color=True, depth=True, skeleton=True)
+        while dpth is None:
+            img, dpth, skeletons = self.collect_data(color=True, depth=True, skeleton=True)
         if len(skeletons) != 1:
             raise ValueError("Need to track exactly one person!")
         skeleton = skeletons[0]
@@ -364,8 +366,17 @@ class Kinect(object):
                 # visualize estimate
                 ctr = tuple(int(x/2.0 if not self._native_ros else x) for x in color)
                 cv2.circle(img, center=ctr, radius=5, color=[255, 0, 0], thickness=3)
+                # # validate projection cam 2 pixel
                 # ctr2 = tuple(int(x) for x in self.color.projection_camera_to_pixel(position=list(cam)))
+                # print ctr, ctr2
                 # cv2.circle(img, center=ctr2, radius=2, color=[0, 0, 255], thickness=3)
+                # # validate projection pixel 2 cam
+                # print 'kinect:', cam
+                # z = get_depth(dpth, img.shape[:2], ctr)
+                # # reg = register_depth(dpth, img.shape[:2])
+                # # print reg.shape, ctr
+                # # print 'rgstrd:', reg[ctr[1], ctr[0]]/1000.0
+                # print 'projct:', self.color.projection_pixel_to_camera(color, z)
             self._pub_vis.publish(img_to_imgmsg(img=img))
         return estimate
 
