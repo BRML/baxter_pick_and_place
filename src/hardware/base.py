@@ -146,7 +146,8 @@ class Camera(object):
             #   y = (v - cy*z)/fy,  v = py*w.
             x = z * (pixel[0] - self.camera_matrix[0, 2]) / self.camera_matrix[0, 0]
             y = z * (pixel[1] - self.camera_matrix[1, 2]) / self.camera_matrix[1, 1]
-            return [x, y, z]
+            # flip y axis
+            return [x, -y, z]
         raise ValueError("'pixel' should be a tuple of length 2!")
 
     def projection_camera_to_pixel(self, position):
