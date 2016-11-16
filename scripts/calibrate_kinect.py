@@ -73,7 +73,8 @@ class CalibrateKinect(object):
             trans, rot = self._listener.lookupTransform(from_frame,
                                                         to_frame,
                                                         rospy.Time(0))
-        except (tf.LookupException,
+        except (tf.Exception,
+                tf.LookupException,
                 tf.ConnectivityException,
                 tf.ExtrapolationException):
             msg = 'Could not find transform from {} to {} on the ' \
@@ -228,6 +229,8 @@ class CalibrateKinect(object):
             }
             self._logger.info("Write Kinect V2 internal parameters "
                               "to {}.".format(filename))
+            for k, v in pars.iteritems():
+                self._logger.info("{}: {}".format(k, v.flatten()))
             np.savez(filename, **pars)
             self._logger.info('Done.')
 
