@@ -44,13 +44,13 @@ def register_depth(img_depth, size_color):
     if size_color == (540, 960):
         # magic factors for matching the depth image to the 960x540 color image
         scale_factor = 1.45
-        x_shift = 115
+        x_shift = 120
         y_shift = -38
     elif size_color == (1080, 1920):
         # magic factors for matching the depth image to the 1920x1080 color image
         # TODO: modify magic factors for full HD resolution
         scale_factor = 1.45*2
-        x_shift = 115*2
+        x_shift = 120*2
         y_shift = -38*2
     else:
         raise ValueError("Not defined for size {}!".format(size_color))
@@ -92,3 +92,18 @@ def get_depth(img_depth, size_color, pixel_color):
     scaled_x = int((cx - x_shift)/scale_factor)
     scaled_y = int((cy - y_shift)/scale_factor)
     return img_depth[scaled_y, scaled_x]/1000.0
+
+
+def blend(img_color, img_depth):
+    """Blend the color and registered depth image on top of each other.
+
+    :param img_color: A color image.
+    :param img_depth: A corresponding depth image.
+    :return: The registered depth image overlaid on top of the color image.
+    """
+    img_reg = register_depth(img_depth, img_color.shape[:2])
+    img_reg = cv2.cvtColor(cv2.convertScaleAbs(img_reg), cv2.COLOR_GRAY2BGR)
+    alpha = 0.3
+    beta = 1.0 - alpha
+    gamma = 0.0
+    return cv2.addWeighted(img_color, alpha, img_reg, beta, gamma)
