@@ -335,6 +335,9 @@ class Kinect(object):
                 self._logger.info('Close socket.')
                 self._socket.close()
             self._socket = None
+        # transmitting depth images sometimes fails
+        if depth and img_depth is None:
+            return self.collect_data(color=color, depth=depth, skeleton=skeleton)
         return img_color, img_depth, data_skeleton
 
     def estimate_hand_position(self):
