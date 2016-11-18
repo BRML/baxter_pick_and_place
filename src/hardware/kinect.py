@@ -374,12 +374,14 @@ class Kinect(object):
 
                 # # validate projection cam 2 pixel
                 # ctr2 = tuple(int(x) for x in self.color.projection_camera_to_pixel(position=list(cam)))
-                # print ctr, ctr2
+                # print ctr, ctr2, tuple(a - b for a, b in zip(ctr, ctr2))
                 # cv2.circle(img, center=ctr2, radius=2, color=[0, 0, 255], thickness=3)
                 # # validate projection pixel 2 cam
                 # print 'kinect:', cam
                 # z = get_depth(dpth, img.shape[:2], ctr)
-                # print 'projct:', self.color.projection_pixel_to_camera(color, z)
+                # proj = self.color.projection_pixel_to_camera(color, z)
+                # print 'projct:', proj
+                # print 'diff:  ', tuple(a - b for a, b in zip(cam, proj))
             self._pub_vis.publish(img_to_imgmsg(img=img))
         return estimate
 
