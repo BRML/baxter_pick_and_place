@@ -53,17 +53,17 @@ class External(object):
                              'images in.'.format(self._sink))
             os.makedirs(self._sink)
 
-        self._lim = settings.task_space_limits_m
-        self._lim['roll_max'] = np.deg2rad(20.0)
-        self._lim['roll_min'] = -np.deg2rad(20.0)
-        self._lim['pitch_max'] = np.pi/2 + np.deg2rad(50.0)
-        self._lim['pitch_min'] = np.pi/2 - np.deg2rad(5.0)
-        self._lim['yaw_max'] = np.deg2rad(50.0)
-        self._lim['yaw_min'] = -np.deg2rad(50.0)
-        self.logger.info("Using task space limits")
-        for c in ['x', 'y', 'z', 'roll', 'pitch', 'yaw']:
-            self.logger.info("{: .3f} <= {} <= {: .3f}".format(
-                self._lim['%s_min' % c], c, self._lim['%s_max' % c]))
+        # self._lim = settings.task_space_limits_m
+        # self._lim['roll_max'] = np.deg2rad(20.0)
+        # self._lim['roll_min'] = -np.deg2rad(20.0)
+        # self._lim['pitch_max'] = np.pi/2 + np.deg2rad(50.0)
+        # self._lim['pitch_min'] = np.pi/2 - np.deg2rad(5.0)
+        # self._lim['yaw_max'] = np.deg2rad(50.0)
+        # self._lim['yaw_min'] = -np.deg2rad(50.0)
+        # self.logger.info("Using task space limits")
+        # for c in ['x', 'y', 'z', 'roll', 'pitch', 'yaw']:
+        #     self.logger.info("{: .3f} <= {} <= {: .3f}".format(
+        #         self._lim['%s_min' % c], c, self._lim['%s_max' % c]))
 
         # This should go into the README:
         # Download the 4x11 asymmetric circle grid from
@@ -73,6 +73,17 @@ class External(object):
             [[x, y if x % 2 == 0 else y + 1, 0]
              for y in xrange(0, 8, 2)
              for x in xrange(11)], dtype=np.float32).T
+
+    def manual_move_and_grab_data(self, arm):
+        self.logger.info("Manually move the calibration pattern.")
+        c = 'a'
+        while not c == 's' and not rospy.is_shutdown():
+            s = raw_input("Press [s] to record. ")
+            c = s.lower()
+        bttn = self._robot.hom_gripper_to_robot(arm=arm)
+        color, _, _ = self._kinect.collect_data(color=True, depth=False,
+                                                skeleton=False)
+        return bttn, color
 
     def estimate_hand_trafo(self, n, arm):
         """Estimate the transformation between Baxter's end effector and the
@@ -89,21 +100,22 @@ class External(object):
         # record n absolute transformation pairs
         while len(btt) < n and not rospy.is_shutdown():
             self.logger.debug('try to record pose {} of {}.'.format(len(btt) + 1, n))
-            pose = self._robot.sample_pose(lim=self._lim)
-            try:
-                self._robot.move_to_pose(arm=arm, pose=pose)
-                print 'x: {} < {} < {}'.format(self._lim['x_min'], pose[0], self._lim['x_max'])
-                print 'y: {} < {} < {}'.format(self._lim['y_min'], pose[1], self._lim['y_max'])
-                print 'z: {} < {} < {}'.format(self._lim['z_min'], pose[2], self._lim['z_max'])
-                print 'r: {} < {} < {}'.format(self._lim['roll_min'], pose[3], self._lim['roll_max'])
-                print 'p: {} < {} < {}'.format(self._lim['pitch_min'], pose[4], self._lim['pitch_max'])
-                print 'y: {} < {} < {}'.format(self._lim['yaw_min'], pose[5], self._lim['yaw_max'])
-            except ValueError:
-                continue
-            bttn = self._robot.hom_gripper_to_robot(arm=arm)
-
-            color, _, _ = self._kinect.collect_data(color=True, depth=False,
-                                                    skeleton=False)
+            bttn, color = self.manual_move_and_grab_data(arm=arm)
+            # pose = self._robot.sample_pose(lim=self._lim)
+            # try:
+            #     self._robot.move_to_pose(arm=arm, pose=pose)
+            #     print 'x: {} < {} < {}'.format(self._lim['x_min'], pose[0], self._lim['x_max'])
+            #     print 'y: {} < {} < {}'.format(self._lim['y_min'], pose[1], self._lim['y_max'])
+            #     print 'z: {} < {} < {}'.format(self._lim['z_min'], pose[2], self._lim['z_max'])
+            #     print 'r: {} < {} < {}'.format(self._lim['roll_min'], pose[3], self._lim['roll_max'])
+            #     print 'p: {} < {} < {}'.format(self._lim['pitch_min'], pose[4], self._lim['pitch_max'])
+            #     print 'y: {} < {} < {}'.format(self._lim['yaw_min'], pose[5], self._lim['yaw_max'])
+            # except ValueError:
+            #     continue
+            # bttn = self._robot.hom_gripper_to_robot(arm=arm)
+            #
+            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
+            #                                         skeleton=False)
             self._pub_vis.publish(img_to_imgmsg(img=color))
             patternfound, centers = cv2.findCirclesGridDefault(image=color,
                                                                patternSize=self._patternsize,
@@ -167,15 +179,16 @@ class External(object):
         hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
         while len(bto) < n and not rospy.is_shutdown():
             self.logger.debug('try to record pose {} of {}.'.format(len(bto) + 1, n))
-            pose = self._robot.sample_pose(lim=self._lim)
-            try:
-                self._robot.move_to_pose(arm=arm, pose=pose)
-            except ValueError:
-                continue
-            bttn = self._robot.hom_gripper_to_robot(arm=arm)
-
-            color, _, _ = self._kinect.collect_data(color=True, depth=False,
-                                                    skeleton=False)
+            bttn, color = self.manual_move_and_grab_data(arm=arm)
+            # pose = self._robot.sample_pose(lim=self._lim)
+            # try:
+            #     self._robot.move_to_pose(arm=arm, pose=pose)
+            # except ValueError:
+            #     continue
+            # bttn = self._robot.hom_gripper_to_robot(arm=arm)
+            #
+            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
+            #                                         skeleton=False)
             self._pub_vis.publish(img_to_imgmsg(img=color))
             patternfound, centers = cv2.findCirclesGridDefault(image=color,
                                                                patternSize=self._patternsize,
@@ -246,48 +259,43 @@ class External(object):
         patternfound = 0
         while patternfound == 0 and not rospy.is_shutdown():
             self.logger.debug("try to find verification pattern.")
-            pose = self._robot.sample_pose(lim=self._lim)
-            try:
-                self._robot.move_to_pose(arm=arm, pose=pose)
-            except ValueError:
-                continue
-            color, _, _ = self._kinect.collect_data(color=True, depth=False,
-                                                    skeleton=False)
+            btt, color = self.manual_move_and_grab_data(arm=arm)
+            # pose = self._robot.sample_pose(lim=self._lim)
+            # try:
+            #     self._robot.move_to_pose(arm=arm, pose=pose)
+            # except ValueError:
+            #     continue
+            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
+            #                                         skeleton=False)
             patternfound, centers = cv2.findCirclesGridDefault(image=color,
                                                                patternSize=self._patternsize,
                                                                flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
             if patternfound == 0:
                 self.logger.debug('no pattern found')
-        btt = self._robot.hom_gripper_to_robot(arm=arm)
+        # btt = self._robot.hom_gripper_to_robot(arm=arm)
         cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
                                   corners=centers, patternWasFound=patternfound)
         self._pub_vis.publish(img_to_imgmsg(img=color))
         centers = centers[:, 0, :]
 
         hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
-        print 'tto:', tto
         tcp_pattern = np.dot(tto, hom_pattern)
-        print 'tcp pattern:'
-        print tcp_pattern.T
-        print 'btt:', btt
         rob_pattern = np.dot(btt, tcp_pattern)
-        print 'rob pattern:'
-        print rob_pattern.T
-        print 'btc:', btc
-        print 'ctb:', inv_trafo_matrix(btc)
         cam_pattern = np.dot(inv_trafo_matrix(trafo=btc), rob_pattern)
-        print 'cam pattern:'
-        print cam_pattern.T
-        cto = cam_pattern
 
         pixels = np.zeros_like(centers)
-        for i in xrange(cto.shape[1]):
-            coord = list(cto[:-1, i])
+        for i in xrange(cam_pattern.shape[1]):
+            coord = list(cam_pattern[:-1, i])
             print i, coord,
             pixels[i] = self._kinect.color.projection_camera_to_pixel(position=coord)
-            print pixels[i]
+            # flip in y direction
+            pixels[i, 0] = color.shape[1] - pixels[i, 0]
+            print centers[i], pixels[i]
             cv2.circle(color, tuple(int(x) for x in pixels[i]), 3,
                        [255, 0, 0] if i == 0 else [0, 255, 0], 2)
+        # cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
+        #                           corners=pixels[:, np.newaxis, :],
+        #                           patternWasFound=patternfound)
         self._pub_vis.publish(img_to_imgmsg(img=color))
 
         delta = centers - pixels
@@ -295,11 +303,27 @@ class External(object):
         self.logger.info("Mean:   {}".format(delta.mean(axis=0)))
         self.logger.info("Std:    {}".format(delta.std(axis=0)))
         self.logger.info("Median: {}".format(np.median(delta, axis=0)))
-        print delta
 
 
 def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
+    """Perform external camera calibration.
+
+    :param arm: The arm <'left', 'right'> to control.
+    :param n1: The number of absolute poses to use for hand trafo estimation.
+    :param n2: The number of absolute poses to use for camera trafo estimation.
+    :param root_dir: Where the baxter_pick_and_place package resides.
+    :return:
+    """
     pth = os.path.join(root_dir, 'data', 'setup', 'external')
+    # pth = None
+
+    def pp_flat(arr):
+        """Pretty-print a flattened numpy array.
+
+        :param arr: The array to flatten and format.
+        :return: The flattened and formatted string representing the array.
+        """
+        return np.array_str(arr.flatten(), precision=2, max_line_width=150, suppress_small=True)
 
     tto_default = np.array([
         [0, -1, 0, 0.055],
@@ -317,20 +341,25 @@ def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
     cal = External(root_dir=root_dir)
 
     cal.logger.info('First, estimate trafo from pattern to TCP ...')
-    # tto = cal.estimate_hand_trafo(n=n1, arm=arm)
-    with np.load(os.path.join(pth, '1_tto.npz')) as fp:
-        tto = fp['tto']
-    cal.logger.info("Estimated hand trafo is {}.".format(tto.flatten()))
-    cal.logger.info("Expected was similar to {}.".format(tto_default.flatten()))
+    if pth is None:
+        tto = cal.estimate_hand_trafo(n=n1, arm=arm)
+    else:
+        with np.load(os.path.join(pth, '1_tto.npz')) as fp:
+            tto = fp['tto']
+    cal.logger.info("Estimated hand trafo is {}.".format(pp_flat(tto)))
+    cal.logger.info("Expected was similar to {}.".format(pp_flat(tto_default)))
 
     cal.logger.info('Second, estimate trafo from camera to robot base ...')
-    # btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
-    with np.load(os.path.join(pth, '2_btc.npz')) as fp:
-        btc = fp['btc']
-    cal.logger.info("Extimated camera trafo is {}.".format(btc.flatten()))
-    cal.logger.info("Expected was similar to {}.".format(btc_default.flatten()))
+    if pth is None:
+        btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
+    else:
+        with np.load(os.path.join(pth, '2_btc.npz')) as fp:
+            btc = fp['btc']
+            # btc = inv_trafo_matrix(btc)
+    cal.logger.info("Estimated camera trafo is {}.".format(pp_flat(btc)))
+    cal.logger.info("Expected was similar to   {}.".format(pp_flat(btc_default)))
 
     cal.logger.info('Third, visualize result ...')
-    cal.visual_test(arm=arm, tto=tto_default, btc=btc_default)
-    cal._robot.clean_up()
+    cal.visual_test(arm=arm, tto=tto, btc=btc)
+    cal._robot.clean_up(gripper=False)
     return btc
