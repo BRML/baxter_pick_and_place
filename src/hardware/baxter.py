@@ -129,7 +129,7 @@ class Baxter(object):
             # Measured meters per pixel @ 1 m distance
             self.cameras[arm].meters_per_pixel = 0.0025
 
-    def clean_up(self):
+    def clean_up(self, gripper=True):
         """Open both grippers, move both limbs to neutral configuration and
         disable the robot.
 
@@ -138,7 +138,9 @@ class Baxter(object):
         self._logger.info("Initiating safe shut-down")
         self._logger.info("Moving limbs to neutral configuration")
         for arm in self._arms:
-            self._grippers[arm].open()
+            if gripper:
+                self._grippers[arm].set_parameters(defaults=True)
+                self._grippers[arm].open()
             self._limbs[arm].move_to_neutral()
         if not self._init_state:
             self._logger.info("Disabling robot")
