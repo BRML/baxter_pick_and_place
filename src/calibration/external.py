@@ -75,6 +75,15 @@ class External(object):
              for x in xrange(11)], dtype=np.float32).T
 
     def estimate_hand_trafo(self, n, arm):
+        """Estimate the transformation between Baxter's end effector and the
+        origin of the calibration pattern mounted on it using the algorithm
+        by Tsai and Lenz.
+
+        :param n: The number of absolute end effector poses to use.
+        :param arm: The arm <'left', 'right'> to control.
+        :return: The homogeneous transform between TCP and the origin of the
+            calibration pattern.
+        """
         btt = list()
         cto = list()
         # record n absolute transformation pairs
@@ -142,6 +151,16 @@ class External(object):
         return tto
 
     def estimate_cam_trafo(self, n, arm, tto):
+        """Estimate the transformation between Baxter's base frame and the
+        camera frame using singular value decomposition.
+
+        :param n: The number of absolute end effector poses to use.
+        :param arm: The arm <'left', 'right'> to control.
+        :param tto: The homogeneous transform between TCP and the origin of
+            the calibration pattern.
+        :return: The homogeneous transform between Baxter's base frame and
+            the camera frame.
+        """
         bto = list()
         cto = list()
         # record n absolute point cloud pairs
@@ -211,49 +230,107 @@ class External(object):
         return trafo
 
     def visual_test(self, arm, tto, btc):
-        pose = None
-        while pose is None and not rospy.is_shutdown():
+        """Visualize the result of the calibration.
+        Compute the robot coordinates of the calibration pattern. Then project
+        them to camera space and compute corresponding pixel coordinates. Draw
+        them onto the image to see if the markings are reasonable close to the
+        marks on the calibration pattern.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param tto: The homogeneous transform between TCP and the origin of
+            the calibration pattern.
+        :param btc: The homogeneous transform between Baxter's base frame and
+            the camera frame.
+        :return:
+        """
+        patternfound = 0
+        while patternfound == 0 and not rospy.is_shutdown():
+            self.logger.debug("try to find verification pattern.")
             pose = self._robot.sample_pose(lim=self._lim)
             try:
                 self._robot.move_to_pose(arm=arm, pose=pose)
             except ValueError:
                 continue
+            color, _, _ = self._kinect.collect_data(color=True, depth=False,
+                                                    skeleton=False)
+            patternfound, centers = cv2.findCirclesGridDefault(image=color,
+                                                               patternSize=self._patternsize,
+                                                               flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+            if patternfound == 0:
+                self.logger.debug('no pattern found')
         btt = self._robot.hom_gripper_to_robot(arm=arm)
-
-        color, _, _ = self._kinect.collect_data(color=True, depth=False,
-                                                skeleton=False)
+        cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
+                                  corners=centers, patternWasFound=patternfound)
+        self._pub_vis.publish(img_to_imgmsg(img=color))
+        centers = centers[:, 0, :]
 
         hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
-        print 'btt:', btt
         print 'tto:', tto
-        # pattern = np.dot(btt, np.dot(tto, hom_pattern))
-        # print 'pattern:', pattern.shape
-        # print pattern.T
-        # cto = np.dot(inv_trafo_matrix(trafo=btc), pattern)
-        cto = np.dot(btc, np.dot(btt, np.dot(tto, hom_pattern)))
+        tcp_pattern = np.dot(tto, hom_pattern)
+        print 'tcp pattern:'
+        print tcp_pattern.T
+        print 'btt:', btt
+        rob_pattern = np.dot(btt, tcp_pattern)
+        print 'rob pattern:'
+        print rob_pattern.T
+        print 'btc:', btc
+        print 'ctb:', inv_trafo_matrix(btc)
+        cam_pattern = np.dot(inv_trafo_matrix(trafo=btc), rob_pattern)
+        print 'cam pattern:'
+        print cam_pattern.T
+        cto = cam_pattern
 
-
+        pixels = np.zeros_like(centers)
         for i in xrange(cto.shape[1]):
             coord = list(cto[:-1, i])
             print i, coord,
-            pixel = self._kinect.color.projection_camera_to_pixel(position=coord)
-            print pixel
-            cv2.circle(color, tuple(int(x) for x in pixel), 3, [0, 255, 0], 1)
+            pixels[i] = self._kinect.color.projection_camera_to_pixel(position=coord)
+            print pixels[i]
+            cv2.circle(color, tuple(int(x) for x in pixels[i]), 3,
+                       [255, 0, 0] if i == 0 else [0, 255, 0], 2)
         self._pub_vis.publish(img_to_imgmsg(img=color))
+
+        delta = centers - pixels
+        self.logger.info("Offset in detected and estimated pixel coordinates:")
+        self.logger.info("Mean:   {}".format(delta.mean(axis=0)))
+        self.logger.info("Std:    {}".format(delta.std(axis=0)))
+        self.logger.info("Median: {}".format(np.median(delta, axis=0)))
+        print delta
 
 
 def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
+    pth = os.path.join(root_dir, 'data', 'setup', 'external')
+
+    tto_default = np.array([
+        [0, -1, 0, 0.055],
+        [-1, 0, 0, 0.075],
+        [0, 0, -1, -0.08],
+        [0, 0, 0, 1]
+    ])
+    btc_default = np.array([
+        [0, 0, -1, 2.5],
+        [-1, 0, 0, 0],
+        [0, 1, 0, 0.35],
+        [0, 0, 0, 1]
+    ])
+
     cal = External(root_dir=root_dir)
+
     cal.logger.info('First, estimate trafo from pattern to TCP ...')
     # tto = cal.estimate_hand_trafo(n=n1, arm=arm)
-    pth = os.path.join(root_dir, 'data', 'setup', 'external')
     with np.load(os.path.join(pth, '1_tto.npz')) as fp:
         tto = fp['tto']
+    cal.logger.info("Estimated hand trafo is {}.".format(tto.flatten()))
+    cal.logger.info("Expected was similar to {}.".format(tto_default.flatten()))
+
     cal.logger.info('Second, estimate trafo from camera to robot base ...')
     # btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
     with np.load(os.path.join(pth, '2_btc.npz')) as fp:
         btc = fp['btc']
+    cal.logger.info("Extimated camera trafo is {}.".format(btc.flatten()))
+    cal.logger.info("Expected was similar to {}.".format(btc_default.flatten()))
+
     cal.logger.info('Third, visualize result ...')
-    cal.visual_test(arm=arm, tto=tto, btc=btc)
+    cal.visual_test(arm=arm, tto=tto_default, btc=btc_default)
     cal._robot.clean_up()
     return btc
