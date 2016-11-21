@@ -41,6 +41,14 @@ import cv2
 
 
 def register_depth(img_depth, size_color):
+    """Compute a depth image that matches the color image.
+    Note: This method implements a naive workaround to 'proper' depth image
+    registration, as for instance implemented in the iai_kinect2 package.
+
+    :param img_depth: A depth image.
+    :param size_color: The size of the color image.
+    :return: A depth image matching the color image.
+    """
     if size_color == (540, 960):
         # magic factors for matching the depth image to the 960x540 color image
         scale_factor = 1.45
@@ -75,16 +83,24 @@ def register_depth(img_depth, size_color):
 
 
 def get_depth(img_depth, size_color, pixel_color):
+    """Compute the depth at a given pixel in the RGB image from a corresponding
+    depth image.
+
+    :param img_depth: A depth image.
+    :param size_color: The size of the color image.
+    :param pixel_color: The requested pixel in the color image.
+    :return: The depth at the requested pixel.
+    """
     if size_color == (540, 960):
         # magic factors for matching the depth image to the 960x540 color image
         scale_factor = 1.45
-        x_shift = 115
+        x_shift = 120
         y_shift = -38
     elif size_color == (1080, 1920):
         # magic factors for matching the depth image to the 1920x1080 color image
         # TODO: modify magic factors for full HD resolution
         scale_factor = 1.45*2
-        x_shift = 115*2
+        x_shift = 120*2
         y_shift = -38*2
     else:
         raise ValueError("Not defined for size {}!".format(size_color))
