@@ -179,7 +179,7 @@ class Servoing(object):
         :param object_id: The object identifier of the object to servo to.
         :return: boolean success value.
         """
-        img = self._robot.camears[arm].collect_image()
+        img = self._robot.cameras[arm].collect_image()
         try:
             rroi = self._find_rotated_enclosing_rect(image=img,
                                                      object_id=object_id)
