@@ -31,7 +31,7 @@ import numpy as np
 import rospy
 from sensor_msgs.msg import Image
 
-from axxa import tsai_lenz_89
+from axxa import tsai_lenz_89, inv_trafo_matrix
 from hardware import Baxter, Kinect, img_to_imgmsg
 from settings import settings
 from settings.debug import topic_img4
@@ -136,13 +136,16 @@ class External(object):
                 ctoij.append(np.dot(np.linalg.inv(cto[j]), cto[i]))
         # apply tsai_lenz_89
         self.logger.debug('Apply algorithm by Tsai and Lenz (1989).')
-        return tsai_lenz_89(a=bttij, b=ctoij)
+        tto = tsai_lenz_89(a=bttij, b=ctoij)
+        fname = os.path.join(self._sink, '1_tto.npz')
+        np.savez(fname, tto=tto)
+        return tto
 
     def estimate_cam_trafo(self, n, arm, tto):
         bto = list()
         cto = list()
         # record n absolute point cloud pairs
-        hom_pattern = np.concatenate([self._pattern, np.zeros((1, self._pattern.shape[1]))], axis=0)
+        hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
         while len(bto) < n and not rospy.is_shutdown():
             self.logger.debug('try to record pose {} of {}.'.format(len(bto) + 1, n))
             pose = self._robot.sample_pose(lim=self._lim)
@@ -203,14 +206,54 @@ class External(object):
         trafo = np.eye(4)
         trafo[:-1, :-1] = rot
         trafo[:-1, -1] = trans
+        fname = os.path.join(self._sink, '2_btc.npz')
+        np.savez(fname, btc=trafo)
         return trafo
+
+    def visual_test(self, arm, tto, btc):
+        pose = None
+        while pose is None and not rospy.is_shutdown():
+            pose = self._robot.sample_pose(lim=self._lim)
+            try:
+                self._robot.move_to_pose(arm=arm, pose=pose)
+            except ValueError:
+                continue
+        btt = self._robot.hom_gripper_to_robot(arm=arm)
+
+        color, _, _ = self._kinect.collect_data(color=True, depth=False,
+                                                skeleton=False)
+
+        hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
+        print 'btt:', btt
+        print 'tto:', tto
+        # pattern = np.dot(btt, np.dot(tto, hom_pattern))
+        # print 'pattern:', pattern.shape
+        # print pattern.T
+        # cto = np.dot(inv_trafo_matrix(trafo=btc), pattern)
+        cto = np.dot(btc, np.dot(btt, np.dot(tto, hom_pattern)))
+
+
+        for i in xrange(cto.shape[1]):
+            coord = list(cto[:-1, i])
+            print i, coord,
+            pixel = self._kinect.color.projection_camera_to_pixel(position=coord)
+            print pixel
+            cv2.circle(color, tuple(int(x) for x in pixel), 3, [0, 255, 0], 1)
+        self._pub_vis.publish(img_to_imgmsg(img=color))
 
 
 def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
     cal = External(root_dir=root_dir)
     cal.logger.info('First, estimate trafo from pattern to TCP ...')
-    tto = cal.estimate_hand_trafo(n=n1, arm=arm)
+    # tto = cal.estimate_hand_trafo(n=n1, arm=arm)
+    pth = os.path.join(root_dir, 'data', 'setup', 'external')
+    with np.load(os.path.join(pth, '1_tto.npz')) as fp:
+        tto = fp['tto']
     cal.logger.info('Second, estimate trafo from camera to robot base ...')
-    btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
+    # btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
+    with np.load(os.path.join(pth, '2_btc.npz')) as fp:
+        btc = fp['btc']
+    cal.logger.info('Third, visualize result ...')
+    cal.visual_test(arm=arm, tto=tto, btc=btc)
     cal._robot.clean_up()
     return btc
