@@ -87,6 +87,7 @@ class Baxter(object):
         self._rs = None
         self._init_state = None
         self.cam_offset = None
+        self.range_offset = None
 
         self.z_table = None
 
@@ -105,6 +106,21 @@ class Baxter(object):
         """
         return [0.03828, 0.012, -0.142345]
 
+    @staticmethod
+    def _get_range_offset():
+        """Get the hand_range--gripper offset in gripper coordinates.
+        Note: The offset is the same for the left and right limbs.
+
+        It would be nicer to implement it using a tf.TransformListener between
+        topics "/left_gripper" and "/left_hand_range", but for some reason
+        it does not find the topics...
+        See http://wiki.ros.org/tf/TfUsingPython#TransformListener for more
+        details.
+
+        :return: The offset as a list of length 3 [dx, dy, dz].
+        """
+        return [0.032, -0.020245, -0.1289]
+
     def set_up(self, gripper=True):
         """Enable the robot, move both limbs to neutral configuration and
         calibrate both grippers.
@@ -120,6 +136,8 @@ class Baxter(object):
 
         self._logger.info("Getting camera offset.")
         self.cam_offset = self._get_cam_offset()
+        self._logger.info("Getting range offset.")
+        self.range_offset = self._get_range_offset()
 
         self._logger.info("Moving limbs to neutral configuration and calibrate grippers.")
         for arm in self._arms:
