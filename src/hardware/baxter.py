@@ -70,12 +70,13 @@ class Baxter(object):
         # Default behavior on Baxter startup is for both of the hand cameras
         # to be in operation at a resolution of 320x200 at a frame rate of
         # 25 fps. We get their CameraControllers using the Baxter SDK ...
-        self.cameras = {a: baxter_interface.CameraController('%s_hand_camera' % a, sim=sim)
-                        for a in self._arms}
+        self.cameras_d = {a: baxter_interface.CameraController('%s_hand_camera' % a, sim=sim)
+                          for a in self._arms}
         # ... and set their resolution to 1280x800 @ 14 fps.
         for arm in self._arms:
-            self.cameras[arm].resolution = (1280, 800)
-            self.cameras[arm].fps = 14.0
+            self.cameras_d[arm].resolution = (1280, 800)
+            self.cameras_d[arm].fps = 14.0
+            self.cameras_d[arm].exposure = settings.baxter_cam_exposure
         # We don't need the CameraControllers any more. Our own module will
         # do the remaining camera handling for us.
         self.cameras = {a: Camera(topic='/cameras/{}_hand_camera/image'.format(a),

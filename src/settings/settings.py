@@ -94,6 +94,10 @@ object_ids = tuple([
 servo_tolerance_meters = 0.005
 
 
+# Baxter's hand cameras exposure value (0%--100%)
+baxter_cam_exposure = 10
+
+
 # TODO: adapt this threshold
 # The threshold for the color change in a table view image patch in percent.
 # Needed to detect empty spots on the table.
