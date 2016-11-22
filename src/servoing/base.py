@@ -154,6 +154,10 @@ class Servoing(object):
         pixel_error = np.sqrt(np.dot(pixel_delta, pixel_delta))
         p2c_factor = self._pixel_to_camera_factor(object_id=object_id,
                                                   rroi=rroi, arm=arm)
+        camera_error = pixel_error*p2c_factor
+        if camera_error < 0.0:
+            self._logger.error("Distances are < 0 m! Is your table height "
+                               "estimate correct?")
         return pixel_error*p2c_factor
 
     def _iterate(self, arm, object_id, rroi):
@@ -170,10 +174,8 @@ class Servoing(object):
                 ((cx, cy), (w, h), alpha) and
             - the position error in meters.
         """
-        # TODO: adapt control parameter
         kp = 0.7  # proportional control parameter
 
-        # TODO: servoing should not only update x and y, but also z!
         img = self._robot.cameras[arm].collect_image()
         self._pub_vis.publish(img_to_imgmsg(img=img))
         camera_error = self._error(image_size=img.shape[:2],
@@ -182,14 +184,23 @@ class Servoing(object):
             p2c_factor = self._pixel_to_camera_factor(object_id=object_id,
                                                       rroi=rroi, arm=arm)
             h, w = img.shape[:2]
-            dx, dy = [(b - a)*p2c_factor*kp
+            # dx = a*(h/2 - cy)
+            # dy = a*(w/2 - cx)
+            dy, dx = [(a - b)*p2c_factor*kp
                       for a, b in zip((w//2, h//2), rroi[0])]
+            # dz = -estimated_distance/2
+            dz = -self.estimate_distance(arm=arm, rroi=rroi,
+                                         object_id=object_id)/2.0
+            self._logger.debug("Computed position update is ({: .3f}, "
+                               "{: .3f}, {: .3f}).".format(dx, dy, dz))
             pose = self._robot.endpoint_pose(arm=arm)
             # TODO: verify this update works as expected
-            pose = [a + b for a, b in zip(pose, [dx, dy, 0, 0, 0, rroi[2]])]
+            pose = [a + b for a, b in zip(pose, [dx, dy, dz, 0, 0, 0])]# rroi[2]])]
+            if pose[2] < self._robot.z_table:
+                pose[2] = self._robot.z_table
             try:
                 cfg = self._robot.ik(arm=arm, pose=pose)
-                self._robot.move_to(config=cfg)
+                self._robot.move_to_config(config=cfg)
                 rroi = self._find_rotated_enclosing_rect(image=img,
                                                          object_id=object_id)
                 camera_error = self._error(image_size=img.shape[:2],
@@ -218,8 +229,19 @@ class Servoing(object):
         camera_error = 2*self._tolerance
         it = 1
         while camera_error > self._tolerance:
-            self._logger.debug("Iteration {} finished".format(it))
-            it += 1
             rroi, camera_error = self._iterate(arm=arm, object_id=object_id,
                                                rroi=rroi)
+            self._logger.debug("Iteration {} finished. Error is {} m {} {} "
+                               "m.".format(it, camera_error,
+                                           '>' if camera_error > self._tolerance else '<=',
+                                           self._tolerance))
+            it += 1
+        # prepare to grasp
+        pose = self._robot.endpoint_pose(arm=arm)
+        pose[2] = self._robot.z_table + 0.01
+        try:
+            cfg = self._robot.ik(arm=arm, pose=pose)
+            self._robot.move_to_config(config=cfg)
+        except ValueError as e:
+            self._logger.error(e)
         return True
