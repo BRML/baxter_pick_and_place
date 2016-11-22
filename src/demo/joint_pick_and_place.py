@@ -191,7 +191,8 @@ class PickAndPlace(object):
                     if d is not None:
                         distances.append(d)
                 distance = np.mean(distances)
-                heights.append(-(distance - self._robot.endpoint_pose(arm=arm)[2]))
+                heights.append(self._robot.endpoint_pose(arm=arm)[2] -
+                               (distance + self._robot.range_offset[2]))
             heights = np.asarray(heights)
             h_min = heights.min()
             h_max = heights.max()
