@@ -40,7 +40,7 @@ from servoing import ServoingDistance, ServoingSize
 from settings import settings
 from settings.debug import topic_img4
 from simulation import sim_or_real, Environment
-from vision import ObjectDetection
+from vision import ObjectDetection, ObjectSegmentation
 
 
 class Demonstration(object):
@@ -63,7 +63,8 @@ class Demonstration(object):
         self._camera = Kinect(root_dir=ros_ws, host=settings.elte_kinect_win_host)
         self._detection = ObjectDetection(root_dir=ros_ws,
                                           object_ids=object_set)
-        self._segmentation = None
+        self._segmentation = ObjectSegmentation(root_dir=ros_ws,
+                                                object_ids=object_set)
 
         pub_vis = rospy.Publisher(topic_img4, Image,
                                   queue_size=10, latch=True)
@@ -100,7 +101,10 @@ class Demonstration(object):
         self._robot.set_up()
         if self._sim:
             self._environment.set_up()
-        self._detection.init_model(warmup=True)
+        if self._detection is not None:
+            self._detection.init_model(warmup=True)
+        if self._segmentation is not None:
+            self._segmentation.init_model(warmup=True)
         self._demo.calibrate()
         if self._sim:
             self._environment.scatter_objects()
