@@ -419,8 +419,9 @@ class PickAndPlace(object):
                     accepted = change <= settings.color_change_threshold
                     self._logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
                         idx, change, '<' if accepted else '>', settings.color_change_threshold))
-                    if diff.mean()*100.0 < 4.0:
+                    if diff.mean()*100.0 < settings.color_change_threshold:
                         tgt_pose = self._table_poses[idx]
+                        tgt_pose[2] += 0.01
                 if tgt_pose is None:
                     self._logger.warning("Found no place to put the object down! "
                                          "I abort this task. Please start over.")
@@ -442,6 +443,7 @@ class PickAndPlace(object):
                 else:
                     self._logger.info('Something went wrong. I will try again.')
                     self._robot.release(arm)
+            self._logger.info("Successfully grasped the object.")
             self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
 
             self._logger.info('Placing the object.')
@@ -449,7 +451,7 @@ class PickAndPlace(object):
                 appr_pose = self._get_approach_pose(pose=tgt_pose)
                 appr_cfg = self._move_to_pose_or_dither(arm=arm, pose=appr_pose)
                 self._move_to_pose_or_dither(arm=arm, pose=tgt_pose, fix_z=True)
-                self._robot.release()
+                self._robot.release(arm)
                 self._robot.move_to_config(config=appr_cfg)
             else:
                 tgt_pose = self._camera.estimate_hand_position()
@@ -464,7 +466,7 @@ class PickAndPlace(object):
                 self._logger.info('Please take the object from me.')
                 while self._robot.is_gripping(arm):
                     rospy.sleep(0.5)
-                self._robot.release()
+                self._robot.release(arm)
             self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
             self._robot.move_to_neutral(arm=arm)
             self._logger.info('I finished my task.')
