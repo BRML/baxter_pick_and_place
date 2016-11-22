@@ -11,6 +11,8 @@
 from detection2 import ObjectDetection
 # Instance-aware Semantic Segmentation via Multi-task Network Cascades
 # from segmentation import ObjectSegmentation
+# OpenCV-based segmentation by area
+from segmentation2 import ObjectSegmentation
 
 from visualization_utils import (
     draw_detection,
