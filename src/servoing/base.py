@@ -27,11 +27,11 @@ import logging
 import numpy as np
 
 from hardware import img_to_imgmsg
-from vision import mask_to_rroi, draw_rroi
+from vision import mask_to_rroi, draw_rroi, draw_detection
 
 
 class Servoing(object):
-    def __init__(self, robot, segmentation, pub_vis, object_size, tolerance):
+    def __init__(self, robot, detection, segmentation, pub_vis, object_size, tolerance):
         """Base class for visual servoing. Can be used to position the end
         effector directly over the requested object.
         Note: Assumes that the end effector is restricted to pointing along
@@ -47,6 +47,7 @@ class Servoing(object):
         :param tolerance: The position error tolerance in meters.
         """
         self._robot = robot
+        self._detection = detection
         self._segmentation = segmentation
         self._pub_vis = pub_vis
         self._object_size_meters = object_size
@@ -66,21 +67,47 @@ class Servoing(object):
             given by ((cx, cy), (w, h), alpha).
         :raise: ValueError if the given object could not be segmented.
         """
+        # first, detect object in image
         if object_id == 'hand':
-            det = self._segmentation.detect_best(image=image, threshold=0.8)
+            det = self._detection.detect_best(image=image, threshold=0.5)
         else:
-            det = self._segmentation.detect_object(image=image,
-                                                   object_id=object_id,
-                                                   threshold=0.8)
-        handstring = ' in hand' if object_id is 'hand' else ''
-        if det['mask'] is not None:
-            self._logger.info("Segmented {}{}.".format(det['id'], handstring))
-            rroi = mask_to_rroi(mask=det['mask'])
+            det = self._detection.detect_object(image=image,
+                                                object_id=object_id,
+                                                threshold=0.5)
+        img_copy = np.copy(image)
+        draw_detection(image=img_copy, detections=det)
+        self._pub_vis.publish(img_to_imgmsg(img=img_copy))
+
+        # second, segment object within bounding box
+        if det['box'] is not None:
+            xul, yul, xlr, ylr = [int(round(x)) for x in det['box']]
+            selection = np.copy(image[yul:ylr, xul:xlr])
+            self._pub_vis.publish(img_to_imgmsg(img=selection))
+            seg = self._segmentation.detect_best(image=image[yul:ylr, xul:xlr],
+                                                 threshold=0.8)
+            self._pub_vis.publish(img_to_imgmsg(img=seg['mask']))
+
+            handstring = ' in hand' if object_id is 'hand' else ''
+            if seg['mask'] is not None:
+                self._logger.info("Segmented {}{}.".format(seg['id'], handstring))
+                # place segmentation in appropriate place in image
+                seg['box'] += np.array([xul, yul, xul, yul])
+                mask = np.zeros(shape=image.shape[:2], dtype=np.uint8)
+                h, w = seg['mask'].shape[:2]
+                mask[yul:yul+h, xul:xul+w] = seg['mask']
+                seg['mask'] = mask
+                seg['id'] = det['id']
+                seg['score'] = det['score']
+                draw_detection(image=image, detections=seg)
+                self._pub_vis.publish(img_to_imgmsg(img=image))
+                rroi = mask_to_rroi(mask=seg['mask'])
+            else:
+                raise ValueError("Segmentation of {}{} failed!".format(seg['id'],
+                                                                       handstring))
         else:
-            raise ValueError("Segmentation of {}{} failed!".format(det['id'],
-                                                                   handstring))
+            raise ValueError("Detection of {} failed!".format(object_id))
         draw_rroi(image=image, rroi=rroi)
-        self._pub_vis.publish(img_to_imgmsg(image))
+        self._pub_vis.publish(img_to_imgmsg(img=image))
         return rroi
 
     def estimate_distance(self, object_id, rroi, arm):
@@ -148,6 +175,7 @@ class Servoing(object):
 
         # TODO: servoing should not only update x and y, but also z!
         img = self._robot.cameras[arm].collect_image()
+        self._pub_vis.publish(img_to_imgmsg(img=img))
         camera_error = self._error(image_size=img.shape[:2],
                                    object_id=object_id, rroi=rroi, arm=arm)
         if camera_error > self._tolerance:
@@ -180,6 +208,7 @@ class Servoing(object):
         :return: boolean success value.
         """
         img = self._robot.cameras[arm].collect_image()
+        self._pub_vis.publish(img_to_imgmsg(img=img))
         try:
             rroi = self._find_rotated_enclosing_rect(image=img,
                                                      object_id=object_id)

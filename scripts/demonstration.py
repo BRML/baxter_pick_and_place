@@ -70,11 +70,13 @@ class Demonstration(object):
                                   queue_size=10, latch=True)
         self._servo = {
             'table': ServoingDistance(robot=self._robot,
+                                      detection=self._detection,
                                       segmentation=self._segmentation,
                                       pub_vis=pub_vis,
                                       object_size=settings.object_size_meters,
                                       tolerance=settings.servo_tolerance_meters),
             'hand': ServoingSize(robot=self._robot,
+                                 detection=self._detection,
                                  segmentation=self._segmentation,
                                  pub_vis=pub_vis,
                                  object_size=settings.object_size_meters,
