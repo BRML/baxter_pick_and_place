@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import copy
 from numpy import pi
 import os
 
@@ -113,7 +114,7 @@ task_space_limits_m = {
     'z_min': -0.19,
     'z_max': 0.33,
 }
-world_space_limits_m = task_space_limits_m
+world_space_limits_m = copy.copy(task_space_limits_m)
 world_space_limits_m['z_min'] += 0.92
 world_space_limits_m['z_max'] += 0.92
 
