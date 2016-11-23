@@ -244,4 +244,5 @@ class Servoing(object):
             self._robot.move_to_config(config=cfg)
         except ValueError as e:
             self._logger.error(e)
+            return False
         return True
