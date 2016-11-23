@@ -485,7 +485,7 @@ class Baxter(object):
         ee_pose = self._limbs[arm].endpoint_pose()
         return pose_dict_to_hom(pose=ee_pose)
 
-    def _hom_camera_to_robot(self, arm):
+    def hom_camera_to_robot(self, arm):
         """Get the homogeneous transformation matrix {}^R\mat{T}_{C} relating
         camera coordinates to robot coordinates.
 
@@ -494,6 +494,7 @@ class Baxter(object):
         """
         hom_grip_in_rob = self.hom_gripper_to_robot(arm=arm)
         hom_cam_in_grip = np.eye(4)
+        hom_cam_in_grip[:-1, :-1] = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
         hom_cam_in_grip[:-1, -1] = self.cam_offset
         hom_cam_in_rob = np.dot(hom_grip_in_rob, hom_cam_in_grip)
         return hom_cam_in_rob
@@ -504,7 +505,7 @@ class Baxter(object):
         :param arm: The arm <'left', 'right'> to control.
         :return: The pose as a list [x, y, z, roll, pitch, yaw].
         """
-        cam_pose = hom_to_list(matrix=self._hom_camera_to_robot(arm=arm))
+        cam_pose = hom_to_list(matrix=self.hom_camera_to_robot(arm=arm))
         return cam_pose
 
     def estimate_object_position(self, arm, center):
@@ -521,7 +522,7 @@ class Baxter(object):
         cam_coord = self.cameras[arm].projection_pixel_to_camera(pixel=center,
                                                                  z=distance)
         hom_coord = np.asarray(cam_coord + [1])
-        rob_coord = np.dot(self._hom_camera_to_robot(arm=arm), hom_coord)
+        rob_coord = np.dot(self.hom_camera_to_robot(arm=arm), hom_coord)
         rob_coord /= rob_coord[-1]
         delta = abs(abs(rob_coord[2]) - abs(self.z_table))
         if delta > 1e-3:

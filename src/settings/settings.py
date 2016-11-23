@@ -92,7 +92,7 @@ object_ids = tuple([
 # The tolerance for the offset from the segmented objects center to the image
 # center in meters.
 # Needed for comparing the position error computed in visual servoing.
-servo_tolerance_meters = 0.005
+servo_tolerance_meters = 0.003
 
 
 # Baxter's hand cameras exposure value (0%--100%)
