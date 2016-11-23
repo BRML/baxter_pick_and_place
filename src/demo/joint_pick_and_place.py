@@ -35,7 +35,7 @@ import rospy
 from hardware import img_to_imgmsg
 from instruction import client
 from settings import settings
-from vision import color_difference, draw_detection
+from vision import color_difference
 
 
 class PickAndPlace(object):
@@ -367,29 +367,29 @@ class PickAndPlace(object):
                     estimate = self._camera.estimate_hand_position()
                 obj_pose = estimate[0] + [np.pi, 0.0, np.pi]
             else:
-                img_color, img_depth, _ = self._camera.collect_data(color=True,
-                                                                    depth=True,
-                                                                    skeleton=False)
-                det = self._detection.detect_object(image=img_color,
-                                                    object_id=obj_id,
-                                                    threshold=0.5)
-                draw_detection(image=img_color, detections=det)
-                self.publish_vis(image=img_color)
-                obj_pose = self._camera.estimate_object_position(img_color=img_color,
-                                                                 bbox=det['box'],
-                                                                 img_depth=img_depth)
-                if obj_pose is None:
-                    self._logger.info("I did not find the {}!".format(obj_id))
-                    self._logger.info('I resort to searching with the robot.')
-                    # TODO: implement looking for the object
-                    # move hand camera along pre-defined trajectory over the table
-                    # apply object detection until object found or failure
-                    # compute 3d coordinates from detection and known height of table
-                if obj_pose is None:
-                    self._logger.warning("I abort this task! Please start over.")
-                    instr = client.wait_for_instruction()
-                    continue
-
+                # img_color, img_depth, _ = self._camera.collect_data(color=True,
+                #                                                     depth=True,
+                #                                                     skeleton=False)
+                # det = self._detection.detect_object(image=img_color,
+                #                                     object_id=obj_id,
+                #                                     threshold=0.5)
+                # draw_detection(image=img_color, detections=det)
+                # self.publish_vis(image=img_color)
+                # obj_pose = self._camera.estimate_object_position(img_color=img_color,
+                #                                                  bbox=det['box'],
+                #                                                  img_depth=img_depth)
+                # if obj_pose is None:
+                #     self._logger.info("I did not find the {}!".format(obj_id))
+                #     self._logger.info('I resort to searching with the robot.')
+                #     # TODO: implement looking for the object
+                #     # move hand camera along pre-defined trajectory over the table
+                #     # apply object detection until object found or failure
+                #     # compute 3d coordinates from detection and known height of table
+                # if obj_pose is None:
+                #     self._logger.warning("I abort this task! Please start over.")
+                #     instr = client.wait_for_instruction()
+                #     continue
+                obj_pose = [0.75, 0.1, 0.0]
                 obj_pose += [np.pi, 0.0, np.pi]
             appr_pose = self._get_approach_pose(pose=obj_pose)
             try:
@@ -420,8 +420,13 @@ class PickAndPlace(object):
                     self._logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
                         idx, change, '<' if accepted else '>', settings.color_change_threshold))
                     if diff.mean()*100.0 < settings.color_change_threshold:
-                        tgt_pose = self._table_poses[idx]
-                        tgt_pose[2] += 0.01
+                        pose = self._table_poses[idx]
+                        pose[2] += 0.01
+                        try:
+                            _ = self._robot.ik(arm=arm, pose=pose)
+                            tgt_pose = pose
+                        except ValueError:
+                            pass
                 if tgt_pose is None:
                     self._logger.warning("Found no place to put the object down! "
                                          "I abort this task. Please start over.")
