@@ -99,10 +99,9 @@ servo_tolerance_meters = 0.003
 baxter_cam_exposure = 10
 
 
-# TODO: adapt this threshold
 # The threshold for the color change in a table view image patch in percent.
 # Needed to detect empty spots on the table.
-color_change_threshold = 4.0
+color_change_threshold = 2.0
 
 
 # The robot's task space limits in meter
