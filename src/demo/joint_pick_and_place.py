@@ -425,7 +425,11 @@ class PickAndPlace(object):
                     ref_patch = self._table_image[arm][yul:ylr, xul: xlr]
                     diff, vis_patch = color_difference(image_1=table_patch,
                                                        image_2=ref_patch)
-                    self.publish_vis(image=vis_patch)
+                    img_copy = np.copy(table_img)
+                    img_copy[yul:ylr, xul:xlr] = cv2.cvtColor(vis_patch, cv2.COLOR_GRAY2BGR)
+                    cv2.rectangle(img_copy, pt1=(xul, yul), pt2=(xlr, ylr),
+                                  color=[0, 255, 0], thickness=1)
+                    self.publish_vis(image=img_copy)
                     change = diff.mean()*100.0
                     accepted = change <= settings.color_change_threshold
                     self._logger.debug("Patch {} changed by {:.2f}% {} {:.2f}%.".format(
