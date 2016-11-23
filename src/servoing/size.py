@@ -47,3 +47,12 @@ class ServoingSize(Servoing):
 
         dist_cam_obj = size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
         return dist_cam_obj - abs(self._robot.cam_offset[2])
+
+    def correct_height(self, arm):
+        """Make sure the gripper height is appropriate before attempting to
+        grasp the object.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: A boolean success value.
+        """
+        return True

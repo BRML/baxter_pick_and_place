@@ -26,6 +26,8 @@
 import logging
 import numpy as np
 
+import rospy
+
 from hardware import img_to_imgmsg
 from vision import mask_to_rroi, draw_rroi, draw_detection
 
@@ -54,6 +56,7 @@ class Servoing(object):
         self._tolerance = tolerance
 
         self._logger = logging.getLogger('main.servo')
+        self._tsleep = 0.33
 
     def _find_rotated_enclosing_rect(self, image, object_id):
         """Find the rectangle with arbitrary orientation that encloses the
@@ -77,19 +80,22 @@ class Servoing(object):
         img_copy = np.copy(image)
         draw_detection(image=img_copy, detections=det)
         self._pub_vis.publish(img_to_imgmsg(img=img_copy))
+        rospy.sleep(self._tsleep)
 
         # second, segment object within bounding box
         if det['box'] is not None:
             xul, yul, xlr, ylr = [int(round(x)) for x in det['box']]
-            selection = np.copy(image[yul:ylr, xul:xlr])
-            self._pub_vis.publish(img_to_imgmsg(img=selection))
+            # selection = np.copy(image[yul:ylr, xul:xlr])
+            # self._pub_vis.publish(img_to_imgmsg(img=selection))
+            # rospy.sleep(self._tsleep)
             seg = self._segmentation.detect_best(image=image[yul:ylr, xul:xlr],
                                                  threshold=0.8)
-            self._pub_vis.publish(img_to_imgmsg(img=seg['mask']))
+            # self._pub_vis.publish(img_to_imgmsg(img=seg['mask']))
+            # rospy.sleep(self._tsleep)
 
             handstring = ' in hand' if object_id is 'hand' else ''
             if seg['mask'] is not None:
-                self._logger.info("Segmented {}{}.".format(seg['id'], handstring))
+                self._logger.debug("Segmented {}{}.".format(seg['id'], handstring))
                 # place segmentation in appropriate place in image
                 seg['box'] += np.array([xul, yul, xul, yul])
                 mask = np.zeros(shape=image.shape[:2], dtype=np.uint8)
@@ -99,7 +105,6 @@ class Servoing(object):
                 seg['id'] = det['id']
                 seg['score'] = det['score']
                 draw_detection(image=image, detections=seg)
-                self._pub_vis.publish(img_to_imgmsg(img=image))
                 rroi = mask_to_rroi(mask=seg['mask'])
             else:
                 raise ValueError("Segmentation of {}{} failed!".format(seg['id'],
@@ -108,6 +113,7 @@ class Servoing(object):
             raise ValueError("Detection of {} failed!".format(object_id))
         draw_rroi(image=image, rroi=rroi)
         self._pub_vis.publish(img_to_imgmsg(img=image))
+        rospy.sleep(self._tsleep)
         return rroi
 
     def estimate_distance(self, object_id, rroi, arm):
@@ -160,55 +166,55 @@ class Servoing(object):
                                "estimate correct?")
         return pixel_error*p2c_factor
 
-    def _iterate(self, arm, object_id, rroi):
-        """Perform one update of the position of the end effector relative to
-        the given object.
+    def update_pose(self, arm, object_id, rroi, img_size):
+        """Update the end effector pose according to the estimated pose of
+        the detected object.
 
         :param arm: The arm <'left', 'right'> to control.
         :param object_id: The object identifier of the object to estimate the
             distance to.
         :param rroi: The rotated rectangle enclosing the segmented object,
             given by ((cx, cy), (w, h), alpha).
-        :return: A tuple containing
-            - the rotated rectangle enclosing the segmented object, given by
-                ((cx, cy), (w, h), alpha) and
-            - the position error in meters.
+        :param img_size: The size of the image in which the object was
+            detected.
+        :return:
         """
-        kp = 0.7  # proportional control parameter
+        kp = 0.9  # proportional control parameter
 
-        img = self._robot.cameras[arm].collect_image()
-        self._pub_vis.publish(img_to_imgmsg(img=img))
-        camera_error = self._error(image_size=img.shape[:2],
-                                   object_id=object_id, rroi=rroi, arm=arm)
-        if camera_error > self._tolerance:
-            p2c_factor = self._pixel_to_camera_factor(object_id=object_id,
-                                                      rroi=rroi, arm=arm)
-            h, w = img.shape[:2]
-            # dx = a*(h/2 - cy)
-            # dy = a*(w/2 - cx)
-            dy, dx = [(a - b)*p2c_factor*kp
-                      for a, b in zip((w//2, h//2), rroi[0])]
-            # dz = -estimated_distance/2
-            dz = -self.estimate_distance(arm=arm, rroi=rroi,
-                                         object_id=object_id)/2.0
-            self._logger.debug("Computed position update is ({: .3f}, "
-                               "{: .3f}, {: .3f}).".format(dx, dy, dz))
-            pose = self._robot.endpoint_pose(arm=arm)
-            # TODO: verify this update works as expected
-            pose = [a + b for a, b in zip(pose, [dx, dy, dz, 0, 0, 0])]# rroi[2]])]
-            if pose[2] < self._robot.z_table:
-                pose[2] = self._robot.z_table
-            try:
-                cfg = self._robot.ik(arm=arm, pose=pose)
-                self._robot.move_to_config(config=cfg)
-                rroi = self._find_rotated_enclosing_rect(image=img,
-                                                         object_id=object_id)
-                camera_error = self._error(image_size=img.shape[:2],
-                                           object_id=object_id, rroi=rroi,
-                                           arm=arm)
-            except ValueError as e:
-                self._logger.error(e)
-        return rroi, camera_error
+        # delta in pixel space
+        h, w = img_size
+        d_pixel = [a - b for a, b in zip((w//2, h//2), rroi[0])]
+        # delta in camera space
+        p2c_factor = self._pixel_to_camera_factor(object_id=object_id,
+                                                  rroi=rroi, arm=arm)
+        d_cam = [x*p2c_factor for x in d_pixel]
+        # delta in robot space
+        # assuming that orientation of end effector is perpendicular to table
+        rot = self._robot.hom_camera_to_robot(arm=arm)[:2, :2]
+        d_rob = np.dot(rot, d_cam)
+        # update
+        dx, dy = [-x*kp for x in d_rob]
+        dz = -self.estimate_distance(arm=arm, rroi=rroi,
+                                     object_id=object_id)/3.0
+        self._logger.debug("Computed position update is ({: .3f}, "
+                           "{: .3f}, {: .3f}) m.".format(dx, dy, dz))
+
+        pose = self._robot.endpoint_pose(arm=arm)
+        pose = [a + b for a, b in zip(pose, [dx, dy, dz,
+                                             0, 0, -np.deg2rad(rroi[2])])]
+        if pose[2] < self._robot.z_table:
+            pose[2] = self._robot.z_table
+        cfg = self._robot.ik(arm=arm, pose=pose)
+        self._robot.move_to_config(config=cfg)
+
+    def correct_height(self, arm):
+        """Make sure the gripper height is appropriate before attempting to
+        grasp the object.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: A boolean success value.
+        """
+        raise NotImplementedError()
 
     def servo(self, arm, object_id):
         """Apply visual servoing to position the end effector over the given
@@ -216,33 +222,32 @@ class Servoing(object):
 
         :param arm: The arm <'left', 'right'> to control.
         :param object_id: The object identifier of the object to servo to.
-        :return: boolean success value.
+        :return: A boolean success value.
         """
-        img = self._robot.cameras[arm].collect_image()
-        self._pub_vis.publish(img_to_imgmsg(img=img))
-        try:
-            rroi = self._find_rotated_enclosing_rect(image=img,
-                                                     object_id=object_id)
-        except ValueError as e:
-            self._logger.error(e)
-            return False
-        camera_error = 2*self._tolerance
-        it = 1
-        while camera_error > self._tolerance:
-            rroi, camera_error = self._iterate(arm=arm, object_id=object_id,
-                                               rroi=rroi)
-            self._logger.debug("Iteration {} finished. Error is {} m {} {} "
-                               "m.".format(it, camera_error,
-                                           '>' if camera_error > self._tolerance else '<=',
-                                           self._tolerance))
+        it = 0
+        while not rospy.is_shutdown():
+            img = self._robot.cameras[arm].collect_image()
+            try:
+                rroi = self._find_rotated_enclosing_rect(image=img,
+                                                         object_id=object_id)
+            except ValueError as e:
+                self._logger.error(e)
+                return False
+            camera_error = self._error(image_size=img.shape[:2],
+                                       object_id=object_id, rroi=rroi,
+                                       arm=arm)
+            accept = camera_error <= self._tolerance
+            self._logger.info("In iteration {}, error is {:.4f} m {} {:.4f} "
+                              "m.".format(it, camera_error,
+                                          '<=' if accept else '>',
+                                          self._tolerance))
+            if accept:
+                break
+            try:
+                self.update_pose(arm=arm, object_id=object_id, rroi=rroi, img_size=img.shape[:2])
+            except ValueError as e:
+                self._logger.error(e)
+                return False
             it += 1
-        # prepare to grasp
-        pose = self._robot.endpoint_pose(arm=arm)
-        pose[2] = self._robot.z_table + 0.01
-        try:
-            cfg = self._robot.ik(arm=arm, pose=pose)
-            self._robot.move_to_config(config=cfg)
-        except ValueError as e:
-            self._logger.error(e)
-            return False
-        return True
+        # make sure we are in appropriate height
+        return self.correct_height(arm=arm)

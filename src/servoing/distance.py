@@ -42,3 +42,20 @@ class ServoingDistance(Servoing):
         :return: The approximate distance from the gripper to the object.
         """
         return self._robot.endpoint_pose(arm=arm)[2] - self._robot.z_table
+
+    def correct_height(self, arm):
+        """Make sure the gripper height is appropriate before attempting to
+        grasp the object.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :return: A boolean success value.
+        """
+        pose = self._robot.endpoint_pose(arm=arm)
+        pose[2] = self._robot.z_table + 0.01
+        try:
+            cfg = self._robot.ik(arm=arm, pose=pose)
+            self._robot.move_to_config(config=cfg)
+        except ValueError as e:
+            self._logger.error(e)
+            return False
+        return True
