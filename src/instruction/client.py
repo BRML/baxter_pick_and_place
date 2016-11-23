@@ -31,7 +31,11 @@ from std_srvs.srv import Trigger
 
 def wait_for_instruction():
     """ROS client triggering the 'demo_instruction' ROS service."""
-    rospy.wait_for_service('demo_instruction')
+    try:
+        rospy.wait_for_service('demo_instruction', timeout=5.0)
+    except rospy.ROSException:
+        rospy.logerr("Time-out while waiting for service 'demo_instruction'! "
+                     "Did you run 'rosrun baxter_pick_and_place instruct.py'?")
     try:
         service = rospy.ServiceProxy('demo_instruction', Trigger)
         instr = service()
