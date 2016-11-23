@@ -35,7 +35,7 @@ import rospy
 from hardware import img_to_imgmsg
 from instruction import client
 from settings import settings
-from vision import color_difference
+from vision import color_difference, draw_detection
 
 
 class PickAndPlace(object):
@@ -369,6 +369,7 @@ class PickAndPlace(object):
 
             self._logger.info('Looking for {} and estimate its pose.'.format(obj_id))
             if obj_id == 'hand':
+                arm = None
                 estimate = self._camera.estimate_hand_position()
                 while estimate is None:
                     self._logger.warning("No hand position estimate was found! "
@@ -378,6 +379,7 @@ class PickAndPlace(object):
                     estimate = self._camera.estimate_hand_position()
                 obj_pose = estimate[0] + [np.pi, 0.0, np.pi]
             else:
+                arm = self._robot.select_gripper_for_object(object_id=obj_id)
                 # img_color, img_depth, _ = self._camera.collect_data(color=True,
                 #                                                     depth=True,
                 #                                                     skeleton=False)
@@ -389,22 +391,23 @@ class PickAndPlace(object):
                 # obj_pose = self._camera.estimate_object_position(img_color=img_color,
                 #                                                  bbox=det['box'],
                 #                                                  img_depth=img_depth)
-                # if obj_pose is None:
-                #     self._logger.info("I did not find the {}!".format(obj_id))
-                #     self._logger.info('I resort to searching with the robot.')
-                #     # TODO: implement looking for the object
-                #     # move hand camera along pre-defined trajectory over the table
-                #     # apply object detection until object found or failure
-                #     # compute 3d coordinates from detection and known height of table
-                # if obj_pose is None:
-                #     self._logger.warning("I abort this task! Please start over.")
-                #     instr = client.wait_for_instruction()
-                #     continue
-                obj_pose = [0.75, 0.1, 0.0]
+                obj_pose = None
+                if obj_pose is None:
+                    self._logger.warning("I did not find the {} using the "
+                                         "Kinect!".format(obj_id))
+                    self._logger.info('I resort to searching with the robot.')
+                    obj_pose = settings.search_pose[:3]
+                if obj_pose is None:
+                    self._logger.warning("I abort this task! Please start over.")
+                    instr = client.wait_for_instruction()
+                    continue
                 obj_pose += [np.pi, 0.0, np.pi]
             appr_pose = self._get_approach_pose(pose=obj_pose)
             try:
-                arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
+                if arm is None:
+                    arm, appr_cfg = self._robot.ik_either_limb(pose=appr_pose)
+                else:
+                    appr_cfg = self._robot.ik(arm=arm, pose=appr_pose)
             except ValueError:
                 self._logger.warning("I abort this task! Please start over.")
                 instr = client.wait_for_instruction()

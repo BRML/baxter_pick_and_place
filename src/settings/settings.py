@@ -49,6 +49,9 @@ top_pose = [
 ]
 # The calibration pose is used for calibrating the robot--table relations.
 calibration_pose = [0.45, 0.0, 0.1, pi, 0.0, pi]
+# The search pose is used to search for objects if the Kinect failed to
+# detect them.
+search_pose = [0.75, 0.0, 0.0, pi, 0.0, pi]
 
 # The fingers installed in which slot of the left and right hand of Baxter.
 # Needed to select the proper gripper for the object to grasp.
