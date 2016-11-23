@@ -23,6 +23,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+import logging
 
 import rospy
 
@@ -31,14 +32,15 @@ from std_srvs.srv import Trigger
 
 def wait_for_instruction():
     """ROS client triggering the 'demo_instruction' ROS service."""
+    logger = logging.getLogger('main.instruct')
     try:
         rospy.wait_for_service('demo_instruction', timeout=5.0)
     except rospy.ROSException:
-        rospy.logerr("Time-out while waiting for service 'demo_instruction'! "
+        logger.error("Time-out while waiting for service 'demo_instruction'! "
                      "Did you run 'rosrun baxter_pick_and_place instruct.py'?")
     try:
         service = rospy.ServiceProxy('demo_instruction', Trigger)
         instr = service()
         return instr.message
     except rospy.ServiceException as e:
-        rospy.logerr("service call failed: {}".format(e))
+        logger.error("service call failed: {}".format(e))
