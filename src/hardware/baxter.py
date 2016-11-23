@@ -418,9 +418,10 @@ class Baxter(object):
                             min_width = gr[0]
                             arm = a
         if arm is None:
-            msg = ("No suitable gripper for object _image_size {:.3f} m installed! "
+            msg = ("No suitable gripper for object {} ({:.3f} m) installed! "
                    "Check your gripper settings. Currently installed ranges"
                    "are {:.3f}--{:.3f} and {:.3f}--{:.3f}.".format(
+                       object_id,
                        settings.object_size_meters[object_id],
                        self._gripper_ranges_meters()[settings.gripper_settings['left']][0],
                        self._gripper_ranges_meters()[settings.gripper_settings['left']][1],

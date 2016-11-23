@@ -64,11 +64,11 @@ gripper_settings = {
 object_size_meters = {
     '_person_': 999.99,
     '_bench_': 999.99,
-    'bottle': 0.072,
+    'bottle': 0.065,
     'cup': 0.086,
     '_apple_': 999.99,
     '_orange_': 999.99,
-    'remote': 0.054,
+    'remote': 0.036,
     '_book_': 999.99
 }
 # The set of objects we know about and Baxter should be able to grasp.
