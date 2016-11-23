@@ -60,7 +60,6 @@ gripper_settings = {
     'right': ('narrow', 4)
 }
 
-# TODO: set those ids and values to something useful
 # The measured length of the longer dimension of each object (in the x-y
 # plane) in meters.
 # Needed for estimating the distance to the object in visual servoing.
