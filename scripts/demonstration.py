@@ -33,7 +33,7 @@ import rospkg
 import rospy
 from sensor_msgs.msg import Image
 
-from core import get_default_handler
+from core import get_default_handler, git_logger
 from demo import PickAndPlace
 from hardware import Baxter, Kinect
 from servoing import ServoingDistance, ServoingSize
@@ -133,6 +133,14 @@ if __name__ == '__main__':
     hdlr = get_default_handler(filename=logfile, level=logging.DEBUG)
     for h in hdlr:
         logger.addHandler(hdlr=h)
+
+    modules = list()
+    modules += ['rospkg']
+    modules += ['ros_baxter_pick_and_place', 'ros_baxter_interface']
+    modules += ['numpy', 'cv2']
+    logfile = os.path.join(logfolder, '{}_git.json'.format(filename))
+    logfile = ''
+    git_logger(modules=modules, filename=logfile)
 
     print 'Initialize ROS node.'
     rospy.init_node('demo_module')
