@@ -111,18 +111,14 @@ class PickAndPlace(object):
             raise e
         self._robot.move_to_config(config=config)
 
-    def _move_to_pose_or_dither(self, arm, pose, fix_z=False):
-        """Shortcut to move the robots' specified limb to the given pose. If
-        the pose was not reached, modify the pose slightly and try again.
+    def _dither_pose(self, pose, fix_z=False):
+        """Modify the given pose slightly in a random fashion.
 
-        :param arm: The arm <'left', 'right'> to control.
-        :param pose: The pose to move to. One of
-            - a ROS Pose,
-            - a list of length 6 [x, y, z, roll, pitch, yaw] or
-            - a list of length 7 [x, y, z, qx, qy, qz, qw].
+        :param pose: The pose to move to. A list of length 6
+            [x, y, z, roll, pitch, yaw].
         :param fix_z: Whether to keep the z coordinate fixed.
-        :return: The achieved configuration, a dictionary of joint name keys
-            to joint angle values.
+        :return: The slightly modified pose, a list of length 6
+            [x, y, z, roll, pitch, yaw].
         """
         borders = {
             'x_min': pose[0] - 0.025,
@@ -138,6 +134,21 @@ class PickAndPlace(object):
             'yaw_min': pose[5] - np.deg2rad(5.0),
             'yaw_max': pose[5] + np.deg2rad(5.0)
         }
+        return self._robot.sample_pose(lim=borders)
+
+    def _move_to_pose_or_dither(self, arm, pose, fix_z=False):
+        """Shortcut to move the robots' specified limb to the given pose. If
+        the pose was not reached, modify the pose slightly and try again.
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param pose: The pose to move to. One of
+            - a ROS Pose,
+            - a list of length 6 [x, y, z, roll, pitch, yaw] or
+            - a list of length 7 [x, y, z, qx, qy, qz, qw].
+        :param fix_z: Whether to keep the z coordinate fixed.
+        :return: The achieved configuration, a dictionary of joint name keys
+            to joint angle values.
+        """
         config = None
         while config is None and not rospy.is_shutdown():
             try:
@@ -145,7 +156,7 @@ class PickAndPlace(object):
             except ValueError:
                 self._logger.debug('Computing IK for pose {} with {} arm '
                                    'failed!'.format(pose, arm))
-                pose = self._robot.sample_pose(lim=borders)
+                pose = self._dither_pose(pose=pose, fix_z=fix_z)
         self._robot.move_to_config(config=config)
         return config
 
@@ -436,18 +447,23 @@ class PickAndPlace(object):
             self._logger.info('Picking up the object.')
             self._logger.info('Attempting to grasp object with {} limb.'.format(arm))
             success = False
+            self._robot.move_to_config(config=appr_cfg)
             while not success:
-                self._robot.move_to_config(config=appr_cfg)
                 self._logger.info('Using visual servoing to grasp object.')
                 if obj_id == 'hand':
-                    self._servo['hand'].servo(arm=arm, object_id=obj_id)
+                    ret = self._servo['hand'].servo(arm=arm, object_id=obj_id)
                 else:
-                    self._servo['table'].servo(arm=arm, object_id=obj_id)
-                if self._robot.grasp(arm):
-                    success = True
+                    ret = self._servo['table'].servo(arm=arm, object_id=obj_id)
+                if ret:
+                    if self._robot.grasp(arm):
+                        success = True
+                    else:
+                        self._logger.info('Something went wrong. I will try again.')
+                        self._robot.release(arm)
+                        self._robot.move_to_config(config=appr_cfg)
                 else:
-                    self._logger.info('Something went wrong. I will try again.')
-                    self._robot.release(arm)
+                    new_pose = self._dither_pose(pose=appr_pose, fix_z=True)
+                    self._move_to_pose_or_dither(arm=arm, pose=new_pose, fix_z=True)
             self._logger.info("Successfully grasped the object.")
             self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
 
