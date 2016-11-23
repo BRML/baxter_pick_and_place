@@ -35,7 +35,7 @@ import rospy
 from hardware import img_to_imgmsg
 from instruction import client
 from settings import settings
-from vision import color_difference, draw_detection
+from vision import color_difference
 
 
 class PickAndPlace(object):
