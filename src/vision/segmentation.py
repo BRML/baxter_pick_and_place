@@ -169,7 +169,7 @@ class ObjectSegmentation(object):
                              "with shape (h, w, 3)!")
         start = time.time()
         scores, boxes, masks = self._im_detect(image)
-        self._logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
+        self._logger.debug('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
         return scores, boxes, masks
@@ -242,7 +242,7 @@ class ObjectSegmentation(object):
         best_mask = self._mask_image_from_mask(mask=masks[best_idx][0],
                                                box=best_box,
                                                image_size=image.shape[:2])
-        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.debug('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -280,7 +280,7 @@ class ObjectSegmentation(object):
                                                image_size=image.shape[:2])
         best_object = self._classes[best_class]
 
-        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.debug('Best score for {} is {:.3f} {} {:.3f}'.format(
             best_object,
             best_score,
             '>=' if best_score > threshold else '<',

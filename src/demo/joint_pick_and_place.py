@@ -411,17 +411,18 @@ class PickAndPlace(object):
                 obj_pose += [np.pi, 0.0, np.pi]
             else:
                 arm = self._robot.select_gripper_for_object(object_id=obj_id)
-                img_color, img_depth, _ = self._camera.collect_data(color=True,
-                                                                    depth=True,
-                                                                    skeleton=False)
-                det = self._detection.detect_object(image=img_color,
-                                                    object_id=obj_id,
-                                                    threshold=0.5)
-                draw_detection(image=img_color, detections=det)
-                self.publish_vis(image=img_color)
-                obj_pose = self._camera.estimate_object_position(img_color=img_color,
-                                                                 bbox=det['box'],
-                                                                 img_depth=img_depth)
+                # img_color, img_depth, _ = self._camera.collect_data(color=True,
+                #                                                     depth=True,
+                #                                                     skeleton=False)
+                # det = self._detection.detect_object(image=img_color,
+                #                                     object_id=obj_id,
+                #                                     threshold=0.5)
+                # draw_detection(image=img_color, detections=det)
+                # self.publish_vis(image=img_color)
+                # obj_pose = self._camera.estimate_object_position(img_color=img_color,
+                #                                                  bbox=det['box'],
+                #                                                  img_depth=img_depth)
+                obj_pose = None
                 if obj_pose is None:
                     self._logger.warning("I did not find the {} using the "
                                          "Kinect!".format(obj_id))
@@ -429,8 +430,8 @@ class PickAndPlace(object):
                     obj_pose = settings.search_pose[:3]
                 elif not self._is_in_task_space(pose=obj_pose):
                     self._logger.debug("Object position estimate[" +
-                                       " {: .3f}".format(*obj_pose) +
-                                       " is not within task space!")
+                                       (" {: .3f}"*3).format(*obj_pose) +
+                                       " ] is not within task space!")
                     obj_pose = None
                 if obj_pose is None:
                     self._logger.warning("I abort this task! Please start over.")
