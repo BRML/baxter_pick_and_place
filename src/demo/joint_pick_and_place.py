@@ -342,7 +342,13 @@ class PickAndPlace(object):
                              for pos in cfg['positions']]
 
         # affine transformation from external camera to Baxter coordinates
-        self._camera.trafo = self._load_external_calibration()
+        # self._camera.trafo = self._load_external_calibration()
+        self._camera.trafo = np.array([
+            [0, 0, -1, 2.5],
+            [-1, 0, 0, 0],
+            [0, 1, 0, 0.35],
+            [0, 0, 0, 1]
+        ])
 
     def _get_approach_pose(self, pose):
         """Compute a pose safe for approaching the given pose by adding some
@@ -352,6 +358,18 @@ class PickAndPlace(object):
         :return: The approach pose (the original pose + the safety offset).
         """
         return [a + b for a, b in zip(pose, self._approach_offset)]
+
+    @staticmethod
+    def _is_in_task_space(pose):
+        xl = settings.task_space_limits_m['x_min']
+        xu = settings.task_space_limits_m['x_max']
+        yl = settings.task_space_limits_m['y_min']
+        yu = settings.task_space_limits_m['y_max']
+        zl = settings.task_space_limits_m['z_min']
+        zu = settings.task_space_limits_m['z_max']
+        if xl <= pose[0] <= xu and yl <= pose[1] <= yu and zl <= pose[2] <= zu:
+            return True
+        return False
 
     def perform(self):
         """Perform the pick-and-place demonstration.
@@ -482,13 +500,19 @@ class PickAndPlace(object):
                 self._robot.release(arm)
                 self._robot.move_to_config(config=appr_cfg)
             else:
-                tgt_pose = self._camera.estimate_hand_position()
-                while tgt_pose is None:
-                    self._logger.warning("No hand position estimate was found! "
-                                         "Please relocate your hand.")
-                    # TODO: adapt this sleep time
-                    rospy.sleep(1.0)
-                    tgt_pose = self._camera.estimate_hand_position()
+                while not rospy.is_shutdown():
+                    tgt_pose = self._camera.estimate_hand_position(
+                        hand=settings.human_hand)
+                    if tgt_pose is None:
+                        self._logger.warning("No hand position estimate was found!")
+                    elif not self._is_in_task_space(pose=tgt_pose):
+                        self._logger.warning("Hand position estimate is not "
+                                             "within task space!")
+                        tgt_pose = None
+                    else:
+                        break
+                    self._logger.info("Please relocate your hand.")
+                    rospy.sleep(2.0)
                 tgt_pose += [np.pi, 0.0, np.pi]
                 self._move_to_pose_or_dither(arm=arm, pose=tgt_pose, fix_z=True)
                 self._logger.info('Please take the object from me.')
