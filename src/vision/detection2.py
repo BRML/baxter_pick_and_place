@@ -106,7 +106,7 @@ class ObjectDetection(object):
                              "with shape (h, w, 3)!")
         start = time.time()
         scores, boxes = im_detect(self._net, image)
-        self._logger.info('Detection took {:.3f}s for {:d} object proposals'.format(
+        self._logger.debug('Detection took {:.3f}s for {:d} object proposals'.format(
             time.time() - start, boxes.shape[0])
         )
 
@@ -149,7 +149,7 @@ class ObjectDetection(object):
         best_score = cls_scores[best_idx]
         best_box = boxes[best_idx, 4:8]
 
-        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.debug('Best score for {} is {:.3f} {} {:.3f}'.format(
             object_id,
             best_score,
             '>=' if best_score > threshold else '<',
@@ -186,7 +186,7 @@ class ObjectDetection(object):
         best_box = boxes[best_proposal, 4:8]
         best_object = self._classes[best_class]
 
-        self._logger.info('Best score for {} is {:.3f} {} {:.3f}'.format(
+        self._logger.debug('Best score for {} is {:.3f} {} {:.3f}'.format(
             best_object,
             best_score,
             '>=' if best_score > threshold else '<',

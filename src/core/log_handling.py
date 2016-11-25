@@ -26,18 +26,19 @@
 import logging
 
 
-def get_default_handler(filename='', level=logging.INFO):
+def get_default_handler(filename='', stream_level=logging.INFO,
+                        file_level=logging.DEBUG):
     h = list()
 
     sh = logging.StreamHandler()
-    sh.setLevel(level=level)
+    sh.setLevel(level=stream_level)
     fmt = '[%(name)s][%(levelname)s] %(message)s'
     sh.setFormatter(fmt=logging.Formatter(fmt=fmt))
     h.append(sh)
 
     if isinstance(filename, str) and len(filename) > 0:
         fh = logging.FileHandler(filename=filename, mode='a')
-        fh.setLevel(level=level)
+        fh.setLevel(level=file_level)
         fmt = '[%(name)s][%(levelname)s][%(asctime)-15s] %(message)s'
         fh.setFormatter(fmt=logging.Formatter(fmt=fmt))
         h.append(fh)

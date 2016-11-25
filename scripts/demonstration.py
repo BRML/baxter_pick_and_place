@@ -130,7 +130,9 @@ if __name__ == '__main__':
 
     logger = logging.getLogger('main')
     logger.setLevel(logging.DEBUG)
-    hdlr = get_default_handler(filename=logfile, level=logging.DEBUG)
+    hdlr = get_default_handler(filename=logfile,
+                               stream_level=logging.INFO,
+                               file_level=logging.DEBUG)
     for h in hdlr:
         logger.addHandler(hdlr=h)
 
@@ -139,7 +141,7 @@ if __name__ == '__main__':
     modules += ['ros_baxter_pick_and_place', 'ros_baxter_interface']
     modules += ['numpy', 'cv2']
     logfile = os.path.join(logfolder, '{}_git.json'.format(filename))
-    logfile = ''
+    # logfile = ''
     git_logger(modules=modules, filename=logfile)
 
     print 'Initialize ROS node.'

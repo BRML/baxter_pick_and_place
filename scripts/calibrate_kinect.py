@@ -49,7 +49,9 @@ class CalibrateKinect(object):
         """
         self._logger = logging.getLogger('cal_kinect')
         self._logger.setLevel(level=logging.DEBUG)
-        handlers = get_default_handler(filename=log_filename, level=log_level)
+        handlers = get_default_handler(filename=log_filename,
+                                       stream_level=log_level,
+                                       file_level=log_level)
         for handler in handlers:
             self._logger.addHandler(hdlr=handler)
 

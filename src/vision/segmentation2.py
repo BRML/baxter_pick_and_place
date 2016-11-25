@@ -67,14 +67,14 @@ class ObjectSegmentation(object):
 
             x, y, w, h = cv2.boundingRect(contour[0])
             box = np.array([x, y, x + w, y + h])
-            self._logger.debug("Bounding box of segmentation is {}.".format(
-                np.array_str(box, precision=2, suppress_small=True)))
+            # self._logger.debug("Bounding box of segmentation is {}.".format(
+            #     np.array_str(box, precision=2, suppress_small=True)))
         elif len(contour) == 0:
             self._logger.warning("No contour found!")
             box = None
             mask = None
         else:
-            self._logger.debug("Multiple contours found! Dilate image and repeat.")
+            # self._logger.debug("Multiple contours found! Dilate image and repeat.")
             img = np.zeros_like(image, np.uint8)
             for cnt in contour:
                 cv2.drawContours(img, [cnt], 0, 255, -1)

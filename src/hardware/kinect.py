@@ -160,10 +160,10 @@ class Kinect(object):
             self._logger.warning("Error when converting raw data to color image!")
             return None
         img = cv2.imdecode(barray, cv2.IMREAD_COLOR)
-        self._logger.info("Received a {} {} color image (min={}, max={}) "
-                          "in {:.3f} s.".format(img.shape, img.dtype,
-                                                img.min(), img.max(),
-                                                time.time() - start))
+        self._logger.debug("Received a {} {} color image (min={}, max={}) "
+                           "in {:.3f} s.".format(img.shape, img.dtype,
+                                                 img.min(), img.max(),
+                                                 time.time() - start))
         return img
 
     def _receive_depth(self):
@@ -198,10 +198,10 @@ class Kinect(object):
             self._logger.warning("Error when converting raw data to depth map!")
             return None
         img = cv2.imdecode(barray, cv2.IMREAD_UNCHANGED)
-        self._logger.info("Received a {} {} depth map (min={}, max={}) "
-                          "in {:.3f} s.".format(img.shape, img.dtype,
-                                                img.min(), img.max(),
-                                                time.time() - start))
+        self._logger.debug("Received a {} {} depth map (min={}, max={}) "
+                           "in {:.3f} s.".format(img.shape, img.dtype,
+                                                 img.min(), img.max(),
+                                                 time.time() - start))
         return img
 
     def _receive_skeleton_data(self, n_bytes):
@@ -271,7 +271,7 @@ class Kinect(object):
                 color_space_points.append((barray[i + 3], barray[i + 4]))
                 depth_space_points.append((barray[i + 5], barray[i + 6]))
             bodies.append((cam_space_points, color_space_points, depth_space_points))
-        self._logger.info("Received skeleton data for {} bod{} in {:.3f} s.".format(
+        self._logger.debug("Received skeleton data for {} bod{} in {:.3f} s.".format(
             len(bodies), 'y' if len(bodies) == 1 else 'ies',
             time.time() - start))
         return bodies
@@ -312,8 +312,8 @@ class Kinect(object):
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # Connect the socket to the host and port where the server listens
             server = self._host, 9999
-            self._logger.info('Connect to {} on port {}.'.format(server[0].upper(),
-                                                                 server[1]))
+            self._logger.debug('Connect to {} on port {}.'.format(server[0].upper(),
+                                                                  server[1]))
             try:
                 self._socket.connect(server)
             except socket.gaierror:
@@ -332,7 +332,7 @@ class Kinect(object):
             except socket.error as e:
                 self._logger.error(str(e))
             finally:
-                self._logger.info('Close socket.')
+                self._logger.debug('Close socket.')
                 self._socket.close()
             self._socket = None
         # transmitting depth images sometimes fails

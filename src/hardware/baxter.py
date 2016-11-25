@@ -421,8 +421,8 @@ class Baxter(object):
                             arm = a
         if arm is None:
             msg = ("No suitable gripper for object {} ({:.3f} m) installed! "
-                   "Check your gripper settings. Currently installed ranges"
-                   "are {:.3f}--{:.3f} and {:.3f}--{:.3f}.".format(
+                   "Check your gripper settings. Currently installed ranges "
+                   "are {:.3f}--{:.3f} m and {:.3f}--{:.3f} m.".format(
                        object_id,
                        settings.object_size_meters[object_id],
                        self._gripper_ranges_meters()[settings.gripper_settings['left']][0],
