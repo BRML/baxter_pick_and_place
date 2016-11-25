@@ -361,6 +361,11 @@ class PickAndPlace(object):
 
     @staticmethod
     def _is_in_task_space(pose):
+        """Check whether a given pose lies within the robot's task space.
+
+        :param pose: A position or pose [x, y, z, ...] (list of len >= 3).
+        :return: Boolean flag.
+        """
         xl = settings.task_space_limits_m['x_min']
         xu = settings.task_space_limits_m['x_max']
         yl = settings.task_space_limits_m['y_min']
