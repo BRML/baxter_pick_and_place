@@ -53,10 +53,14 @@ class Servoing(object):
         self._segmentation = segmentation
         self._pub_vis = pub_vis
         self._object_size_meters = object_size
-        self._tolerance = tolerance
+        self._tol = tolerance
 
         self._logger = logging.getLogger('main.servo')
         self._tsleep = 0.33
+
+    def _tolerance(self):
+        """The tolerance required to achieve for accepting a grasp pose."""
+        return self._tol
 
     def _find_rotated_enclosing_rect(self, image, object_id):
         """Find the rectangle with arbitrary orientation that encloses the
@@ -238,11 +242,11 @@ class Servoing(object):
             camera_error = self._error(image_size=img.shape[:2],
                                        object_id=object_id, rroi=rroi,
                                        arm=arm)
-            accept = camera_error <= self._tolerance
+            accept = camera_error <= self._tolerance()
             self._logger.info("In iteration {}, error is {:.4f} m {} {:.4f} "
                               "m.".format(it, camera_error,
                                           '<=' if accept else '>',
-                                          self._tolerance))
+                                          self._tolerance()))
             if accept:
                 break
             try:
