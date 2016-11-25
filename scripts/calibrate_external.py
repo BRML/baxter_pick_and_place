@@ -51,7 +51,9 @@ class ExternalCalibration(object):
         self._root_dir = root_dir
         self._logger = logging.getLogger('cal_ext')
         self._logger.setLevel(level=logging.DEBUG)
-        handlers = get_default_handler(filename=log_filename, level=log_level)
+        handlers = get_default_handler(filename=log_filename,
+                                       stream_level=log_level,
+                                       file_level=log_level)
         for handler in handlers:
             self._logger.addHandler(hdlr=handler)
 
@@ -109,6 +111,7 @@ class ExternalCalibration(object):
         except ValueError:
             self._logger.info("Perform external calibration.")
             trafo = perform_external_calibration(arm='left', n1=3, n2=1,
+                                                 automatic=True,
                                                  root_dir=self._root_dir)
 
         if trafo is None:
@@ -149,4 +152,5 @@ if __name__ == '__main__':
     cal = ExternalCalibration(root_dir=ns,
                               log_filename=logfile, log_level=logging.DEBUG)
     rospy.on_shutdown(cal.on_shutdown)
-    cal.calibrate()
+    # cal.calibrate()
+    perform_external_calibration('left', 3, 1, True, ns)

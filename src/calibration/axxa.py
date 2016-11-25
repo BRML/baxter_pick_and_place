@@ -84,10 +84,17 @@ def rotation_matrix_from_quaternion(quat):
     p = np.dot(quat.T, quat)
     if p == 0.0:
         return np.eye(3)
-    if not np.isclose(p, 1.0):
-        raise ValueError('Expected a unit quaternion, got {} (norm={})!'.format(quat, p))
-    return np.eye(3) + 2*(np.outer(quat[:-1], quat[:-1]) - np.dot(quat[:-1].T, quat[:-1])
-*np.eye(3) + quat[-1]*skew(quat[:-1]))
+    if p > 1.0:
+        raise ValueError('Quaternion {} is larger than 1 (norm={})!'.format(quat, p))
+
+    if len(quat) == 4:
+        w = quat[3]
+        quat = quat[:3]
+    elif len(quat) == 3:
+        w = np.sqrt(1 - p)
+    else:
+        raise ValueError('Expected a quaternion (vector of len 3 or 4), got {}'.format(quat))
+    return np.eye(3) + 2*(np.outer(quat, quat) - np.inner(quat, quat)*np.eye(3) + w*skew(quat))
 
 
 def test_quaternion_rotation_matrix():
@@ -118,34 +125,22 @@ def tsai_lenz_89(a, b):
     nb = np.zeros(3*n)
     snapnb = np.zeros((3*n, 3))
     for i, (trafo_a, trafo_b) in enumerate(zip(a, b)):
-        # TODO: why are we allowed to replace the eigenvector computation 
-        # with the quaternion represenation?
-        # evals, evecs = np.linalg.eig(trafo_a[:-1, :-1])
-        # evec_a = evecs[:, np.argmax(evals.real)].real
-        evec_a = quaternion_from_rotation_matrix(rot=trafo_a[:-1, :-1])[:-1]
-        # treat quaternion quat := [v1, v2, v3, p] as quat = p*v, 
-        # where p = sin(theta/2) and |v| = 1
-        na[3*i:3*i+3] = evec_a
+        # treat imaginary part of quaternion as angle-axis representation
+        q_a = 2*quaternion_from_rotation_matrix(rot=trafo_a[:-1, :-1])[:-1]
+        q_b = 2*quaternion_from_rotation_matrix(rot=trafo_b[:-1, :-1])[:-1]
 
-        # evals, evecs = np.linalg.eig(trafo_b[:-1, :-1])
-        # evec_b = evecs[:, np.argmax(evals.real)].real
-        evec_b = quaternion_from_rotation_matrix(rot=trafo_b[:-1, :-1])[:-1]
-        nb[3*i:3*i+3] = evec_b
-
-        snapnb[3*i:3*i+3, :] = skew(v=evec_a + evec_b)
-    m, res, rank, _ = np.linalg.lstsq(a=snapnb, b=na-nb)
+        na[3*i:3*i+3] = q_a
+        nb[3*i:3*i+3] = q_b
+        snapnb[3*i:3*i+3, :] = skew(v=q_a + q_b)
+    m_, res, rank, _ = np.linalg.lstsq(a=snapnb, b=na-nb)
     if rank < 3:
         print 'Matrix skew(na + nb) is singular with rank={}!'.format(rank)
     print 'Least squares solution is {} with residual={}.'.format(
-        m, float(res) if len(res) > 0 else 'NaN')
-    mag = np.linalg.norm(m, ord=2)
-    # TODO: why is this minus required?
-    axis = -m/(mag if mag > 0 else (mag + np.finfo(float).eps))
-    angle = 2.0*np.arctan(mag)
-    print 'This is a rotation about axis={} by an angle={} deg.'.format(
-        axis, np.rad2deg(angle))
-    rot = angle_axis_rotation_matrix(angle=angle, axis=axis)
-    # rot = rotation_matrix_from_quaternion(quat=np.concatenate([axis, [0]]))
+        m_, float(res) if len(res) > 0 else 'NaN')
+    # scale back non-unit quaternion to unit value that designates rotation
+    m = 2*m_/np.sqrt(1 + np.inner(m_, m_))
+    print m, np.linalg.norm(m, ord=2)
+    rot = rotation_matrix_from_quaternion(quat=m/2.0)
 
     # with rotation, solve for translation
     n = len(a)
