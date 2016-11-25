@@ -417,6 +417,5 @@ class Kinect(object):
             raise ValueError("Expected rroi or bounding box, got {}!".format(bbox))
         z_3d = get_depth(img_depth, img_color.shape[:2], (px, py))
         pos_cam = self.color.projection_pixel_to_camera(pixel=(px, py), z=z_3d)
-        # TODO: verify this works as expected
         pos_rob = np.dot(self.trafo, pos_cam + [1])[:-1]
         return list(pos_rob)

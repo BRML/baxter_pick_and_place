@@ -35,7 +35,7 @@ import rospy
 from hardware import img_to_imgmsg
 from instruction import client
 from settings import settings
-from vision import color_difference
+from vision import color_difference, draw_detection
 
 
 class PickAndPlace(object):
@@ -411,23 +411,27 @@ class PickAndPlace(object):
                 obj_pose += [np.pi, 0.0, np.pi]
             else:
                 arm = self._robot.select_gripper_for_object(object_id=obj_id)
-                # img_color, img_depth, _ = self._camera.collect_data(color=True,
-                #                                                     depth=True,
-                #                                                     skeleton=False)
-                # det = self._detection.detect_object(image=img_color,
-                #                                     object_id=obj_id,
-                #                                     threshold=0.5)
-                # draw_detection(image=img_color, detections=det)
-                # self.publish_vis(image=img_color)
-                # obj_pose = self._camera.estimate_object_position(img_color=img_color,
-                #                                                  bbox=det['box'],
-                #                                                  img_depth=img_depth)
-                obj_pose = None
+                img_color, img_depth, _ = self._camera.collect_data(color=True,
+                                                                    depth=True,
+                                                                    skeleton=False)
+                det = self._detection.detect_object(image=img_color,
+                                                    object_id=obj_id,
+                                                    threshold=0.5)
+                draw_detection(image=img_color, detections=det)
+                self.publish_vis(image=img_color)
+                obj_pose = self._camera.estimate_object_position(img_color=img_color,
+                                                                 bbox=det['box'],
+                                                                 img_depth=img_depth)
                 if obj_pose is None:
                     self._logger.warning("I did not find the {} using the "
                                          "Kinect!".format(obj_id))
                     self._logger.info('I resort to searching with the robot.')
                     obj_pose = settings.search_pose[:3]
+                elif not self._is_in_task_space(pose=obj_pose):
+                    self._logger.debug("Object position estimate[" +
+                                       " {: .3f}".format(*obj_pose) +
+                                       " is not within task space!")
+                    obj_pose = None
                 if obj_pose is None:
                     self._logger.warning("I abort this task! Please start over.")
                     instr = client.wait_for_instruction()
@@ -484,9 +488,8 @@ class PickAndPlace(object):
 
             self._logger.info('Picking up the object.')
             self._logger.info('Attempting to grasp object with {} limb.'.format(arm))
-            success = False
             self._robot.move_to_config(config=appr_cfg)
-            while not success:
+            while not rospy.is_shutdown():
                 self._logger.info('Using visual servoing to grasp object.')
                 if obj_id == 'hand':
                     ret = self._servo['hand'].servo(arm=arm, object_id=obj_id)
@@ -494,7 +497,7 @@ class PickAndPlace(object):
                     ret = self._servo['table'].servo(arm=arm, object_id=obj_id)
                 if ret:
                     if self._robot.grasp(arm):
-                        success = True
+                        break
                     else:
                         self._logger.info('Something went wrong. I will try again.')
                         self._robot.release(arm)
