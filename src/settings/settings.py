@@ -91,6 +91,12 @@ object_ids = tuple([
     '_book_'
 ])
 
+
+# The hand of the human to take objects from or give objects to.
+# Can be one of <'right', 'left'>
+human_hand = 'right'
+
+
 # The tolerance for the offset from the segmented objects center to the image
 # center in meters.
 # Needed for comparing the position error computed in visual servoing.

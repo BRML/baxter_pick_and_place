@@ -340,7 +340,7 @@ class Kinect(object):
             return self.collect_data(color=color, depth=depth, skeleton=skeleton)
         return img_color, img_depth, data_skeleton
 
-    def estimate_hand_position(self):
+    def estimate_hands_positions(self):
         """Extract the estimate for the approximate hand position from the
         skeleton data obtained from the Kinect.
 
@@ -349,9 +349,7 @@ class Kinect(object):
               color and depth space coordinates) for the left and right hands.
             - None if no skeleton estimate is computed by the Kinect.
         """
-        img, dpth, skeletons = self.collect_data(color=True, depth=True, skeleton=True)
-        while dpth is None:
-            img, dpth, skeletons = self.collect_data(color=True, depth=True, skeleton=True)
+        color, _, skeletons = self.collect_data(color=True, skeleton=True)
         if len(skeletons) != 1:
             raise ValueError("Need to track exactly one person!")
         skeleton = skeletons[0]
@@ -362,31 +360,37 @@ class Kinect(object):
             for arm, idx in zip(['left', 'right'],
                                 [self.joint_type_hand_left,
                                  self.joint_type_hand_right]):
-                cam, color, depth = [a[idx] for a in skeleton]
+                coord, px_color, px_depth = [a[idx] for a in skeleton]
                 # The ELTE KinectOverNetwork tool scales the color image by a
                 # factor of 1/2 (to 960x540). We thus adapt the estimated pixel
                 # coordinates accordingly.
-                color = tuple(x/2.0 if not self._native_ros else x for x in color)
-
-                # TODO: verify this works as expected
-                pos = tuple(np.dot(self.trafo, list(cam) + [1])[:-1])
-                estimate[arm] = (pos, color, depth)
+                px_color = tuple(x/2.0 if not self._native_ros else x
+                                 for x in px_color)
+                pos = tuple(np.dot(self.trafo, list(coord) + [1])[:-1])
+                estimate[arm] = (pos, px_color, px_depth)
                 # visualize estimate
-                ctr = tuple(int(x) for x in color)
-                cv2.circle(img, center=ctr, radius=5, color=[255, 0, 0], thickness=3)
-
-                # # validate projection cam 2 pixel
-                # ctr2 = tuple(int(x) for x in self.color.projection_camera_to_pixel(position=list(cam)))
-                # print ctr, ctr2, tuple(a - b for a, b in zip(ctr, ctr2))
-                # cv2.circle(img, center=ctr2, radius=2, color=[0, 0, 255], thickness=3)
-                # # validate projection pixel 2 cam
-                # print 'kinect:', cam
-                # z = get_depth(dpth, img.shape[:2], ctr)
-                # proj = self.color.projection_pixel_to_camera(color, z)
-                # print 'projct:', proj
-                # print 'diff:  ', tuple(a - b for a, b in zip(cam, proj))
-            self._pub_vis.publish(img_to_imgmsg(img=img))
+                ctr = tuple(int(x) for x in px_color)
+                cv2.circle(color, center=ctr, radius=5, color=[255, 0, 0],
+                           thickness=3)
+            self._pub_vis.publish(img_to_imgmsg(img=color))
         return estimate
+
+    def estimate_hand_position(self, hand):
+        """Extract the estimate of the approximate position of the requested
+        hand from the skeleton data obtained from the Kinect.
+
+        :param hand: The human hand to estimate the position estimate for.
+            One of <'left', 'right'>.
+        :return: The hand position, a list [x, y, z] of len 3, or None.
+        """
+        try:
+            est = self.estimate_hands_positions()[hand]
+        except ValueError:
+            return None
+        if est is None:
+            return None
+        else:
+            return list(est[0])
 
     def estimate_object_position(self, img_color, bbox, img_depth):
         """Estimate the approximate position of an object in 3d from a Kinect
