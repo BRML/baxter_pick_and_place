@@ -257,8 +257,10 @@ class Baxter(object):
             return dict(zip(ik_response.joints[0].name,
                             ik_response.joints[0].position))
         else:
+            pose_str = np.array_str(np.array(pose), precision=3,
+                                    suppress_small=True)
             s = "No valid configuration found for " \
-                "pose {} with {} arm!".format(pose, arm)
+                "pose {} with {} arm!".format(pose_str, arm)
             self._logger.debug(s)
             raise ValueError(s)
 
