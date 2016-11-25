@@ -39,8 +39,18 @@ from simulation import sim_or_real
 
 
 class External(object):
-    def __init__(self, root_dir):
+    def __init__(self, arm, automatic, root_dir):
+        """
+
+        :param arm: The arm <'left', 'right'> to control.
+        :param automatic:
+        :param root_dir:
+        """
+        self._arm = arm
+        self._automatic = automatic
+
         self.logger = logging.getLogger('cal_ext')
+
         self._robot = Baxter(sim=sim_or_real())
         self._robot.set_up(gripper=False)
         self._kinect = Kinect(root_dir=root_dir,
@@ -53,17 +63,26 @@ class External(object):
                              'images in.'.format(self._sink))
             os.makedirs(self._sink)
 
-        # self._lim = settings.task_space_limits_m
-        # self._lim['roll_max'] = np.deg2rad(20.0)
-        # self._lim['roll_min'] = -np.deg2rad(20.0)
-        # self._lim['pitch_max'] = np.pi/2 + np.deg2rad(50.0)
-        # self._lim['pitch_min'] = np.pi/2 - np.deg2rad(5.0)
-        # self._lim['yaw_max'] = np.deg2rad(50.0)
-        # self._lim['yaw_min'] = -np.deg2rad(50.0)
-        # self.logger.info("Using task space limits")
-        # for c in ['x', 'y', 'z', 'roll', 'pitch', 'yaw']:
-        #     self.logger.info("{: .3f} <= {} <= {: .3f}".format(
-        #         self._lim['%s_min' % c], c, self._lim['%s_max' % c]))
+        if self._automatic:
+            # self._lim = settings.task_space_limits_m
+            self._lim = {
+                'x_min': 0.9,
+                'x_max': 0.9,
+                'y_min': 0.2,
+                'y_max': 0.2,
+                'z_min': 0.1,
+                'z_max': 0.1,
+                'roll_min': -np.deg2rad(0.0),
+                'roll_max': np.deg2rad(0.0),
+                'pitch_min': np.pi/2 - np.deg2rad(50.0),
+                'pitch_max': np.pi/2 + np.deg2rad(50.0),
+                'yaw_min': -np.deg2rad(50.0),
+                'yaw_max': np.deg2rad(50.0)
+            }
+            self.logger.info("Using task space limits")
+            for c in ['x', 'y', 'z', 'roll', 'pitch', 'yaw']:
+                self.logger.info("{: .3f} <= {} <= {: .3f}".format(
+                    self._lim['%s_min' % c], c, self._lim['%s_max' % c]))
 
         # This should go into the README:
         # Download the 4x11 asymmetric circle grid from
@@ -73,6 +92,93 @@ class External(object):
             [[x, y if x % 2 == 0 else y + 1, 0]
              for y in xrange(0, 8, 2)
              for x in xrange(11)], dtype=np.float32).T
+
+    def _generate_random_poses(self, n):
+        for _ in xrange(n):
+            yield self._robot.sample_pose(lim=self._lim)
+
+    def _modify_w2(self, pose):
+        config = self._robot.ik(arm=self._arm, pose=pose)
+        for key in config:
+            if '_w2' in key:
+                config[key] = 6.117*np.random.random_sample() - 3.059
+                break
+        return config
+
+    def test_poses(self):
+        i = 0
+        for pose in self._generate_random_poses(n=10):
+            if rospy.is_shutdown():
+                break
+            print 'Test pose', i
+            i += 1
+            try:
+                config = self._modify_w2(pose=pose)
+            except ValueError:
+                print 'failed'
+                continue
+            self._robot.move_to_config(config=config)
+            pose = self._robot.endpoint_pose(arm=self._arm)
+            print "Pose is [", (" {: .3f}"*6).format(*pose), ']'
+
+    def _generate_random_configs(self, n):
+        for pose in self._generate_random_poses(n=n):
+            try:
+                yield self._modify_w2(pose=pose)
+            except ValueError:
+                yield None
+
+    def test_configs(self):
+        i = 0
+        for config in self._generate_random_configs(n=10):
+            if rospy.is_shutdown():
+                break
+            print 'Test config', i
+            i += 1
+            if config is None:
+                print 'failed'
+                continue
+            self._robot.move_to_config(config=config)
+            pose = self._robot.endpoint_pose(arm=self._arm)
+            print "Pose is [" + (" {: .3f}"*6).format(*pose) + " ]"
+
+    def _move_manual(self):
+        self.logger.info("Manually move the calibration pattern.")
+        c = 'a'
+        while not c == 'r' and not rospy.is_shutdown():
+            s = raw_input("Press [r] to record. ")
+            c = s.lower()
+        pose = self._robot.endpoint_pose(arm=self._arm)
+        self.logger.debug("Pose is [" + (" {: .3f}"*6).format(*pose) + " ]")
+        return True
+
+    def _move_automatic(self):
+        for config in self._generate_random_configs(n=1000):
+            if config is not None:
+                self._robot.move_to_config(config=config)
+                pose = self._robot.endpoint_pose(arm=self._arm)
+                self.logger.debug("Pose is [" + (" {: .3f}"*6).format(*pose) + " ]")
+                return True
+            return False
+
+    def _move(self):
+        if self._automatic:
+            return self._move_automatic()
+        else:
+            return self._move_manual()
+
+    def test_movement(self):
+        mylist = list()
+        while len(mylist) < 5:
+            if rospy.is_shutdown():
+                break
+            ret = self._move()
+            if ret:
+                mylist.append(ret)
+                print 'worked'
+            else:
+                print 'failed'
+        print 'done'
 
     def manual_move_and_grab_data(self, arm):
         self.logger.info("Manually move the calibration pattern.")
@@ -85,89 +191,82 @@ class External(object):
                                                 skeleton=False)
         return bttn, color
 
-    def estimate_hand_trafo(self, n, arm):
+    def estimate_hand_trafo(self, n):
         """Estimate the transformation between Baxter's end effector and the
         origin of the calibration pattern mounted on it using the algorithm
         by Tsai and Lenz.
 
         :param n: The number of absolute end effector poses to use.
-        :param arm: The arm <'left', 'right'> to control.
         :return: The homogeneous transform between TCP and the origin of the
             calibration pattern.
         """
+        if n < 3:
+            raise ValueError("At least 3 poses are needed to compute the "
+                             "transformation!")
         btt = list()
         cto = list()
-        # record n absolute transformation pairs
+        pattern = self._pattern.T[:, np.newaxis, :]
+
+        self.logger.info("Record %d absolute pose and pattern pairs." % n)
         while len(btt) < n and not rospy.is_shutdown():
-            self.logger.debug('try to record pose {} of {}.'.format(len(btt) + 1, n))
-            bttn, color = self.manual_move_and_grab_data(arm=arm)
-            # pose = self._robot.sample_pose(lim=self._lim)
-            # try:
-            #     self._robot.move_to_pose(arm=arm, pose=pose)
-            #     print 'x: {} < {} < {}'.format(self._lim['x_min'], pose[0], self._lim['x_max'])
-            #     print 'y: {} < {} < {}'.format(self._lim['y_min'], pose[1], self._lim['y_max'])
-            #     print 'z: {} < {} < {}'.format(self._lim['z_min'], pose[2], self._lim['z_max'])
-            #     print 'r: {} < {} < {}'.format(self._lim['roll_min'], pose[3], self._lim['roll_max'])
-            #     print 'p: {} < {} < {}'.format(self._lim['pitch_min'], pose[4], self._lim['pitch_max'])
-            #     print 'y: {} < {} < {}'.format(self._lim['yaw_min'], pose[5], self._lim['yaw_max'])
-            # except ValueError:
-            #     continue
-            # bttn = self._robot.hom_gripper_to_robot(arm=arm)
-            #
-            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
-            #                                         skeleton=False)
-            self._pub_vis.publish(img_to_imgmsg(img=color))
-            patternfound, centers = cv2.findCirclesGridDefault(image=color,
-                                                               patternSize=self._patternsize,
-                                                               flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
-            if patternfound == 0:
-                self.logger.debug('no pattern found')
-                continue
-            pattern = self._pattern.T[:, np.newaxis, :]
-            rot, trans, inliers = cv2.solvePnPRansac(objectPoints=pattern,
-                                                     imagePoints=centers,
-                                                     cameraMatrix=self._kinect.color.camera_matrix,
-                                                     distCoeffs=self._kinect.color.distortion_coeff,
-                                                     flags=cv2.CV_ITERATIVE)
-            rot, jacobian = cv2.Rodrigues(rot)
-            cton = np.eye(4)
-            cton[:-1, :-1] = rot
-            cton[:-1, -1] = np.squeeze(trans)
+            if self._move():
+                rospy.sleep(1.0)
+                bttn = self._robot.hom_gripper_to_robot(arm=self._arm)
+                color, _, _ = self._kinect.collect_data(color=True)
 
-            fname = os.path.join(self._sink, '1_tto_{}'.format(len(btt) + 1))
-            cv2.imwrite(fname + '.jpg', color)
-            cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
-                                      corners=centers, patternWasFound=patternfound)
-            cv2.imwrite(fname + '_det.jpg', color)
-            self._pub_vis.publish(img_to_imgmsg(img=color))
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                patternfound, centers = cv2.findCirclesGridDefault(
+                    image=color, patternSize=self._patternsize,
+                    flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+                if patternfound == 0:
+                    self.logger.debug("No pattern found!")
+                    continue
 
-            btt.append(bttn)
-            fname = os.path.join(self._sink, '1_btt_{}.npz'.format(len(btt)))
-            np.savez(fname, bttn=btt[-1])
-            cto.append(cton)
-            fname = os.path.join(self._sink, '1_cto_{}.npz'.format(len(cto)))
-            np.savez(fname, cton=cto[-1])
-        # compute sum_{i=1}^nn-1 relative transform pairs
-        self.logger.debug('Compute {} relative transforms.'.format(sum(range(1, n))))
+                rot, trans, _ = cv2.solvePnPRansac(
+                    objectPoints=pattern, imagePoints=centers,
+                    cameraMatrix=self._kinect.color.camera_matrix,
+                    distCoeffs=self._kinect.color.distortion_coeff,
+                    flags=cv2.CV_ITERATIVE)
+                rot, _ = cv2.Rodrigues(rot)
+                cton = np.eye(4)
+                cton[:-1, :-1] = rot
+                cton[:-1, -1] = np.squeeze(trans)
+
+                fname = os.path.join(self._sink, "1_tto_%d" % (len(btt) + 1))
+                cv2.imwrite(fname + ".jpg", color)
+                cv2.drawChessboardCorners(image=color,
+                                          patternSize=self._patternsize,
+                                          corners=centers,
+                                          patternWasFound=patternfound)
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                cv2.imwrite(fname + "_det.jpg", color)
+
+                btt.append(bttn)
+                fname = os.path.join(self._sink, "1_btt_%d.npz" % len(btt))
+                np.savez(fname, bttn=btt[-1])
+                cto.append(cton)
+                fname = os.path.join(self._sink, "1_cto_%d.npz" % len(cto))
+                np.savez(fname, cton=cto[-1])
+
+        self.logger.info("Compute %d relative transforms." % ((n**2 - n)/2))
         bttij = list()
         ctoij = list()
         for i in range(n):
             for j in range(i + 1, n):
-                bttij.append(np.dot(np.linalg.inv(btt[j]), btt[i]))
-                ctoij.append(np.dot(np.linalg.inv(cto[j]), cto[i]))
-        # apply tsai_lenz_89
-        self.logger.debug('Apply algorithm by Tsai and Lenz (1989).')
+                bttij.append(np.dot(inv_trafo_matrix(btt[j]), btt[i]))
+                ctoij.append(np.dot(cto[j], inv_trafo_matrix(cto[i])))
+
+        self.logger.info('Apply algorithm by Tsai and Lenz (1989).')
         tto = tsai_lenz_89(a=bttij, b=ctoij)
-        fname = os.path.join(self._sink, '1_tto.npz')
+        fname = os.path.join(self._sink, "1_tto.npz")
         np.savez(fname, tto=tto)
         return tto
 
-    def estimate_cam_trafo(self, n, arm, tto):
+    def estimate_cam_trafo(self, n, tto):
         """Estimate the transformation between Baxter's base frame and the
         camera frame using singular value decomposition.
 
         :param n: The number of absolute end effector poses to use.
-        :param arm: The arm <'left', 'right'> to control.
         :param tto: The homogeneous transform between TCP and the origin of
             the calibration pattern.
         :return: The homogeneous transform between Baxter's base frame and
@@ -175,52 +274,54 @@ class External(object):
         """
         bto = list()
         cto = list()
-        # record n absolute point cloud pairs
-        hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
+
+        self.logger.info("Record %d absolute point cloud pairs." % n)
+        pattern = self._pattern.T[:, np.newaxis, :]
+        hom_pattern = np.concatenate([self._pattern,
+                                      np.ones((1, self._pattern.shape[1]))],
+                                     axis=0)
         while len(bto) < n and not rospy.is_shutdown():
-            self.logger.debug('try to record pose {} of {}.'.format(len(bto) + 1, n))
-            bttn, color = self.manual_move_and_grab_data(arm=arm)
-            # pose = self._robot.sample_pose(lim=self._lim)
-            # try:
-            #     self._robot.move_to_pose(arm=arm, pose=pose)
-            # except ValueError:
-            #     continue
-            # bttn = self._robot.hom_gripper_to_robot(arm=arm)
-            #
-            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
-            #                                         skeleton=False)
-            self._pub_vis.publish(img_to_imgmsg(img=color))
-            patternfound, centers = cv2.findCirclesGridDefault(image=color,
-                                                               patternSize=self._patternsize,
-                                                               flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
-            if patternfound == 0:
-                self.logger.debug('no pattern found')
-                continue
-            pattern = self._pattern.T[:, np.newaxis, :]
-            rot, trans, inliers = cv2.solvePnPRansac(objectPoints=pattern,
-                                                     imagePoints=centers,
-                                                     cameraMatrix=self._kinect.color.camera_matrix,
-                                                     distCoeffs=self._kinect.color.distortion_coeff,
-                                                     flags=cv2.CV_ITERATIVE)
-            rot, jacobian = cv2.Rodrigues(rot)
-            cton = np.eye(4)
-            cton[:-1, :-1] = rot
-            cton[:-1, -1] = np.squeeze(trans)
+            if self._move():
+                rospy.sleep(1.0)
+                bttn = self._robot.hom_gripper_to_robot(arm=self._arm)
+                color, _, _ = self._kinect.collect_data(color=True)
 
-            fname = os.path.join(self._sink, '2_tto_{}'.format(len(bto) + 1))
-            cv2.imwrite(fname + '.jpg', color)
-            cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
-                                      corners=centers, patternWasFound=patternfound)
-            cv2.imwrite(fname + '_det.jpg', color)
-            self._pub_vis.publish(img_to_imgmsg(img=color))
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                patternfound, centers = cv2.findCirclesGridDefault(
+                    image=color, patternSize=self._patternsize,
+                    flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+                if patternfound == 0:
+                    self.logger.debug("No pattern found!")
+                    continue
 
-            bto.append(np.dot(np.dot(bttn, tto), hom_pattern))
-            fname = os.path.join(self._sink, '2_bto_{}.npz'.format(len(bto)))
-            np.savez(fname, bttn=bto[-1])
-            cto.append(np.dot(cton, hom_pattern))
-            fname = os.path.join(self._sink, '2_cto_{}.npz'.format(len(cto)))
-            np.savez(fname, cton=cto[-1])
-        # compute affine transformation from 3D point correspondences
+                rot, trans, _ = cv2.solvePnPRansac(
+                    objectPoints=pattern, imagePoints=centers,
+                    cameraMatrix=self._kinect.color.camera_matrix,
+                    distCoeffs=self._kinect.color.distortion_coeff,
+                    flags=cv2.CV_ITERATIVE)
+                rot, _ = cv2.Rodrigues(rot)
+                cton = np.eye(4)
+                cton[:-1, :-1] = rot
+                cton[:-1, -1] = np.squeeze(trans)
+
+                fname = os.path.join(self._sink, "2_tto_%d" % (len(bto) + 1))
+                cv2.imwrite(fname + ".jpg", color)
+                cv2.drawChessboardCorners(image=color,
+                                          patternSize=self._patternsize,
+                                          corners=centers,
+                                          patternWasFound=patternfound)
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                cv2.imwrite(fname + "_det.jpg", color)
+
+                bto.append(np.dot(np.dot(bttn, tto), hom_pattern))
+                fname = os.path.join(self._sink, "2_bto_%d.npz" % len(bto))
+                np.savez(fname, bttn=bto[-1])
+                cto.append(np.dot(cton, hom_pattern))
+                fname = os.path.join(self._sink, "2_cto_%d.npz" % len(cto))
+                np.savez(fname, cton=cto[-1])
+
+        self.logger.info("Compute affine transformation from 3D point "
+                         "correspondences.")
         # see http://stackoverflow.com/questions/15963960/opencv-2-4-estimateaffine3d-in-python
         # data of shape (Nx3)
         cto = np.array(cto).reshape((4, -1)).T[:, :-1]
@@ -238,74 +339,80 @@ class External(object):
         trafo = np.eye(4)
         trafo[:-1, :-1] = rot
         trafo[:-1, -1] = trans
-        fname = os.path.join(self._sink, '2_btc.npz')
+        fname = os.path.join(self._sink, "2_btc.npz")
         np.savez(fname, btc=trafo)
         return trafo
 
-    def visual_test(self, arm, tto, btc):
+    def visual_test(self, tto, btc):
         """Visualize the result of the calibration.
         Compute the robot coordinates of the calibration pattern. Then project
         them to camera space and compute corresponding pixel coordinates. Draw
         them onto the image to see if the markings are reasonable close to the
         marks on the calibration pattern.
 
-        :param arm: The arm <'left', 'right'> to control.
         :param tto: The homogeneous transform between TCP and the origin of
             the calibration pattern.
         :param btc: The homogeneous transform between Baxter's base frame and
             the camera frame.
         :return:
         """
+        hom_pattern = np.concatenate([self._pattern,
+                                      np.ones((1, self._pattern.shape[1]))],
+                                     axis=0)
+        tcp_pattern = np.dot(tto, hom_pattern)
+        btc_inv = inv_trafo_matrix(trafo=btc)
+
+        self.logger.info("Detect pattern and compare it with estimate.")
         patternfound = 0
         while patternfound == 0 and not rospy.is_shutdown():
-            self.logger.debug("try to find verification pattern.")
-            btt, color = self.manual_move_and_grab_data(arm=arm)
-            # pose = self._robot.sample_pose(lim=self._lim)
-            # try:
-            #     self._robot.move_to_pose(arm=arm, pose=pose)
-            # except ValueError:
-            #     continue
-            # color, _, _ = self._kinect.collect_data(color=True, depth=False,
-            #                                         skeleton=False)
-            patternfound, centers = cv2.findCirclesGridDefault(image=color,
-                                                               patternSize=self._patternsize,
-                                                               flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
-            if patternfound == 0:
-                self.logger.debug('no pattern found')
-        # btt = self._robot.hom_gripper_to_robot(arm=arm)
-        cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
-                                  corners=centers, patternWasFound=patternfound)
-        self._pub_vis.publish(img_to_imgmsg(img=color))
-        centers = centers[:, 0, :]
+            if self._move():
+                rospy.sleep(1.0)
+                btt = self._robot.hom_gripper_to_robot(arm=self._arm)
+                color, _, _ = self._kinect.collect_data(color=True)
 
-        hom_pattern = np.concatenate([self._pattern, np.ones((1, self._pattern.shape[1]))], axis=0)
-        tcp_pattern = np.dot(tto, hom_pattern)
-        rob_pattern = np.dot(btt, tcp_pattern)
-        cam_pattern = np.dot(inv_trafo_matrix(trafo=btc), rob_pattern)
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                patternfound, centers = cv2.findCirclesGridDefault(
+                    image=color, patternSize=self._patternsize,
+                    flags=cv2.CALIB_CB_ASYMMETRIC_GRID)
+                if patternfound == 0:
+                    self.logger.debug("No pattern found!")
+                    continue
 
-        pixels = np.zeros_like(centers)
-        for i in xrange(cam_pattern.shape[1]):
-            coord = list(cam_pattern[:-1, i])
-            print i, coord,
-            pixels[i] = self._kinect.color.projection_camera_to_pixel(position=coord)
-            # flip in y direction
-            pixels[i, 0] = color.shape[1] - pixels[i, 0]
-            print centers[i], pixels[i]
-            cv2.circle(color, tuple(int(x) for x in pixels[i]), 3,
-                       [255, 0, 0] if i == 0 else [0, 255, 0], 2)
-        # cv2.drawChessboardCorners(image=color, patternSize=self._patternsize,
-        #                           corners=pixels[:, np.newaxis, :],
-        #                           patternWasFound=patternfound)
-        self._pub_vis.publish(img_to_imgmsg(img=color))
+                fname = os.path.join(self._sink, "3_vis")
+                cv2.imwrite(fname + ".jpg", color)
+                cv2.drawChessboardCorners(image=color,
+                                          patternSize=self._patternsize,
+                                          corners=centers,
+                                          patternWasFound=patternfound)
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                cv2.imwrite(fname + "_det.jpg", color)
 
-        delta = centers - pixels
-        self.logger.info("Offset in detected and estimated pixel coordinates:")
-        self.logger.info("Mean:   {}".format(delta.mean(axis=0)))
-        self.logger.info("Std:    {}".format(delta.std(axis=0)))
-        self.logger.info("Median: {}".format(np.median(delta, axis=0)))
+                centers = centers[:, 0, :]
+                rob_pattern = np.dot(btt, tcp_pattern)
+                cam_pattern = np.dot(btc_inv, rob_pattern)
+                pixels = np.zeros_like(centers)
+                for i in xrange(cam_pattern.shape[1]):
+                    coord = list(cam_pattern[:-1, i])
+                    print i, coord,
+                    pixels[i] = self._kinect.color.projection_camera_to_pixel(
+                        position=coord)
+                    # flip in y direction
+                    pixels[i, 0] = color.shape[1] - pixels[i, 0]
+                    print centers[i], pixels[i]
+                    cv2.circle(color, tuple(int(x) for x in pixels[i]), 3,
+                               [255, 0, 0] if i == 0 else [0, 255, 0], 2)
+                self._pub_vis.publish(img_to_imgmsg(img=color))
+                cv2.imwrite(fname + "_est.jpg", color)
+
+                delta = centers - pixels
+                self.logger.info("Offset in detected and estimated pixel "
+                                 "coordinates:")
+                self.logger.info("Mean:   {}".format(delta.mean(axis=0)))
+                self.logger.info("Std:    {}".format(delta.std(axis=0)))
+                self.logger.info("Median: {}".format(np.median(delta, axis=0)))
 
 
-def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
+def perform_external_calibration(arm='left', n1=3, n2=1, automatic=True, root_dir=''):
     """Perform external camera calibration.
 
     :param arm: The arm <'left', 'right'> to control.
@@ -338,28 +445,28 @@ def perform_external_calibration(arm='left', n1=3, n2=1, root_dir=''):
         [0, 0, 0, 1]
     ])
 
-    cal = External(root_dir=root_dir)
+    cal = External(arm=arm, automatic=automatic, root_dir=root_dir)
 
-    cal.logger.info('First, estimate trafo from pattern to TCP ...')
-    if pth is None:
-        tto = cal.estimate_hand_trafo(n=n1, arm=arm)
-    else:
-        with np.load(os.path.join(pth, '1_tto.npz')) as fp:
-            tto = fp['tto']
+    cal.logger.info("First, estimate trafo from pattern to TCP ...")
+    # if pth is None:
+    #     tto = cal.estimate_hand_trafo(n=n1)
+    # else:
+    with np.load(os.path.join(pth, "1_tto.npz")) as fp:
+        tto = fp["tto"]
     cal.logger.info("Estimated hand trafo is {}.".format(pp_flat(tto)))
     cal.logger.info("Expected was similar to {}.".format(pp_flat(tto_default)))
 
-    cal.logger.info('Second, estimate trafo from camera to robot base ...')
-    if pth is None:
-        btc = cal.estimate_cam_trafo(n=n2, arm=arm, tto=tto)
-    else:
-        with np.load(os.path.join(pth, '2_btc.npz')) as fp:
-            btc = fp['btc']
+    cal.logger.info("Second, estimate trafo from camera to robot base ...")
+    # if pth is None:
+    btc = cal.estimate_cam_trafo(n=n2, tto=tto)
+    # else:
+    #     with np.load(os.path.join(pth, "2_btc.npz")) as fp:
+    #         btc = fp["btc"]
             # btc = inv_trafo_matrix(btc)
     cal.logger.info("Estimated camera trafo is {}.".format(pp_flat(btc)))
     cal.logger.info("Expected was similar to   {}.".format(pp_flat(btc_default)))
 
-    cal.logger.info('Third, visualize result ...')
-    cal.visual_test(arm=arm, tto=tto, btc=btc)
+    cal.logger.info("Third, visualize estimate ...")
+    cal.visual_test(tto=tto_default, btc=btc_default)
     cal._robot.clean_up(gripper=False)
     return btc
