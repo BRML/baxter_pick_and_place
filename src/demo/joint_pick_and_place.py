@@ -390,17 +390,25 @@ class PickAndPlace(object):
                 'give it to you' if tgt_id == 'hand' else 'put it on the table')
             )
 
-            self._logger.info('Looking for {} and estimate its pose.'.format(obj_id))
+            self._logger.info('Looking for {} and estimate its '
+                              'pose.'.format(obj_id))
             if obj_id == 'hand':
                 arm = None
-                estimate = self._camera.estimate_hand_position()
-                while estimate is None:
-                    self._logger.warning("No hand position estimate was found! "
-                                         "Please relocate your hand holding the object.")
-                    # TODO: adapt this sleep time
-                    rospy.sleep(1.0)
-                    estimate = self._camera.estimate_hand_position()
-                obj_pose = estimate[0] + [np.pi, 0.0, np.pi]
+                while not rospy.is_shutdown():
+                    obj_pose = self._camera.estimate_hand_position(
+                        hand=settings.human_hand)
+                    if obj_pose is None:
+                        self._logger.warning("No hand position estimate was found!")
+                    elif not self._is_in_task_space(pose=obj_pose):
+                        self._logger.warning("Hand position estimate is not "
+                                             "within task space!")
+                        obj_pose = None
+                    else:
+                        break
+                    self._logger.info("Please relocate your {} hand holding "
+                                      "the object.".format(settings.human_hand))
+                    rospy.sleep(2.0)
+                obj_pose += [np.pi, 0.0, np.pi]
             else:
                 arm = self._robot.select_gripper_for_object(object_id=obj_id)
                 # img_color, img_depth, _ = self._camera.collect_data(color=True,

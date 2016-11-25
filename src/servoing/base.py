@@ -93,8 +93,10 @@ class Servoing(object):
             # self._pub_vis.publish(img_to_imgmsg(img=seg['mask']))
             # rospy.sleep(self._tsleep)
 
-            handstring = ' in hand' if object_id is 'hand' else ''
+            handstring = ' in hand' if object_id == 'hand' else ''
             if seg['mask'] is not None:
+                seg['id'] = det['id']
+                seg['score'] = det['score']
                 self._logger.debug("Segmented {}{}.".format(seg['id'], handstring))
                 # place segmentation in appropriate place in image
                 seg['box'] += np.array([xul, yul, xul, yul])
@@ -102,8 +104,6 @@ class Servoing(object):
                 h, w = seg['mask'].shape[:2]
                 mask[yul:yul+h, xul:xul+w] = seg['mask']
                 seg['mask'] = mask
-                seg['id'] = det['id']
-                seg['score'] = det['score']
                 draw_detection(image=image, detections=seg)
                 rroi = mask_to_rroi(mask=seg['mask'])
             else:
@@ -114,7 +114,7 @@ class Servoing(object):
         draw_rroi(image=image, rroi=rroi)
         self._pub_vis.publish(img_to_imgmsg(img=image))
         rospy.sleep(self._tsleep)
-        return rroi
+        return rroi, det['id']
 
     def estimate_distance(self, object_id, rroi, arm):
         """Estimate the distance to the object.
@@ -228,11 +228,13 @@ class Servoing(object):
         while not rospy.is_shutdown():
             img = self._robot.cameras[arm].collect_image()
             try:
-                rroi = self._find_rotated_enclosing_rect(image=img,
-                                                         object_id=object_id)
+                rroi, oid = self._find_rotated_enclosing_rect(image=img,
+                                                              object_id=object_id)
             except ValueError as e:
                 self._logger.error(e)
                 return False
+            if object_id == 'hand':
+                object_id = oid
             camera_error = self._error(image_size=img.shape[:2],
                                        object_id=object_id, rroi=rroi,
                                        arm=arm)
