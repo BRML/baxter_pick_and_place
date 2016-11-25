@@ -504,7 +504,10 @@ class PickAndPlace(object):
                         self._robot.move_to_config(config=appr_cfg)
                 else:
                     new_pose = self._dither_pose(pose=appr_pose, fix_z=True)
-                    self._move_to_pose_or_dither(arm=arm, pose=new_pose, fix_z=True)
+                    try:
+                        self._robot.move_to_pose(arm=arm, pose=new_pose)
+                    except ValueError:
+                        continue
             self._logger.info("Successfully grasped the object.")
             self._move_to_pose_or_raise(arm=arm, pose=settings.top_pose)
 
