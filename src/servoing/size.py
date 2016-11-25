@@ -43,10 +43,13 @@ class ServoingSize(Servoing):
         :return: The approximate distance from the gripper to the object.
         """
         size_meters = self._object_size_meters[object_id]
-        size_pixels = max(rroi[1])
-
-        dist_cam_obj = size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
-        return dist_cam_obj - abs(self._robot.cam_offset[2])
+        size_pixels = min(rroi[1])
+        print 'size in m: ', size_meters
+        print 'size in px:', size_pixels
+        dist_cam_obj = size_pixels/size_meters*self._robot.cameras[arm].meters_per_pixel
+        # dist_cam_obj = size_meters/(size_pixels*self._robot.cameras[arm].meters_per_pixel)
+        print 'est. dist: ', dist_cam_obj
+        return dist_cam_obj  # - abs(self._robot.cam_offset[2])
 
     def correct_height(self, arm):
         """Make sure the gripper height is appropriate before attempting to
