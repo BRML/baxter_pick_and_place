@@ -12,7 +12,7 @@ Otherwise it is sufficient to
 Note that it might make sense to repeat some parts of the calibration every once in a while.
 
 
-In the following, we assume that the Human-Baxter collaboration framework has been installed as described [here](install.md) into a catkin workspace called `$WS_HBCF`.  
+In the following, we assume that the Human-Baxter collaboration framework has been installed as described [here](../install.md) into a catkin workspace called `$WS_HBCF`.  
 
 
 ### Preliminaries
