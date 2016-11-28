@@ -57,7 +57,7 @@ class Demonstration(object):
         self._sim = sim_or_real()
         self._environment = Environment(root_dir=ros_ws,
                                         # TODO replace with object_set[1:],
-                                        object_ids=['duplo_brick', 'robot'],
+                                        object_ids=[],
                                         ws_limits=settings.world_space_limits_m)
         self._robot = Baxter(sim=self._sim)
         self._camera = Kinect(root_dir=ros_ws, host=settings.elte_kinect_win_host)

@@ -4,7 +4,7 @@
   <version>0.0.0</version>
   <description>
     Pick and place demonstration with the baxter research robot in
-    collaboration with DFKI Saarbruecken.
+    collaboration with ELTE (Budapest) and DFKI (Saarbruecken).
   </description>
 
   <maintainer email="ludersdorfer@fortiss.org">Marvin Ludersdorfer</maintainer>
@@ -15,7 +15,6 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>baxter_core_msgs</build_depend>
-  <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>roscpp</build_depend>
@@ -26,7 +25,6 @@
   <build_depend>std_srvs</build_depend>
 
   <run_depend>baxter_core_msgs</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>roscpp</run_depend>

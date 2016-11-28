@@ -6,9 +6,6 @@ data/ResNet-101/*
 !data/VGG16/fetch_*
 data/VGG16/*
 !data/VGG16/fetch_*_model.sh
-!data/synthetic_demo_data/
-data/synthetic_demo_data/*
-!data/synthetic_demo_data/*_cascade.xml
 
 log/*
 
