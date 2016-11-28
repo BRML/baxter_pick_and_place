@@ -95,7 +95,7 @@ There also is a launch file that collects the separate steps above into
 one file.
 To [start up the simulation environment and] run the experiment, do
 ```bash
-$ cd ~/ros_baxter_pnp_ws
+$ cd $WS_HBCF
 $ . baxter.sh [sim]
 $ roslaunch baxter_pick_and_place demonstration.launch [gazebo:=true] [record_vis:=true]
 ```
