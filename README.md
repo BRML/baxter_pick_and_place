@@ -1,198 +1,49 @@
-# The Baxter pick-and-place demonstration framework
-This repository contains BRML's Baxter pick &amp; place demonstration
-framework. It was implemented as part of the [EIT CPS for Smart Factories
-project](http://dfki.de/smartfactories/), in collaboration with the [Neural
-Information Processing Group](http://nipg.inf.elte.hu/) at ELTE, Budapest,
-Hungary and [DFKI](http://dfki.de/web) Saarbruecken, Germany.
+# Introducing the Human-Baxter Collaboration Framework
 
-The framework heavily builds upon the 
-[Baxter SDK](https://github.com/RethinkRobotics) and depends on customized 
-versions of [baxter_interface](https://github.com/BRML/baxter_interface.git)
-and [baxter_common](https://github.com/BRML/baxter_common.git) from Rethink
-Robotics. For the simulation in Gazebo, the
-[depth_sensors](https://github.com/BRML/depth_sensors.git) package is
-utilized.
+This repository contains [BRML](https://brml.org/brml/)'s Human-Baxter collaboration framework. 
+It was implemented as part of the [EIT CPS for Smart Factories project](http://dfki.de/smartfactories/), in collaboration with the [Neural Information Processing Group](http://nipg.inf.elte.hu/) at ELTE, Budapest, Hungary and [DFKI](http://dfki.de/web) Saarbruecken, Germany.
 
 
-## Description of demonstration
-An eye tracker is used to select and trigger an object lying on a table in 
-front of the baxter robot. A network service is used to classify the selected 
-object and returns 5 object labels and their respective probabilities of being 
-the object being asked for. 
+## Overview
 
-The baxter robot looks for objects on the table, selects the most probable 
-object and estimates its pose on the table using machine learning techniques, 
-picks it up and places it in a bin it detected previously.
+The Human-Baxter collaboration framework aims at being a modular, easy to modify and adapt, framework for collaborative experiments with human collaborators and a [Baxter research robot](http://www.rethinkrobotics.com/research-education/).
 
-
-## Description of software
-In this [ROS](http://www.ros.org/) package the previously described pick-and-
-place demonstration with the
-[Baxter research robot](http://www.rethinkrobotics.com/research-education/) 
-is implemented.
-
-The demonstration can be run both on the real robot as well as in the 
-[Gazebo](http://gazebosim.org/)-powered 
-[Baxter simulator](http://sdk.rethinkrobotics.com/wiki/Baxter_Simulator).
+The distributed pick-and-place scenario integrates the Baxter robot, the Microsoft Kinect V2 sensor and deep neural networks to detect, pick up and place objects.
+Three types of experiments are possible:
+- picking and placing an object on a table,
+- handing over an object to a human collaborator and
+- taking over an object from a human collaborator.
 
 
-## How to install and use
-The Baxter pick and place demonstration is implemented as a ROS package.
-It requires a development workstation with 
-[Ubuntu 14.04](http://releases.ubuntu.com/14.04/) and 
-[ROS Indigo](http://wiki.ros.org/indigo) installed.
+## Dependencies and Requirements
 
-> Note: If you have Ubuntu, ROS and and the Baxter SDK dependencies already 
-> installed, you only need to perform steps 3, 5 and 6 to clone, install and 
-> setup the Baxter data acquisition framework!
+Two possibilities to use the Human-Baxter collaboration framework exist.
+You either need the open source [Baxter simulator](http://sdk.rethinkrobotics.com/wiki/Baxter_Simulator) or access to a [Baxter research robot](http://www.rethinkrobotics.com/research-education/).
 
-### Step 1: Install Ubuntu
-Follow the standard Ubuntu Installation Instructions for 14.04 (Desktop).
+The Kinect V2 can be interfaced either on Ubuntu/ROS via the [iai_kinect2](https://github.com/code-iai/iai_kinect2) package (no skeleton tracking) or via a web socket connection and the ELTE Kinect Windows tool running on a Windows machine.
 
-### Step 2: Install ROS Indigo
-Configure your Ubuntu repositories to allow "restricted," "universe," and 
-"multiverse."
-
-#### Setup your sources.list
-```bash
-$ sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu trusty main" > /etc/apt/sources.list.d/ros-latest.list'
-```
-
-#### Setup your keys
-```bash
-$ wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
-```
-
-#### Verify latest debians, install ROS Indigo Desktop Full and rosinstall
-```bash
-$ sudo apt-get update
-$ sudo apt-get install ros-indigo-desktop-full
-$ sudo rosdep init
-$ rosdep update
-$ sudo apt-get install python-rosinstall
-```
-
-### Step 3: Create ROS workspace
-```bash
-$ mkdir -p ~/ros_baxter_pnp_ws/src
-$ source /opt/ros/indigo/setup.bash
-$ cd ~/ros_baxter_pnp_ws
-$ catkin_make
-$ catkin_make install
-```
-
-### Step 4: Install Baxter SDK- and Baxter simulator dependencies
-```bash
-$ sudo apt-get update
-$ sudo apt-get install git-core python-argparse python-wstool python-vcstools python-rosdep ros-indigo-control-msgs ros-indigo-joystick-drivers
-$ sudo apt-get install gazebo2 ros-indigo-qt-build ros-indigo-driver-common ros-indigo-gazebo-ros-control ros-indigo-gazebo-ros-pkgs ros-indigo-ros-control ros-indigo-control-toolbox ros-indigo-realtime-tools ros-indigo-ros-controllers ros-indigo-xacro python-wstool ros-indigo-tf-conversions ros-indigo-kdl-parser
-```
-
-### Step 5: Install this package and its dependencies
-Using the [wstool](http://wiki.ros.org/wstool) workspace tool, you will 
-checkout all required Github repositories into your ROS workspace source 
-directory.
-```bash
-$ cd ~/ros_baxter_pnp_ws/src
-$ wstool init .
-$ wstool merge https://raw.githubusercontent.com/BRML/baxter_rosinstall/master/baxter_pnp.rosinstall
-$ wstool update
-$ source /opt/ros/indigo/setup.bash
-$ cd ~/ros_baxter_pnp_ws
-$ catkin_make
-$ catkin_make install
-```
-
-### Step 6: Configure Baxter communication/ROS workspace
-The [baxter.sh](http://sdk.rethinkrobotics.com/wiki/Baxter.sh) script is a 
-convenient script which allows for intuitive modification of the core ROS 
-environment components. 
-This user edited script will allow for the quickest and easiest ROS setup.
-Further information and a detailed description is available on the 
-[baxter.sh](http://sdk.rethinkrobotics.com/wiki/Baxter.sh) page.
-
-#### Download the baxter.sh script
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ wget https://github.com/RethinkRobotics/baxter/raw/master/baxter.sh
-$ chmod u+x baxter.sh
-```
-
-#### Customize the baxter.sh script
-Using your favorite editor, edit the baxter.sh shell script making the 
-necessary modifications to describe your development workstation.
-
-- Edit the `baxter_hostname` field to match the hostname of your Baxter 
-robot.
-- Edit **either** the `your_ip` **or** the `your_hostname` field to 
-match the IP or hostname of your development workstation.
-Only one of those fields can be active at a time.
-The other variable should be commented out!
-
-#### Initialize your SDK environment
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ . baxter.sh
-```
-
-#### Verify environment
-To verify that all your changes are applied correctly, perform
-```bash
-$ env | grep ROS
-```
-The important fields at this point are
-
-- **ROS_MASTER_URI** (this should now contain your robot's hostname)
-- **ROS_IP** or **ROS_HOSTNAME** (this should now contain your development
-workstation's ip address or hostname. The unused field should **not** be 
-available!)
+The framework heavily builds upon the [Baxter SDK](https://github.com/RethinkRobotics) and depends on customized versions of [baxter_interface](https://github.com/BRML/baxter_interface.git) and [baxter_common](https://github.com/BRML/baxter_common.git) from [Rethink Robotics](http://www.rethinkrobotics.com/). 
+For the simulation in Gazebo, the [depth_sensors](https://github.com/BRML/depth_sensors.git) package is utilized.
+For image processing we rely on the [OpenCV](http://opencv.org/) library.
 
 
-## Run the demonstration
-To run the demonstration, initialize your SDK environment and `rosrun` the 
-demonstration.
-That is, do
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ . baxter.sh
-$ rosrun baxter_pick_and_place demonstration.py -n N
-```
-where `N` is the number of objects the robot is supposed to pick up and place 
-in a bin.
-
-Use the `-h` command line option to learn more about the demonstration and its
-required and optional parameters.
+The framework has been tested with ROS Indigo on Ubuntu 14.04.
+For the simulator running in [Gazebo](http://gazebosim.org/) a machine with (any) NVIDIA GPU has been proven useful.
+For the object detection using [faster R-CNN](https://github.com/rbgirshick/py-faster-rcnn) a GPU with at least 2GB RAM is required.
+For the object segmentation using [MNC](https://github.com/daijifeng001/MNC) a GPU with at least 7 GB RAM are required (not used in the pick-and-place scenario distributed with the framework).
+We made good experiences with NVIDIA Quadro K2200 and NVIDIA TITAN X GPUs.
 
 
-## Run the demonstration in simulation mode
-To start up the simulation environment (Gazebo) and run the demonstration, 
-initialize your SDK environment in simulation mode, `roslaunch` the simulator
-and `rosrun` the demonstration.
-That is, in a terminal do
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ . baxter.sh sim
-$ roslaunch baxter_pick_and_place simulation.launch
-```
-In another terminal do
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ . baxter.sh sim
-$ rosrun baxter_pick_and_place demonstration.py -n N
-```
-where `N` describes the number of objects to pick up as it does for the 
-demonstration with the real Baxter robot.
+## License
 
-Note: The `roslaunch` files have parameters to modify their behavior. Please
-have a look at the files for more information.
+We publish the Human-Baxter collaboration framework under a BSD license, hoping that it might be useful for others as well.
+The license text can be found in the LICENSE file and can be obtained from the [Open Source Initiative](https://opensource.org/licenses/BSD-2-Clause).
 
 
-### Demonstration convenience launch file
-There also is a launch file that collect the two separate steps above into
-one file.
-To start up the simulation environment and run the demonstration, do
-```bash
-$ cd ~/ros_baxter_pnp_ws
-$ . baxter.sh sim
-$ roslaunch baxter_pick_and_place demonstration.launch number:=N
-```
+## Installation
+
+The framework is implemented as several [ROS](http://www.ros.org/) packages that can be installed conveniently as described [here](install.md).
+
+
+## Usage
+How to run the distributed pick-and-place scenario is explained in detail [here](scripts/README.md).
