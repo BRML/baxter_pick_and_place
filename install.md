@@ -78,7 +78,7 @@ Further information and a detailed description is available on the
 
 #### Download the baxter.sh script
 ```bash
-$ cd ~/ros_baxter_pnp_ws
+$ cd $WS_HBCF
 $ wget https://github.com/RethinkRobotics/baxter/raw/master/baxter.sh
 $ chmod u+x baxter.sh
 ```
@@ -96,7 +96,7 @@ The other variable should be commented out!
 
 #### Initialize your SDK environment
 ```bash
-$ cd ~/ros_baxter_pnp_ws
+$ cd $WS_HBCF
 $ . baxter.sh
 ```
 
