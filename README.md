@@ -39,19 +39,6 @@ We made good experiences with NVIDIA Quadro K2200 and NVIDIA TITAN X GPUs.
 We publish the Human-Baxter collaboration framework under a BSD license, hoping that it might be useful for others as well.
 The license text can be found in the LICENSE file and can be obtained from the [Open Source Initiative](https://opensource.org/licenses/BSD-2-Clause).
 
-
-## Installation
-
-The framework is implemented as several [ROS](http://www.ros.org/) packages that can be installed conveniently as described [here](install.md).
-
-
-## Usage
-
-How to run the distributed pick-and-place scenario is explained in detail [here](scripts/README.md).
-
-
-## Citation
-
 If you find our Human-Baxter collaboration framework useful in your work, please consider citing it:
 ```
 @misc{hbcf2016,
@@ -64,3 +51,12 @@ If you find our Human-Baxter collaboration framework useful in your work, please
     note={Accessed November 30, 2016}
 }
 ```
+
+## Installation
+
+The framework is implemented as several [ROS](http://www.ros.org/) packages that can be installed conveniently as described [here](install.md).
+
+
+## Usage
+
+How to run the distributed pick-and-place scenario is explained in detail [here](scripts/README.md).
