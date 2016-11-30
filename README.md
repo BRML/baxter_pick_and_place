@@ -60,3 +60,8 @@ The framework is implemented as and uses several [ROS](http://www.ros.org/) pack
 ## Usage
 
 How to run the distributed pick-and-place scenario is explained in detail [here](scripts/README.md).
+
+
+## Acknowledgements
+
+We thank Aron Fothi, Mike Olasz, Andras Sarkany and Zoltan Toser from the [Neural Information Processing Group](http://nipg.inf.elte.hu/) at ELTE for their help and many valuable discussions. 
