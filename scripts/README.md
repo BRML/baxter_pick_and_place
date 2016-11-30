@@ -58,10 +58,10 @@ Additionally, you will need a flat piece of wood or acrylic glass of about 21 x 
 Print the [calibration pattern](http://docs.opencv.org/2.4.13/_downloads/acircles_pattern.png) and make sure that its dimensions are preserved by the printer.
 When gluing the patten onto the mount (after it has been screwed to the hand of the robot), make sure that it is completely flat! 
 
-![Image of back side of hand mount](../models/mount/mount-back.jpg)
-![Image of front side of hand mount](../models/mount/mount-front.jpg)
-![Image of mounted hand mount](../models/mount/mounted.jpg)
-![Image of hand mount with calibration pattern](../models/mount/mount-pattern.jpg)
+![Image of back side of hand mount](../models/mount/mount-back.jpg | width=100)
+![Image of front side of hand mount](../models/mount/mount-front.jpg | width=100)
+![Image of mounted hand mount](../models/mount/mounted.jpg | width=100)
+![Image of hand mount with calibration pattern](../models/mount/mount-pattern.jpg | width=100)
 
 
 
