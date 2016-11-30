@@ -30,7 +30,7 @@ For image processing we rely on the [OpenCV](http://opencv.org/) library.
 The framework has been tested with ROS Indigo on Ubuntu 14.04.
 For the simulator running in [Gazebo](http://gazebosim.org/) a machine with (any) NVIDIA GPU has been proven useful.
 For the object detection using [faster R-CNN](https://github.com/rbgirshick/py-faster-rcnn) a GPU with at least 2GB RAM is required.
-For the object segmentation using [MNC](https://github.com/daijifeng001/MNC) a GPU with at least 7 GB RAM are required (not used in the pick-and-place scenario distributed with the framework).
+For the object detection using [R-FCN](https://github.com/Orpine/py-R-FCN) and object segmentation using [MNC](https://github.com/daijifeng001/MNC) a GPU with at least 7 GB RAM are required.
 We made good experiences with NVIDIA Quadro K2200 and NVIDIA TITAN X GPUs.
 
 
@@ -54,7 +54,7 @@ If you find our Human-Baxter collaboration framework useful in your work, please
 
 ## Installation
 
-The framework is implemented as several [ROS](http://www.ros.org/) packages that can be installed conveniently as described [here](install.md).
+The framework is implemented as and uses several [ROS](http://www.ros.org/) packages that can be installed conveniently as described [here](install.md).
 
 
 ## Usage
