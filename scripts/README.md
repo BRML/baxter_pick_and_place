@@ -15,17 +15,62 @@ Note that it might make sense to repeat some parts of the calibration every once
 In the following, we assume that the Human-Baxter collaboration framework has been installed as described [here](../install.md) into a catkin workspace called `$WS_HBCF`.  
 
 
-### Preliminaries
-
-TBD
+## Preliminaries
 
 
-### Calibration
+### Obtain pre-trained Caffe Model
 
-TBD
+To use R-FCN for object detection we first download the pre-trained weights for the Caffe model:
+```bash
+$ cd $WS_HBCF/data/ResNet-101
+$ . fetch_rfcn.sh
+```
 
 
-### Run the Experiment
+### Calibrate Kinect V2 Sensor
+
+It is advised that you calibrate your Kinect V2 once.
+To do so, connect your sensor and run
+```bash
+$ cd $WS_HBCF/src/iai_kinect2
+$ source /opt/ros/indigo/setup.bash
+$ roslaunch kinect2_bridge kinect2_bridge.launch
+```
+
+Calibrate your sensor using the `kinect2_calibration`.
+Follow the instructions [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration).
+We obtained good results with the *chess5x7x0.03* pattern and the guidelines laid out in Wiedemeyer's second comment [here](https://github.com/code-iai/iai_kinect2/issues/311).
+
+Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder.
+See [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps) for further details.
+
+Restart `kinect2_bridge` such that it uses the new calibration.
+
+
+### Assemble the Hand Mount for the External Calibration
+For the external calibration of the Kinect V2 sensor relative to the Baxter robot a hand-mounted calibration pattern is used.
+The hand mount has been designed in [OpenSCAD](http://www.openscad.org/) to replace the fingers of the electrical gripper.
+The original CAD file and the derived STL file can be found in `$WS_HBCF/models/mount`.
+
+3D print the hand mount.
+Additionally, you will need a flat piece of wood or acrylic glass of about 21 x 25 cm, a drill and some screws.
+
+Print the [calibration pattern](http://docs.opencv.org/2.4.13/_downloads/acircles_pattern.png) and make sure that its dimensions are preserved by the printer.
+When gluing the patten onto the mount (after it has been screwed to the hand of the robot), make sure that it is completely flat! 
+
+![Image of back side of hand mount](../models/mount/mount-back.jpg)
+![Image of front side of hand mount](../models/mount/mount-front.jpg)
+![Image of mounted hand mount](../models/mount/mounted.jpg)
+![Image of hand mount with calibration pattern](../models/mount/mount-pattern.jpg)
+
+
+
+## Calibration
+
+Copy 
+
+
+## Run the Experiment
 
 Using the Kinect sensor requires some preparation:
 - If you are intending to use the Kinect V2 on Windows, make sure to plug it in and run the ELTE Kinect Windows tool on the Windows machine.
@@ -42,7 +87,7 @@ To follow the progress of the experiment visual information is published to a RO
 To show the visualization, type (in two terminals with initialized SDK environment) `rosrun baxter_pick_and_place inspection.py` and `rosrun image_view image_view image:=/visualization/image`.
 
 
-#### On the Robot
+### On the Robot
 
 To run the pick-and-place experiment, initialize your SDK environment and `rosrun` the experiment.
 That is, do
@@ -60,7 +105,7 @@ $ rosrun baxter_pick_and_place instruct.py
 and follow the instructions in the terminal.
 
 
-#### In Simulation
+### In Simulation
 
 To start up the simulation environment (Gazebo) and run the demonstration, 
 initialize your SDK environment in simulation mode, `roslaunch` the simulator

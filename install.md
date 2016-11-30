@@ -104,6 +104,8 @@ $ cd $WS_HBCF
 $ catkin_make -DCMAKE_BUILD_TYPE="Release"
 $ catkin_make install
 ```
+**Note**: `rosdep` will output errors about not being able to locate `[kinect2_bridge]` and `[depth_registration]`.
+That is fine, since those are part of the `iai_kinect2` package.
 
 We now install [R-FCN](https://github.com/Orpine/py-R-FCN#requirements-software) for object detection using deep neural networks into `$DEVEL` (default in the framework settings is `~/software`).
 Please refer to the [Caffe installation instructions](http://caffe.berkeleyvision.org/installation.html) if anything is unclear.
