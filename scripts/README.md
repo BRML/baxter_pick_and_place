@@ -39,7 +39,7 @@ $ roslaunch kinect2_bridge kinect2_bridge.launch
 
 Calibrate your sensor using the `kinect2_calibration`.
 Follow the instructions [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_calibration).
-We obtained good results with the *chess5x7x0.03* pattern and the guidelines laid out in Wiedemeyer's second comment [here](https://github.com/code-iai/iai_kinect2/issues/311).
+We obtained good results with the [*chess5x7x0.03* pattern](https://github.com/code-iai/iai_kinect2/blob/master/kinect2_calibration/patterns/chess5x7x0.03.pdf) and the guidelines laid out in Wiedemeyer's second comment [here](https://github.com/code-iai/iai_kinect2/issues/311).
 
 Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder.
 See [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps) for further details.
@@ -66,7 +66,28 @@ When gluing the patten onto the mount (after it has been screwed to the hand of 
 
 ## Calibration
 
-Copy 
+The calibration performed for the distributed pick-and-place scenario consists of three parts:
+
+1. Estimate the table height in Baxter's base coordinates.
+1. Obtain reference images of the (empty) table to find empty spots for placing objects.
+1. Estimate the external calibration (the pose (= position and orientation) of the Kinect V2 sensor relative to Baxter's base coordinates). 
+
+If you run `rosrun baxter_pick_and_place demonstration.py` the program will guide you through the first two calibration tasks (table height and table view).
+
+If you run the experiment in simulation mode (see below), the external calibration basically comes for free.
+Otherwise, an estimate for the external parameters can be obtained, e.g., using the algorithm by Tsai and Lenz (1989).
+In this case, attach the previously prepared and assembled hand mounted calibration pattern to one of Baxter's limbs.
+Plug in your Kinect V2 sensor and position it such that it has a clear view of Baxter and the task space.
+In both cases, run
+```bash
+$ cd $WS_HBCF
+$ . baxter.sh [sim]
+$ rosrun baxter_pick_and_place calibrate_external.py
+``` 
+to perform the external calibration.
+
+The three calibration routines will create files `table_height.npz`, `table_view.npz` and `external_parameters.npz` in `$WS_HBCF/data/setup`.
+To repeat a calibration step (e.g., when lighting conditions change drastically (`table_view.npz`) or when switching from simulation to the real robot (`external_calibration.npz`)) manually delete the corresponding file and run the `calibrate_external.py` or `demonstration.py` script again.
 
 
 ## Run the Experiment
