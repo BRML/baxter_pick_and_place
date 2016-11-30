@@ -29,7 +29,7 @@ $ . fetch_rfcn.sh
 
 ### Calibrate Kinect V2 Sensor
 
-It is advised that you calibrate your Kinect V2 once.
+It is advisable that you calibrate your Kinect V2 once.
 To do so, connect your sensor and run
 ```bash
 $ cd $WS_HBCF/src/iai_kinect2
