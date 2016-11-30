@@ -46,4 +46,21 @@ The framework is implemented as several [ROS](http://www.ros.org/) packages that
 
 
 ## Usage
+
 How to run the distributed pick-and-place scenario is explained in detail [here](scripts/README.md).
+
+
+## Citation
+
+If you find our Human-Baxter collaboration framework useful in your work, please consider citing it:
+```
+@misc{hbcf2016,
+    author={Ludersdorfer, Marvin},
+    title={{The Human-Baxter collaboration framework}},
+    organization={{Biomimetic Robotics and Machine Learning laboratory}},
+    address={{fortiss GmbH}},
+    year={2015--2016},
+    howpublished={\url{https://github.com/BRML/baxter\_pick\_and\_place}},
+    note={Accessed November 30, 2016}
+}
+```
