@@ -70,4 +70,4 @@ We thank Aron Fothi, Mike Olasz, Andras Sarkany and Zoltan Toser from the [Neura
 ## Known Limitations and Bugs
 
 - No Gazebo models of objects to manipulate are included.
-- The external calibration routine gives rather poor results.
+- The external calibration routine gives rather poor results. We can handle this, since the visual servoing is able to compensate for coarse position estimates.
