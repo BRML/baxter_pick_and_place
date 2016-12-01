@@ -5,7 +5,7 @@ cd $DIR
 
 FILE=VGG16_faster_rcnn_final.caffemodel
 URL=https://www.brml.tum.de/BaxterCollision/caffe_models/$FILE
-CHECKSUM=ac116844f66aefe29587214272054668
+CHECKSUM=6fe7a7bbb30752006bf05c8181be825b
 
 if [ -f $FILE ]; then
   echo "File already exists. Checking md5..."

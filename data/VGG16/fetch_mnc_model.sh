@@ -5,7 +5,7 @@ cd $DIR
 
 FILE=mnc_model.caffemodel.h5
 URL=https://www.brml.tum.de/BaxterCollision/caffe_models/$FILE
-CHECKSUM=ac116844f66aefe29587214272054668
+CHECKSUM=c012e6e70ce854b2c3559f6dba7515da
 
 if [ -f $FILE ]; then
   echo "File already exists. Checking md5..."
@@ -23,7 +23,7 @@ if [ -f $FILE ]; then
   fi
 fi
 
-echo "Downloading Faster R-CNN model..."
+echo "Downloading MNC model..."
 
 wget --user AnomalyWeb@brml.tum.de --ask-password --no-check-certificate $URL -O $FILE
 

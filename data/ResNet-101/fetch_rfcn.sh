@@ -5,7 +5,7 @@ cd $DIR
 
 FILE=rfcn_ohem_490000.caffemodel
 URL=https://www.brml.tum.de/BaxterCollision/caffe_models/$FILE
-CHECKSUM=ac116844f66aefe29587214272054668
+CHECKSUM=7dec80528eea0dcbab5b06182ee58f1e
 
 if [ -f $FILE ]; then
   echo "File already exists. Checking md5..."
