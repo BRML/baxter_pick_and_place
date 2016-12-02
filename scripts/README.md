@@ -27,7 +27,10 @@ $ . fetch_rfcn.sh
 ```
 
 
-### Calibrate Kinect V2 Sensor
+### Kinect V2 Preliminaries
+
+
+#### Kinect on Linux: Calibrate Kinect V2 Sensor
 
 It is advisable that you calibrate your Kinect V2 once.
 To do so, connect your sensor and run
@@ -45,6 +48,14 @@ Add the calibration files to the `kinect2_bridge/data/<serialnumber>` folder.
 See [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#first-steps) for further details.
 
 Restart `kinect2_bridge` such that it uses the new calibration.
+
+
+#### Kinect on Windows: Download the ELTE Kinect Windows tool
+
+A pre-compiled executeable of the ELTE Kinect Windows tool (64 bit) can be downloaded from [here](https://drive.google.com/file/d/0BwnJXv4RfpRoZUhFTHlPMEdmQmc/view?usp=sharing).
+The checksum of the tar archive is `970C056929E3FDAC2FD1F04ED40F0E89`.
+Download it to the Windows machine your Kinect V2 sensor is connected to and extract the archive.
+Run `KinectOverNetwork.exe` after plugging in your Kinect V2 sensor into an USB 3.0 port to start the server waiting for requests to send the latest color-, depth- or skeleton data.
 
 
 ### Assemble the Hand Mount for the External Calibration
@@ -94,7 +105,7 @@ To repeat a calibration step (e.g., when lighting conditions change drastically 
 
 Using the Kinect sensor requires some preparation:
 - If you are intending to use the Kinect V2 on Windows, make sure to plug it in and run the ELTE Kinect Windows tool on the Windows machine.
-- If you want to use the Kinect V2 on Ubuntu using ROS, plug it in and run the kinect2_bridge by typing
+- If you want to use the Kinect V2 on Ubuntu using ROS, plug it into your Ubuntu machine and run the kinect2_bridge by typing
 ```bash
 $ cd $WS_HBCF
 $ . baxter.sh
