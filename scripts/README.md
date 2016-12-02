@@ -27,7 +27,10 @@ $ . fetch_rfcn.sh
 ```
 
 
-### Calibrate Kinect V2 Sensor
+### Kinect V2 Preliminaries
+
+
+#### Kinect on Linux: Calibrate Kinect V2 Sensor
 
 It is advisable that you calibrate your Kinect V2 once.
 To do so, connect your sensor and run
@@ -47,6 +50,14 @@ See [here](https://github.com/code-iai/iai_kinect2/tree/master/kinect2_bridge#fi
 Restart `kinect2_bridge` such that it uses the new calibration.
 
 
+#### Kinect on Windows: Download the ELTE Kinect Windows tool
+
+A pre-compiled executeable of the ELTE Kinect Windows tool (64 bit) can be downloaded from [here](https://drive.google.com/file/d/0BwnJXv4RfpRoZUhFTHlPMEdmQmc/view?usp=sharing).
+The checksum of the tar archive is `970C056929E3FDAC2FD1F04ED40F0E89`.
+Download it to the Windows machine your Kinect V2 sensor is connected to and extract the archive.
+Run `KinectOverNetwork.exe` after plugging in your Kinect V2 sensor into an USB 3.0 port to start the server waiting for requests to send the latest color-, depth- or skeleton data over the network.
+
+
 ### Assemble the Hand Mount for the External Calibration
 For the external calibration of the Kinect V2 sensor relative to the Baxter robot a hand-mounted calibration pattern is used.
 The hand mount has been designed in [OpenSCAD](http://www.openscad.org/) to replace the fingers of the electrical gripper.
@@ -62,6 +73,14 @@ When gluing the patten onto the mount (after it has been screwed to the hand of 
 <img src="../models/mount/mount-front.jpg" alt="Image of front side of hand mount" width="206" height="170">
 <img src="../models/mount/mounted.jpg" alt="Image of mounted hand mount" width="90" height="170">
 <img src="../models/mount/mount-pattern.jpg" alt="Image of hand mount with calibration pattern" width="110" height="170">
+
+
+### Adjust the Framework Settings
+
+Some adjustments to the settings in `src/settings/settings.py` might be necessary:
+
+- If you are using the Kinect on Windows, you need to set the IP or host name of the Windows machine the Kinect V2 sensor is connected to (variable `elte_kinect_win_host`).
+- If you installed the R-FCN framework (cf. [step 5 of the installation instructions](https://github.com/BRML/baxter_pick_and_place/blob/master/install.md#step-5-install-this-package-and-its-dependencies)) in a directory different than the default one (i.e., into `~/software`), you need to adapt the variable `develop_dir` accordingly in order for Python being able to find the local Caffe version.
 
 
 ## Calibration
@@ -94,7 +113,7 @@ To repeat a calibration step (e.g., when lighting conditions change drastically 
 
 Using the Kinect sensor requires some preparation:
 - If you are intending to use the Kinect V2 on Windows, make sure to plug it in and run the ELTE Kinect Windows tool on the Windows machine.
-- If you want to use the Kinect V2 on Ubuntu using ROS, plug it in and run the kinect2_bridge by typing
+- If you want to use the Kinect V2 on Ubuntu using ROS, plug it into your Ubuntu machine and run the kinect2_bridge by typing
 ```bash
 $ cd $WS_HBCF
 $ . baxter.sh
