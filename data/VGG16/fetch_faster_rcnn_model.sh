@@ -3,8 +3,9 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/" && pwd )"
 cd $DIR
 
+FOLDER=faster_rcnn_models
 FILE=VGG16_faster_rcnn_final.caffemodel
-URL=https://www.brml.tum.de/BaxterCollision/caffe_models/$FILE
+URL=http://www.cs.berkeley.edu/~rbg/faster-rcnn-data/$FOLDER.tgz
 CHECKSUM=6fe7a7bbb30752006bf05c8181be825b
 
 if [ -f $FILE ]; then
@@ -25,6 +26,14 @@ fi
 
 echo "Downloading Faster R-CNN model..."
 
-wget --user AnomalyWeb@brml.tum.de --ask-password --no-check-certificate $URL -O $FILE
+wget $URL -O $FOLDER.tgz
+
+echo "Unzipping..."
+
+tar zxvf $FOLDER.tgz
+
+mv $FOLDER/$FILE $FILE
+rm -rf $FOLDER
+rm -rf $FOLDER.tgz
 
 echo "Done. Please run this command again to verify that checksum = $CHECKSUM."
