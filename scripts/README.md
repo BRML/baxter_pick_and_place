@@ -55,7 +55,7 @@ Restart `kinect2_bridge` such that it uses the new calibration.
 A pre-compiled executeable of the ELTE Kinect Windows tool (64 bit) can be downloaded from [here](https://drive.google.com/file/d/0BwnJXv4RfpRoZUhFTHlPMEdmQmc/view?usp=sharing).
 The checksum of the tar archive is `970C056929E3FDAC2FD1F04ED40F0E89`.
 Download it to the Windows machine your Kinect V2 sensor is connected to and extract the archive.
-Run `KinectOverNetwork.exe` after plugging in your Kinect V2 sensor into an USB 3.0 port to start the server waiting for requests to send the latest color-, depth- or skeleton data.
+Run `KinectOverNetwork.exe` after plugging in your Kinect V2 sensor into an USB 3.0 port to start the server waiting for requests to send the latest color-, depth- or skeleton data over the network.
 
 
 ### Assemble the Hand Mount for the External Calibration
