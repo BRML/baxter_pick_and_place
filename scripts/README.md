@@ -75,6 +75,14 @@ When gluing the patten onto the mount (after it has been screwed to the hand of 
 <img src="../models/mount/mount-pattern.jpg" alt="Image of hand mount with calibration pattern" width="110" height="170">
 
 
+### Adjust the Framework Settings
+
+Some adjustments to the settings in `src/settings/settings.py` might be necessary:
+
+- If you are using the Kinect on Windows, you need to set the IP or host name of the Windows machine the Kinect V2 sensor is connected to (variable `elte_kinect_win_host`).
+- If you installed the R-FCN framework (cf. [step 5 of the installation instructions](https://github.com/BRML/baxter_pick_and_place/blob/master/install.md#step-5-install-this-package-and-its-dependencies)) in a directory different than the default one (i.e., into `~/software`), you need to adapt the variable `develop_dir` accordingly in order for Python being able to find the local Caffe version.
+
+
 ## Calibration
 
 The calibration performed for the distributed pick-and-place scenario consists of three parts:
