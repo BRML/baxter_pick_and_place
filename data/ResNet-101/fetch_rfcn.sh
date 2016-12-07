@@ -25,6 +25,6 @@ fi
 
 echo "Downloading R-FCN model..."
 
-wget --user AnomalyWeb@brml.tum.de --ask-password --no-check-certificate $URL -O $FILE
+wget $URL -O $FILE
 
 echo "Done. Please run this command again to verify that checksum = $CHECKSUM."
