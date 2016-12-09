@@ -151,7 +151,10 @@ Public Attributes</h2></td></tr>
 &#160;</td><td class="memItemRight" valign="bottom"><b>z_table</b></td></tr>
 <tr class="separator:a99de7b21cb569ced62b5f15a41c214d1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock">
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00048">48</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+</div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a572a1e9a6f4c897032412a376790f18c"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a572a1e9a6f4c897032412a376790f18c">&sect;&nbsp;</a></span>__init__()</h2>
 
@@ -182,6 +185,8 @@ interface.
 
 :param sim: Whether in Gazebo (True) or on real Baxter (False).
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00049">49</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
@@ -215,6 +220,8 @@ interface.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: The pose as a list [x, y, z, roll, pitch, yaw].
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00505">505</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a37497a08af338f83a3ca0ef1f1dbee38"></a>
@@ -247,6 +254,8 @@ disable the robot.
 
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00151">151</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a156bfab92ed19911bf0b1c805c50e556"></a>
@@ -279,6 +288,8 @@ disable the robot.
 :param trajectory: A generator MotionPlanner instance.
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00296">296</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a1540a3d819937e92f4629a67d3bc4296"></a>
@@ -312,6 +323,8 @@ limb.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: The pose as a list [x, y, z, roll, pitch, yaw].
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00192">192</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a1029a37cb549979d8fb646f3ec23f8a2"></a>
@@ -354,6 +367,8 @@ oriented perpendicular to the table top.
 :param center: The pixel coordinates to project to robot coordinates.
 :return: The estimated object position as a list of length 3 [x, y, z].
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00514">514</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a771051937cf0c4737cc29c2a7f4525c2"></a>
@@ -389,6 +404,8 @@ Blocking command.
     position command exceeding the moving_force threshold denoting a
     grasp.
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00438">438</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="afd7bbcf5609e24df073649c5a80aa721"></a>
@@ -422,6 +439,8 @@ camera coordinates to robot coordinates.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: The homogeneous transformation matrix (a 4x4 numpy array).
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00491">491</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="aa327aebe1378ffea622929fa14bbc2c9"></a>
@@ -455,6 +474,8 @@ gripper coordinates to robot coordinates.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: The homogeneous transformation matrix (a 4x4 numpy array).
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00481">481</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a9a601bd4cd473497989328807df1db09"></a>
@@ -498,6 +519,8 @@ gripper coordinates to robot coordinates.
     - a list of length 7 [x, y, z, qx, qy, qz, qw].
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00229">229</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="ae49acf132da366ad4634b384dd9fecf8"></a>
@@ -538,6 +561,8 @@ either arm. If no solution is found, raise an exception
     - a dictionary of joint name keys to joint angles.
 :raise ValueError: if no valid configuration was found for either arm.
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00267">267</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a6e7e9541e23914ccbfa650360292e9d2"></a>
@@ -572,6 +597,8 @@ force, we interpret this as that an object is currently held.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: Whether an object is held (True) or not (False).
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00450">450</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a6a49b9b71d6a6d6b731b246adfad9995"></a>
@@ -605,6 +632,8 @@ using the limb's infrared sensor.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return: The measured distance in meters or None.
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00469">469</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="afe9270cb936bc014d645faa416b3527f"></a>
@@ -638,6 +667,8 @@ and executing the trajectory.
 :param config: Dictionary of joint name keys to target joint angles.
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00330">330</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="ad01af4699211560818e2abd7ec5e0407"></a>
@@ -671,6 +702,8 @@ and executing the trajectory.
     arms.
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00360">360</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a73f43d122f9151971abee9e88e3d135f"></a>
@@ -717,6 +750,8 @@ executing the trajectory.
     - a list of length 7 [x, y, z, qx, qy, qz, qw].
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00340">340</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="ac50cc31b77921e32a5239f1fb1371c62"></a>
@@ -749,6 +784,8 @@ executing the trajectory.
 :param target: Dictionary of joint name keys to target joint angles.
 :return: A MotionPlanner trajectory generator.
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00319">319</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="ad9a584a0e80c6d31f556c104ef06f038"></a>
@@ -781,6 +818,8 @@ executing the trajectory.
 :param arm: The arm &lt;'left', 'right'&gt; to control.
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00461">461</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="ae65af56f16e01452eda6bec956850ac3"></a>
@@ -816,6 +855,8 @@ Note: The orientation is held fixed!
     the distance sensor.
 :return: The random pose as a list [x, y, z, roll, pitch, yaw].
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00212">212</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a15b48b75cb56e5c3a6bfebfaecf22528"></a>
@@ -850,6 +891,8 @@ to a given object identifier.
 :return: The most appropriate limb &lt;'left', 'right'&gt; to grasp the
     requested object.
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00389">389</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <a id="a2d5d68c3122b3ae094e383e2c205b99e"></a>
@@ -883,10 +926,12 @@ calibrate both grippers.
 :param gripper: Whether to calibrate grippers (default) or not.
 :return:
 </pre> 
+<p>Definition at line <a class="el" href="baxter_8py_source.html#l00124">124</a> of file <a class="el" href="baxter_8py_source.html">baxter.py</a>.</p>
+
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>
-<li>src/hardware/baxter.py</li>
+<li>src/hardware/<a class="el" href="baxter_8py_source.html">baxter.py</a></li>
 </ul>
 </div><!-- contents -->
 <!-- start footer part -->
