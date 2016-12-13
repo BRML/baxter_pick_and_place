@@ -19,6 +19,7 @@ Three types of experiments are possible:
 
 Two possibilities to use the Human-Baxter collaboration framework exist.
 You either need the open source [Baxter simulator](http://sdk.rethinkrobotics.com/wiki/Baxter_Simulator) or access to a [Baxter research robot](http://www.rethinkrobotics.com/research-education/).
+For more information please refer to the installation instructions [here](scripts/README.md).
 
 The Kinect V2 can be interfaced either on Ubuntu/ROS via the [iai_kinect2](https://github.com/code-iai/iai_kinect2) package (no skeleton tracking) or via a web socket connection and the ELTE Kinect Windows tool running on a Windows machine.
 
