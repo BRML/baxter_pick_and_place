@@ -5,6 +5,17 @@
 
 The Human-Baxter collaboration framework is implemented as a ROS package.
 It has been tested with a development workstation with [Ubuntu 14.04](http://releases.ubuntu.com/14.04/) and [ROS Indigo](http://wiki.ros.org/indigo).
+We recommend a setup as follows, as illustrated below:
+
+- 1 development workstation running Ubuntu 14.04, having a USB 3.0 port and a GPU with CUDA library version 7+
+- [optional] 1 PC running Windows, having a USB 3.0 port
+- [optional] 1 Baxter research robot and a table to pick objects from or put them onto
+- [optional] 1 Kinect V2 sensor
+- [optional] 1 human collaborator
+
+<img src="docs/setup/sim.jpg" alt="Setup A: simulation only" width="266" height="150">
+<img src="docs/setup/half.jpg" alt="Setup B: Baxter only, optional Kinect" width="257" height="150">
+<img src="docs/setup/full.jpg" alt="Setup C: Baxter, Kinect, human collaborator" width="283" height="150">
 
 > Note: If you have Ubuntu, ROS and and the Baxter SDK dependencies already 
 > installed, you only need to perform steps 3, 5 and 6 to clone, install and 
