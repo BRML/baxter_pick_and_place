@@ -1,0 +1,67 @@
+\documentclass[tikz, border=2mm]{standalone}
+
+\usetikzlibrary{matrix,arrows}
+\tikzset{
+    centered/.style = { align=center, anchor=center },
+    empty/.style = { font=\sffamily, centered, text width=2cm },
+    title/.style = { font=\sffamily, fill=orange, centered },    
+    box/.style = { font=\sffamily, fill=black!20, centered },
+    arrow/.style = { very thick, color=black, <->, >=latex},
+}
+
+\newcommand{\setupA}{%
+    \begin{tikzpicture}
+    \node[title] at (0, 0) {Setup A: Simulation only};
+    \node[box] (l) at (-2, -1) {Linux machine};
+    \node[empty] at (-2, -3) {};
+    \node[empty] at (-1, -2) {};
+    \node[box] (b) at (2, -1) {Baxter simulator};
+    \node[empty] at (2, -2) {};
+    \node[box] (k) at (2, -3) {simulated Kinect};
+    %
+    \draw[arrow] (l.east) -- (b.west);
+    \draw[arrow] (l.south east) -- (k.north west);
+    \end{tikzpicture}
+}
+
+\newcommand{\setupB}{%
+    \begin{tikzpicture}
+    \node[title] at (0, 0) {Setup B: Baxter only, optional Kinect};
+    \node[box] (l) at (-2, -1) {Linux machine};
+    \node[empty] at (-2, -3) {};
+    \node[box] (n) at (-1, -2) {network};
+    \node[box] (b) at (2, -1) {Baxter};
+    \node[empty] at (2, -2) {};
+    \node[box] (k) at (2, -3) {Kinect};
+    %
+    \draw[arrow] (l.south) -- (n.north west);
+    \draw[arrow] (l.south east) -- (k.north west);
+    \draw[arrow] (n.east) -- (b.west);
+    \end{tikzpicture}
+}
+
+\newcommand{\setupC}{
+    \begin{tikzpicture}
+    \node[title] at (0, 0) {Setup C: Baxter, Kinect, human collaborator};
+    \node[box] (l) at (-2, -1) {Linux machine};
+    \node[box] (w) at (-2, -3) {Windows machine};
+    \node[box] (n) at (-1, -2) {network};
+    \node[box] (b) at (2, -1) {Baxter};
+    \node[box] (h) at (2, -2) {human collaborator};
+    \node[box] (k) at (2, -3) {Kinect};
+    %
+    \draw[arrow] (l.south) -- (n.north west);
+    \draw[arrow] (w.north) -- (n.south west);
+    \draw[arrow] (w.east) -- (k.west);
+    \draw[arrow] (n.north east) -- (b.west);
+    \draw[arrow] (b.south) -- (h.north);
+    \end{tikzpicture}
+}
+
+
+
+\begin{document}
+    % \setupA
+   % \setupB
+   \setupC
+\end{document}
